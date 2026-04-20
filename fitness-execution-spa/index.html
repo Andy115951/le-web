@@ -1,0 +1,1078 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>个人健身执行系统</title>
+  <style>
+    :root {
+      --bg: #f3f6fb;
+      --surface: #ffffff;
+      --surface-2: #f8fafd;
+      --text: #182233;
+      --sub: #5b6575;
+      --line: #dce4ef;
+      --brand: #1c7cf2;
+      --brand-2: #0d5ed2;
+      --ok: #1f9d59;
+      --warn: #c57a14;
+      --danger: #d14747;
+      --shadow: 0 12px 28px rgba(20, 32, 54, 0.08);
+      --radius: 16px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0e131b;
+        --surface: #161f2b;
+        --surface-2: #1b2634;
+        --text: #e7edf8;
+        --sub: #a8b5c9;
+        --line: #2b3a4f;
+        --brand: #5da5ff;
+        --brand-2: #2b89ff;
+        --ok: #5ace8e;
+        --warn: #e8b252;
+        --danger: #ff7d7d;
+        --shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif;
+      color: var(--text);
+      background: radial-gradient(circle at 10% -10%, #d8e7ff 0, transparent 36%),
+        radial-gradient(circle at 90% 0%, #d7f5ed 0, transparent 34%),
+        var(--bg);
+      min-height: 100vh;
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    .app {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 14px 14px 28px;
+    }
+
+    .top {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      backdrop-filter: blur(10px);
+      background: color-mix(in srgb, var(--bg) 86%, transparent);
+      margin: -14px -14px 10px;
+      padding: 14px;
+      border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent);
+    }
+
+    .title {
+      margin: 0;
+      font-size: 1.12rem;
+      letter-spacing: 0.2px;
+    }
+
+    .subtitle {
+      margin: 6px 0 0;
+      color: var(--sub);
+      font-size: 0.92rem;
+    }
+
+    .tabs {
+      margin-top: 12px;
+      display: inline-flex;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 4px;
+      box-shadow: var(--shadow);
+      gap: 4px;
+    }
+
+    .tab-btn {
+      border: 0;
+      background: transparent;
+      color: var(--sub);
+      font-size: 0.92rem;
+      font-weight: 600;
+      padding: 9px 14px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+
+    .tab-btn.active {
+      background: var(--brand);
+      color: #fff;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 14px;
+      box-shadow: var(--shadow);
+      margin-bottom: 12px;
+    }
+
+    .hero {
+      background: linear-gradient(140deg, color-mix(in srgb, var(--brand) 18%, var(--surface)), var(--surface));
+    }
+
+    .hero h2 {
+      margin: 2px 0 8px;
+      font-size: 1.1rem;
+    }
+
+    .kvs {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .kv {
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 9px 10px;
+    }
+
+    .kv .k {
+      display: block;
+      color: var(--sub);
+      font-size: 0.78rem;
+      margin-bottom: 4px;
+    }
+
+    .kv .v {
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    .status-row {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-weight: 700;
+      font-size: 0.84rem;
+      border: 1px solid transparent;
+    }
+
+    .b-ok {
+      background: color-mix(in srgb, var(--ok) 18%, transparent);
+      border-color: color-mix(in srgb, var(--ok) 45%, transparent);
+      color: var(--ok);
+    }
+
+    .b-warn {
+      background: color-mix(in srgb, var(--warn) 18%, transparent);
+      border-color: color-mix(in srgb, var(--warn) 45%, transparent);
+      color: var(--warn);
+    }
+
+    .b-danger {
+      background: color-mix(in srgb, var(--danger) 18%, transparent);
+      border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+      color: var(--danger);
+    }
+
+    .b-pending {
+      background: color-mix(in srgb, var(--line) 42%, transparent);
+      color: var(--sub);
+      border-color: color-mix(in srgb, var(--line) 75%, transparent);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .section h3 {
+      margin: 0 0 8px;
+      font-size: 0.96rem;
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--text);
+    }
+
+    li + li {
+      margin-top: 5px;
+    }
+
+    .btns {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 9px;
+      margin-top: 10px;
+    }
+
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 12px;
+      padding: 12px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .btn-main {
+      background: var(--brand);
+      color: #fff;
+    }
+
+    .btn-main:active {
+      transform: translateY(1px);
+      background: var(--brand-2);
+    }
+
+    .btn-line {
+      border: 1px solid var(--line);
+      background: var(--surface-2);
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    .btn-ok {
+      background: color-mix(in srgb, var(--ok) 16%, var(--surface-2));
+      color: var(--ok);
+      border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent);
+    }
+
+    .btn-warn {
+      background: color-mix(in srgb, var(--warn) 16%, var(--surface-2));
+      color: var(--warn);
+      border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+    }
+
+    .btn-danger {
+      background: color-mix(in srgb, var(--danger) 16%, var(--surface-2));
+      color: var(--danger);
+      border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .form-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    label {
+      font-size: 0.88rem;
+      color: var(--sub);
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    select,
+    input,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: var(--surface-2);
+      color: var(--text);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 0.95rem;
+      font-family: inherit;
+    }
+
+    textarea {
+      min-height: 84px;
+      resize: vertical;
+    }
+
+    .hint {
+      margin-top: 8px;
+      color: var(--sub);
+      font-size: 0.85rem;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .week-list {
+      display: grid;
+      gap: 8px;
+    }
+
+    .day-item {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface-2);
+      padding: 10px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .day-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .day-date {
+      font-weight: 700;
+      font-size: 0.93rem;
+    }
+
+    .day-meta {
+      color: var(--sub);
+      font-size: 0.85rem;
+    }
+
+    .today-ring {
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 50%, transparent) inset;
+    }
+
+    .stat {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .stat > div {
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px;
+      text-align: center;
+    }
+
+    .stat b {
+      display: block;
+      font-size: 1rem;
+      margin-bottom: 3px;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 16px;
+      transform: translateX(-50%) translateY(20px);
+      background: #10141d;
+      color: #fff;
+      font-size: 0.88rem;
+      padding: 10px 12px;
+      border-radius: 10px;
+      opacity: 0;
+      pointer-events: none;
+      transition: 0.26s;
+      z-index: 99;
+      max-width: calc(100% - 24px);
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    @media (min-width: 720px) {
+      .btns {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 480px) {
+      .kvs,
+      .grid,
+      .stat {
+        grid-template-columns: 1fr;
+      }
+
+      .app {
+        padding-bottom: 36px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="top">
+      <h1 class="title">个人健身执行系统</h1>
+      <p class="subtitle" id="topSub"></p>
+      <div class="tabs" role="tablist" aria-label="页面切换">
+        <button class="tab-btn active" id="tabToday" role="tab" aria-selected="true">今日任务</button>
+        <button class="tab-btn" id="tabWeek" role="tab" aria-selected="false">周视图</button>
+      </div>
+    </header>
+
+    <section id="viewToday">
+      <article class="card hero">
+        <h2 id="todayTitle"></h2>
+        <p class="subtitle" id="todayDesc"></p>
+        <div class="kvs">
+          <div class="kv">
+            <span class="k">计划日期</span>
+            <span class="v" id="planDate"></span>
+          </div>
+          <div class="kv">
+            <span class="k">训练时间</span>
+            <span class="v">22:00 - 22:45</span>
+          </div>
+        </div>
+        <div class="status-row" id="statusRow"></div>
+      </article>
+
+      <article class="card">
+        <div class="grid">
+          <section class="section">
+            <h3>热身</h3>
+            <ul id="warmupList"></ul>
+          </section>
+          <section class="section">
+            <h3>主训练</h3>
+            <ul id="mainList"></ul>
+          </section>
+          <section class="section">
+            <h3>附加训练</h3>
+            <ul id="extraList"></ul>
+          </section>
+          <section class="section">
+            <h3>拉伸</h3>
+            <ul id="stretchList"></ul>
+          </section>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="grid">
+          <section class="section">
+            <h3>饮食提醒</h3>
+            <ul id="dietList"></ul>
+          </section>
+          <section class="section">
+            <h3>今日必须完成</h3>
+            <ul id="mustList"></ul>
+          </section>
+        </div>
+      </article>
+
+      <article class="card">
+        <h3 style="margin:0 0 10px;">打卡</h3>
+        <div class="btns">
+          <button class="btn-ok" id="btnComplete">✅ 完成训练</button>
+          <button class="btn-warn" id="btnBaseline">⚠️ 底线日</button>
+          <button class="btn-danger" id="btnSick">❌ 病休</button>
+        </div>
+        <p class="hint" id="checkinHint">完成后会自动推进到下一天计划。</p>
+      </article>
+
+      <article class="card">
+        <h3 style="margin:0 0 10px;">今日记录</h3>
+        <div class="form-grid">
+          <div>
+            <label for="feeling">今日感受</label>
+            <select id="feeling">
+              <option value="">请选择</option>
+              <option value="易">易</option>
+              <option value="中">中</option>
+              <option value="难">难</option>
+            </select>
+          </div>
+          <div>
+            <label for="waist">腰围（可选，cm）</label>
+            <input id="waist" type="number" step="0.1" min="0" placeholder="例如 80.5" />
+          </div>
+          <div>
+            <label for="note">备注</label>
+            <textarea id="note" placeholder="今天哪里最累？睡眠/饮食怎么样？"></textarea>
+          </div>
+          <button class="btn-line" id="btnSaveLog">保存今日记录</button>
+        </div>
+      </article>
+
+      <article class="card">
+        <h3 style="margin:0 0 10px;">底线日协议（7分钟）</h3>
+        <ul>
+          <li>平板支撑 + 死虫 + 鸟狗（7分钟）</li>
+          <li>10分钟慢走或拉伸</li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h3 style="margin:0 0 10px;">21:50 提醒（可选）</h3>
+        <button class="btn-main" id="btnReminder">开启浏览器提醒</button>
+        <p class="hint">仅在页面开启时有效；基于 Notification API 与 setTimeout。</p>
+      </article>
+    </section>
+
+    <section id="viewWeek" class="hidden">
+      <article class="card">
+        <h2 style="margin:0 0 10px; font-size:1.05rem;">本周执行情况</h2>
+        <div class="stat" id="weekStats"></div>
+      </article>
+
+      <article class="card">
+        <div class="week-list" id="weekList"></div>
+      </article>
+    </section>
+
+    <div class="toast" id="toast"></div>
+  </main>
+
+  <script>
+    (function () {
+      const STORAGE_KEY = "fitness-exec-system-v1";
+      const CYCLE = ["Day1", "Day2", "休息", "Day3", "Day4", "休息", "休息"];
+      const LABEL = {
+        Day1: "Day1（上肢+核心）",
+        Day2: "Day2（下肢+腹肌）",
+        Day3: "Day3（全身燃脂）",
+        Day4: "Day4（核心雕刻）",
+        休息: "休息日"
+      };
+      const STATUS_TEXT = {
+        complete: "完成训练",
+        baseline: "底线日",
+        sick: "病休"
+      };
+      const PLAN = {
+        Day1: {
+          warmup: ["关节活动 + 原地热身 5分钟", "肩胛激活 + 轻量拉伸"],
+          main: [
+            "俯卧撑 8-12（最后一组 RPE8）",
+            "弹力带划船 12-15",
+            "弹力带推举 12-15",
+            "弹力带弯举 12-15",
+            "循环 3 轮"
+          ],
+          extra: ["平板支撑 40秒", "原地慢跑 60秒"],
+          stretch: ["胸肩拉伸 4-5分钟", "背阔肌与手臂放松"],
+          diet: ["训练后补充蛋白质", "晚间控制油炸与高糖"],
+          must: ["7000步", "腹内压训练（早晚）", "训练后5分钟慢走"]
+        },
+        Day2: {
+          warmup: ["髋踝灵活性 5分钟", "动态腿后侧拉伸"],
+          main: [
+            "弹力带深蹲 15-20（RPE8）",
+            "单腿罗马尼亚硬拉 10-12/侧",
+            "弓步蹲 10-12/侧",
+            "臀桥 15-20"
+          ],
+          extra: ["死虫 12/侧", "仰卧抬腿 12-15", "反向卷腹 12-15"],
+          stretch: ["下肢拉伸 5分钟", "髋屈肌与臀部放松"],
+          diet: ["优先高蛋白 + 高纤维", "训练后及时补水"],
+          must: ["7000步", "腹内压训练（早晚）", "训练后5分钟慢走"]
+        },
+        Day3: {
+          warmup: ["动态热身 5分钟", "肩髋联动激活"],
+          main: [
+            "蹲跳或快速深蹲 10",
+            "俯卧撑 力竭",
+            "弹力带深蹲推举 12",
+            "平板支撑 45秒",
+            "循环 3-4 轮"
+          ],
+          extra: ["原地快走 10分钟"],
+          stretch: ["全身拉伸 6分钟"],
+          diet: ["训练后补蛋白 + 复合碳水", "避免宵夜过量"],
+          must: ["7000步", "腹内压训练（早晚）", "训练后5分钟慢走"]
+        },
+        Day4: {
+          warmup: ["核心激活 + 呼吸训练 5分钟"],
+          main: [
+            "登山者 20/侧",
+            "侧平板 30秒/侧",
+            "平板触肩 16次",
+            "臀桥 20",
+            "循环 3-4 轮"
+          ],
+          extra: ["卷腹 + 真空腹 + 拉伸"],
+          stretch: ["腹腰背拉伸 5分钟"],
+          diet: ["晚餐注意蛋白质与蔬菜", "控制盐分和精制糖"],
+          must: ["7000步", "腹内压训练（早晚）", "训练后5分钟慢走"]
+        },
+        休息: {
+          warmup: ["轻松散步 10分钟", "呼吸放松"],
+          main: ["散步 + 拉伸（恢复）"],
+          extra: ["若很忙，执行底线日协议"],
+          stretch: ["全身轻拉伸 8分钟"],
+          diet: ["保持蛋白质摄入", "多喝水，减少加工食品"],
+          must: ["7000步", "腹内压训练（早晚）", "训练后5分钟慢走"]
+        }
+      };
+
+      const els = {
+        topSub: byId("topSub"),
+        tabToday: byId("tabToday"),
+        tabWeek: byId("tabWeek"),
+        viewToday: byId("viewToday"),
+        viewWeek: byId("viewWeek"),
+        todayTitle: byId("todayTitle"),
+        todayDesc: byId("todayDesc"),
+        planDate: byId("planDate"),
+        statusRow: byId("statusRow"),
+        warmupList: byId("warmupList"),
+        mainList: byId("mainList"),
+        extraList: byId("extraList"),
+        stretchList: byId("stretchList"),
+        dietList: byId("dietList"),
+        mustList: byId("mustList"),
+        btnComplete: byId("btnComplete"),
+        btnBaseline: byId("btnBaseline"),
+        btnSick: byId("btnSick"),
+        checkinHint: byId("checkinHint"),
+        feeling: byId("feeling"),
+        waist: byId("waist"),
+        note: byId("note"),
+        btnSaveLog: byId("btnSaveLog"),
+        weekList: byId("weekList"),
+        weekStats: byId("weekStats"),
+        btnReminder: byId("btnReminder"),
+        toast: byId("toast")
+      };
+
+      let reminderTimer = null;
+      const state = initState();
+
+      bindEvents();
+      syncPlanToToday();
+      renderAll();
+
+      function byId(id) {
+        return document.getElementById(id);
+      }
+
+      function initState() {
+        const todayKey = localDateKey(new Date());
+        let raw = null;
+        try {
+          raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+        } catch (e) {
+          raw = null;
+        }
+
+        const base = {
+          startDate: todayKey,
+          planDate: todayKey,
+          planIndex: 0,
+          checkins: {},
+          dailyLogs: {},
+          view: "today"
+        };
+
+        if (!raw || typeof raw !== "object") {
+          return base;
+        }
+
+        return {
+          startDate: typeof raw.startDate === "string" ? raw.startDate : todayKey,
+          planDate: typeof raw.planDate === "string" ? raw.planDate : todayKey,
+          planIndex: Number.isInteger(raw.planIndex) ? mod(raw.planIndex, CYCLE.length) : 0,
+          checkins: raw.checkins && typeof raw.checkins === "object" ? raw.checkins : {},
+          dailyLogs: raw.dailyLogs && typeof raw.dailyLogs === "object" ? raw.dailyLogs : {},
+          view: raw.view === "week" ? "week" : "today"
+        };
+      }
+
+      function persist() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      }
+
+      function syncPlanToToday() {
+        const today = localDateKey(new Date());
+        const currentPlanDate = parseDateKey(state.planDate);
+        const nowDate = parseDateKey(today);
+        const diff = diffDays(currentPlanDate, nowDate);
+
+        if (diff > 0) {
+          state.planIndex = mod(state.planIndex + diff, CYCLE.length);
+          state.planDate = today;
+          persist();
+        } else if (diff < 0) {
+          // 系统时间回拨时，回到今天，避免出现未来计划日不可打卡
+          state.planDate = today;
+          persist();
+        }
+      }
+
+      function bindEvents() {
+        els.tabToday.addEventListener("click", function () {
+          state.view = "today";
+          persist();
+          renderViews();
+        });
+
+        els.tabWeek.addEventListener("click", function () {
+          state.view = "week";
+          persist();
+          renderViews();
+          renderWeekView();
+        });
+
+        els.btnComplete.addEventListener("click", function () {
+          doCheckin("complete");
+        });
+
+        els.btnBaseline.addEventListener("click", function () {
+          doCheckin("baseline");
+        });
+
+        els.btnSick.addEventListener("click", function () {
+          doCheckin("sick");
+        });
+
+        els.btnSaveLog.addEventListener("click", function () {
+          const today = localDateKey(new Date());
+          saveTodayLog(today);
+          persist();
+          showToast("今日记录已保存");
+          renderTodayHeaderStatus();
+          if (state.view === "week") {
+            renderWeekView();
+          }
+        });
+
+        els.btnReminder.addEventListener("click", setupReminder);
+      }
+
+      function renderAll() {
+        renderViews();
+        renderToday();
+        renderWeekView();
+      }
+
+      function renderViews() {
+        const isToday = state.view === "today";
+        els.tabToday.classList.toggle("active", isToday);
+        els.tabWeek.classList.toggle("active", !isToday);
+        els.tabToday.setAttribute("aria-selected", String(isToday));
+        els.tabWeek.setAttribute("aria-selected", String(!isToday));
+        els.viewToday.classList.toggle("hidden", !isToday);
+        els.viewWeek.classList.toggle("hidden", isToday);
+      }
+
+      function renderToday() {
+        const today = localDateKey(new Date());
+        const isTodayTask = state.planDate === today;
+        const dayType = CYCLE[state.planIndex];
+        const dayPlan = PLAN[dayType] || PLAN["休息"];
+
+        els.topSub.textContent = "7天循环：Day1 → Day2 → 休息 → Day3 → Day4 → 休息 → 休息";
+        els.todayTitle.textContent = isTodayTask ? "今天是 " + LABEL[dayType] : "今天已打卡，明日预览：" + LABEL[dayType];
+        els.todayDesc.textContent = isTodayTask
+          ? "打开即执行，不需要再想计划。"
+          : "你今天已经完成记录，下面显示下一训练日内容。";
+
+        const planDateObj = parseDateKey(state.planDate);
+        els.planDate.textContent = formatDateCN(planDateObj);
+
+        renderList(els.warmupList, dayPlan.warmup);
+        renderList(els.mainList, dayPlan.main);
+        renderList(els.extraList, dayPlan.extra);
+        renderList(els.stretchList, dayPlan.stretch);
+        renderList(els.dietList, dayPlan.diet);
+        renderList(els.mustList, dayPlan.must);
+
+        fillTodayLogForm(today);
+        renderTodayHeaderStatus();
+
+        const canCheckin = isTodayTask && !state.checkins[today];
+        els.btnComplete.disabled = !canCheckin;
+        els.btnBaseline.disabled = !canCheckin;
+        els.btnSick.disabled = !canCheckin;
+
+        if (!isTodayTask) {
+          els.checkinHint.textContent = "今天已经打卡，新的打卡按钮将在计划日期当天启用。";
+        } else if (state.checkins[today]) {
+          els.checkinHint.textContent = "今天已记录完成。";
+        } else {
+          els.checkinHint.textContent = "完成后会自动推进到下一天计划。";
+        }
+      }
+
+      function renderTodayHeaderStatus() {
+        const today = localDateKey(new Date());
+        const statusNode = state.checkins[today];
+        const log = state.dailyLogs[today];
+
+        const items = [];
+        if (statusNode) {
+          items.push({
+            className: badgeClass(statusNode.status),
+            text: "今日打卡：" + (STATUS_TEXT[statusNode.status] || statusNode.status)
+          });
+        } else {
+          items.push({ className: "b-pending", text: "今日打卡：未完成" });
+        }
+
+        if (log && log.feeling) {
+          items.push({ className: "b-pending", text: "感受：" + log.feeling });
+        }
+        if (log && log.waist) {
+          items.push({ className: "b-pending", text: "腰围：" + log.waist + " cm" });
+        }
+
+        els.statusRow.innerHTML = items
+          .map(function (x) {
+            return '<span class="badge ' + x.className + '">' + escapeHtml(x.text) + "</span>";
+          })
+          .join("");
+      }
+
+      function fillTodayLogForm(todayKey) {
+        const log = state.dailyLogs[todayKey] || {};
+        els.feeling.value = log.feeling || "";
+        els.waist.value = log.waist || "";
+        els.note.value = log.note || "";
+      }
+
+      function doCheckin(status) {
+        const today = localDateKey(new Date());
+        if (state.planDate !== today) {
+          showToast("当前是明日预览，今天已打卡。");
+          return;
+        }
+        if (state.checkins[today]) {
+          showToast("今天已经打过卡了。");
+          return;
+        }
+
+        saveTodayLog(today);
+
+        const dayType = CYCLE[state.planIndex];
+        state.checkins[today] = {
+          status: status,
+          dayType: dayType,
+          time: new Date().toISOString()
+        };
+
+        state.planIndex = mod(state.planIndex + 1, CYCLE.length);
+        state.planDate = localDateKey(addDays(parseDateKey(today), 1));
+
+        persist();
+        renderAll();
+        showToast("已记录：" + STATUS_TEXT[status] + "，已推进到下一天。");
+      }
+
+      function saveTodayLog(todayKey) {
+        const feeling = String(els.feeling.value || "").trim();
+        const waist = String(els.waist.value || "").trim();
+        const note = String(els.note.value || "").trim();
+
+        state.dailyLogs[todayKey] = {
+          feeling: feeling,
+          waist: waist,
+          note: note,
+          updatedAt: new Date().toISOString()
+        };
+      }
+
+      function renderWeekView() {
+        const today = new Date();
+        const days = currentWeekDays(today);
+        const todayKey = localDateKey(today);
+
+        const stats = {
+          complete: 0,
+          baseline: 0,
+          sick: 0
+        };
+
+        const rows = days.map(function (d, i) {
+          const key = localDateKey(d);
+          const status = state.checkins[key] ? state.checkins[key].status : "pending";
+          if (status === "complete") stats.complete += 1;
+          if (status === "baseline") stats.baseline += 1;
+          if (status === "sick") stats.sick += 1;
+
+          const dayType = getDayTypeByDateKey(key);
+          const labels = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"];
+          const isToday = key === todayKey;
+
+          return [
+            '<div class="day-item ' + (isToday ? "today-ring" : "") + '">',
+            '<div class="day-top">',
+            '<span class="day-date">' + labels[i] + " · " + shortDate(d) + "</span>",
+            '<span class="badge ' + badgeClass(status) + '">' + (STATUS_TEXT[status] || "未记录") + "</span>",
+            "</div>",
+            '<div class="day-meta">' + LABEL[dayType] + "</div>",
+            "</div>"
+          ].join("");
+        });
+
+        const total = 7;
+        const done = stats.complete + stats.baseline;
+        const rate = Math.round((done / total) * 100);
+
+        els.weekStats.innerHTML = [
+          "<div><b>" + stats.complete + "</b><span>完成训练</span></div>",
+          "<div><b>" + stats.baseline + "</b><span>底线日</span></div>",
+          "<div><b>" + rate + "%</b><span>执行率</span></div>"
+        ].join("");
+
+        els.weekList.innerHTML = rows.join("");
+      }
+
+      function getDayTypeByDateKey(dateKey) {
+        const date = parseDateKey(dateKey);
+        const planDate = parseDateKey(state.planDate);
+        const offset = diffDays(planDate, date);
+        const idx = mod(state.planIndex + offset, CYCLE.length);
+        return CYCLE[idx];
+      }
+
+      function setupReminder() {
+        if (!("Notification" in window)) {
+          showToast("当前浏览器不支持通知。");
+          return;
+        }
+
+        const afterPermission = function (perm) {
+          if (perm !== "granted") {
+            showToast("通知权限未开启。");
+            return;
+          }
+          schedule2150Reminder();
+          showToast("已开启 21:50 提醒（页面保持开启时生效）。");
+        };
+
+        if (Notification.permission === "granted") {
+          afterPermission("granted");
+        } else if (Notification.permission === "default") {
+          Notification.requestPermission().then(afterPermission);
+        } else {
+          showToast("通知权限被拒绝，请在浏览器设置中开启。");
+        }
+      }
+
+      function schedule2150Reminder() {
+        if (reminderTimer) {
+          clearTimeout(reminderTimer);
+          reminderTimer = null;
+        }
+
+        const now = new Date();
+        const next = new Date(now);
+        next.setHours(21, 50, 0, 0);
+        if (next <= now) {
+          next.setDate(next.getDate() + 1);
+        }
+
+        const wait = next.getTime() - now.getTime();
+        reminderTimer = setTimeout(function () {
+          const dayType = CYCLE[state.planIndex];
+          new Notification("健身提醒", {
+            body: "21:50 了，今晚计划：" + LABEL[dayType] + "。",
+            tag: "fitness-reminder"
+          });
+          schedule2150Reminder();
+        }, wait);
+      }
+
+      function renderList(target, items) {
+        target.innerHTML = (items || [])
+          .map(function (item) {
+            return "<li>" + escapeHtml(item) + "</li>";
+          })
+          .join("");
+      }
+
+      function currentWeekDays(date) {
+        const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        const day = (d.getDay() + 6) % 7; // Monday=0
+        d.setDate(d.getDate() - day);
+        const arr = [];
+        for (let i = 0; i < 7; i += 1) {
+          arr.push(addDays(d, i));
+        }
+        return arr;
+      }
+
+      function addDays(date, offset) {
+        const n = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        n.setDate(n.getDate() + offset);
+        return n;
+      }
+
+      function localDateKey(date) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, "0");
+        const d = String(date.getDate()).padStart(2, "0");
+        return y + "-" + m + "-" + d;
+      }
+
+      function parseDateKey(key) {
+        const p = String(key || "").split("-");
+        if (p.length !== 3) return new Date();
+        const y = Number(p[0]);
+        const m = Number(p[1]) - 1;
+        const d = Number(p[2]);
+        return new Date(y, m, d);
+      }
+
+      function diffDays(from, to) {
+        const a = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+        const b = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+        return Math.round((b.getTime() - a.getTime()) / 86400000);
+      }
+
+      function mod(n, m) {
+        return ((n % m) + m) % m;
+      }
+
+      function badgeClass(status) {
+        if (status === "complete") return "b-ok";
+        if (status === "baseline") return "b-warn";
+        if (status === "sick") return "b-danger";
+        return "b-pending";
+      }
+
+      function formatDateCN(date) {
+        return date.getFullYear() + "年" + (date.getMonth() + 1) + "月" + date.getDate() + "日";
+      }
+
+      function shortDate(date) {
+        const m = date.getMonth() + 1;
+        const d = date.getDate();
+        return m + "/" + d;
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/\"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function showToast(text) {
+        els.toast.textContent = text;
+        els.toast.classList.add("show");
+        clearTimeout(showToast.tid);
+        showToast.tid = setTimeout(function () {
+          els.toast.classList.remove("show");
+        }, 1800);
+      }
+    })();
+  </script>
+</body>
+</html>
