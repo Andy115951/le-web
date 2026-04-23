@@ -1,0 +1,1599 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Mini Love Web</title>
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --text: #1c2432;
+      --sub: #6a7385;
+      --line: #dce4ef;
+      --brand: #246bff;
+      --ok: #17945c;
+      --warn: #c98716;
+      --danger: #db4f4f;
+      --radius: 14px;
+      --shadow: 0 10px 26px rgba(17, 31, 59, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "SF Pro Text", "PingFang SC", "Helvetica Neue", sans-serif;
+      background:
+        radial-gradient(circle at 0% -10%, #dce6ff 0, transparent 35%),
+        radial-gradient(circle at 100% 0%, #dbf7ed 0, transparent 30%),
+        var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .app {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    .top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .title {
+      margin: 0;
+      font-size: 1.2rem;
+    }
+
+    .sub {
+      margin: 4px 0 0;
+      color: var(--sub);
+      font-size: 0.9rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      padding: 6px 10px;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+
+    .b-ok { color: var(--ok); background: rgba(23,148,92,.12); border-color: rgba(23,148,92,.3); }
+    .b-warn { color: var(--warn); background: rgba(201,135,22,.12); border-color: rgba(201,135,22,.3); }
+    .b-danger { color: var(--danger); background: rgba(219,79,79,.12); border-color: rgba(219,79,79,.3); }
+    .b-muted { color: var(--sub); background: rgba(106,115,133,.12); border-color: rgba(106,115,133,.24); }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    .hidden { display: none !important; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .btn:disabled {
+      opacity: .55;
+      cursor: not-allowed;
+    }
+
+    .btn-primary { background: var(--brand); color: #fff; }
+    .btn-ghost { background: #f0f4fb; color: var(--text); border: 1px solid var(--line); }
+    .btn-danger { background: var(--danger); color: #fff; }
+
+    .tabs {
+      display: inline-flex;
+      padding: 4px;
+      gap: 4px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #fff;
+      margin-bottom: 12px;
+    }
+
+    .tab {
+      border: 0;
+      background: transparent;
+      color: var(--sub);
+      font-weight: 700;
+      padding: 8px 12px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+
+    .tab.active {
+      color: #fff;
+      background: var(--brand);
+    }
+
+    .field { margin-bottom: 10px; }
+    .label { display: block; font-size: .84rem; color: var(--sub); margin-bottom: 4px; }
+
+    input, textarea, select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      font: inherit;
+      background: #fff;
+      color: inherit;
+    }
+
+    textarea { min-height: 88px; resize: vertical; }
+
+    .avatars { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .avatar-btn {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 12px;
+      font-size: 1.3rem;
+      width: 44px;
+      height: 44px;
+      cursor: pointer;
+    }
+
+    .avatar-btn.active {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 2px rgba(36,107,255,.15);
+    }
+
+    .list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .item {
+      border: 1px solid var(--line);
+      background: #f9fbff;
+      border-radius: 12px;
+      padding: 10px;
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .hint { margin: 0; color: var(--sub); font-size: .9rem; }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%) translateY(10px);
+      bottom: 24px;
+      background: rgba(0, 0, 0, 0.82);
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-size: .9rem;
+      opacity: 0;
+      pointer-events: none;
+      transition: all .18s ease;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    @media (max-width: 780px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="top">
+      <div>
+        <h1 class="title">Mini Love Web · Vercel 迁移版</h1>
+        <p class="sub" id="topSub">从微信小程序迁移：注册、配对、问答、历史、设置、导航</p>
+      </div>
+      <span class="badge b-muted" id="envState">初始化中...</span>
+    </header>
+
+    <section class="card" id="configWarning">
+      <b>未连接 Supabase</b>
+      <p class="hint" style="margin-top:6px;">请在 Vercel 配置 `SUPABASE_URL` 和 `SUPABASE_ANON_KEY`，本地用 `vercel dev` 启动。</p>
+    </section>
+
+    <section class="card" id="authFlow">
+      <div id="gatewayView">
+        <h2 style="margin:0 0 8px;">集成页</h2>
+        <p class="hint">进入主流程前，会自动检查当前设备是否已注册。</p>
+        <div class="row" style="margin-top:10px;">
+          <button class="btn btn-primary" id="btnGoMain">进入我们的小世界</button>
+          <span class="badge b-muted" id="deviceBadge"></span>
+        </div>
+      </div>
+
+      <div id="loginView" class="hidden">
+        <h2 style="margin:0 0 8px;">注册</h2>
+        <div class="field">
+          <label class="label">昵称（最多 10 字）</label>
+          <input id="nicknameInput" maxlength="10" placeholder="请输入昵称" />
+        </div>
+        <div class="field">
+          <label class="label">头像</label>
+          <div class="avatars" id="avatarList"></div>
+        </div>
+        <button class="btn btn-primary" id="btnRegister">完成注册</button>
+      </div>
+
+      <div id="pairView" class="hidden">
+        <h2 style="margin:0 0 8px;">配对</h2>
+        <p class="hint">把你的配对码发给对方，或输入对方的配对码完成绑定。</p>
+        <p style="margin:8px 0;"><b>我的配对码：</b><span id="myPairCode">-</span></p>
+        <div class="field">
+          <label class="label">输入对方配对码</label>
+          <input id="pairCodeInput" maxlength="6" placeholder="例如 A1B2C3" style="text-transform:uppercase;" />
+        </div>
+        <div class="row">
+          <button class="btn btn-primary" id="btnPair">确认配对</button>
+          <button class="btn btn-ghost" id="btnRefreshPair">刷新配对状态</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="mainApp" class="hidden">
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="home">首页</button>
+        <button class="tab" data-tab="questions">问答</button>
+        <button class="tab" data-tab="history">历史</button>
+        <button class="tab" data-tab="settings">设置</button>
+        <button class="tab" data-tab="forum">论坛</button>
+        <button class="tab" data-tab="messages">消息</button>
+        <button class="tab" data-tab="navigation">导航</button>
+      </div>
+
+      <section id="tab-home" class="card">
+        <div class="grid">
+          <div class="item">
+            <p class="hint">我的信息</p>
+            <div id="myInfo"></div>
+          </div>
+          <div class="item">
+            <p class="hint">对方信息</p>
+            <div id="partnerInfo"></div>
+          </div>
+          <div class="item">
+            <p class="hint">在一起天数</p>
+            <h3 id="daysTogether" style="margin:6px 0 0;">0 天</h3>
+          </div>
+          <div class="item">
+            <p class="hint">待回答</p>
+            <h3 id="pendingCount" style="margin:6px 0 0;">0 条</h3>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-questions" class="card hidden">
+        <h3 style="margin:0 0 8px;">今日问答</h3>
+        <div class="field">
+          <label class="label">提问</label>
+          <textarea id="questionInput" placeholder="输入你今天想问的问题"></textarea>
+        </div>
+        <button class="btn btn-primary" id="btnAsk">发送问题</button>
+        <hr style="border:none;border-top:1px solid var(--line);margin:14px 0;">
+        <div class="grid">
+          <div>
+            <p class="hint">我发出的问题</p>
+            <div class="list" id="myQuestionsList"></div>
+          </div>
+          <div>
+            <p class="hint">我收到的问题</p>
+            <div class="list" id="receivedQuestionsList"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-history" class="card hidden">
+        <div class="row" style="margin-bottom:8px;">
+          <h3 style="margin:0;">问答历史</h3>
+          <input id="historyDate" type="date" style="width:auto;" />
+        </div>
+        <div class="list" id="historyList"></div>
+      </section>
+
+      <section id="tab-settings" class="card hidden">
+        <div class="grid">
+          <div class="item">
+            <h3 style="margin:0 0 8px;">编辑资料</h3>
+            <div class="field">
+              <label class="label">昵称</label>
+              <input id="editNickname" maxlength="10" />
+            </div>
+            <div class="field">
+              <label class="label">头像</label>
+              <div class="avatars" id="editAvatarList"></div>
+            </div>
+            <button class="btn btn-primary" id="btnSaveProfile">保存资料</button>
+          </div>
+
+          <div class="item">
+            <h3 style="margin:0 0 8px;">账户操作</h3>
+            <p class="hint" style="margin-bottom:8px;">解除配对后可重新输入配对码。</p>
+            <div class="row">
+              <button class="btn btn-ghost" id="btnUnpair">解除配对</button>
+              <button class="btn btn-danger" id="btnLogout">退出登录</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-forum" class="card hidden">
+        <h3 style="margin:0 0 8px;">社区论坛</h3>
+        <div class="grid">
+          <div class="item">
+            <div class="field">
+              <label class="label">标题</label>
+              <input id="postTitle" maxlength="80" placeholder="输入帖子标题" />
+            </div>
+            <div class="field">
+              <label class="label">内容</label>
+              <textarea id="postContent" placeholder="分享你的想法"></textarea>
+            </div>
+            <button class="btn btn-primary" id="btnPublishPost">发布帖子</button>
+          </div>
+          <div class="item">
+            <p class="hint">帖子列表</p>
+            <div class="list" id="forumList"></div>
+          </div>
+        </div>
+        <hr style="border:none;border-top:1px solid var(--line);margin:14px 0;">
+        <div class="item">
+          <h4 style="margin:0 0 8px;">帖子详情</h4>
+          <div id="forumDetail" class="hint">点击帖子可查看详情与评论</div>
+          <div class="field" style="margin-top:10px;">
+            <label class="label">评论</label>
+            <textarea id="commentInput" placeholder="输入评论内容"></textarea>
+          </div>
+          <button class="btn btn-primary" id="btnPublishComment">发表评论</button>
+          <div class="list" id="commentList" style="margin-top:10px;"></div>
+        </div>
+      </section>
+
+      <section id="tab-messages" class="card hidden">
+        <h3 style="margin:0 0 8px;">消息</h3>
+        <div class="grid">
+          <div class="item">
+            <div class="field">
+              <label class="label">接收人（用户 ID）</label>
+              <input id="msgToUser" placeholder="例如 6b0c...uuid" />
+            </div>
+            <div class="field">
+              <label class="label">内容</label>
+              <textarea id="msgContent" placeholder="输入消息内容"></textarea>
+            </div>
+            <button class="btn btn-primary" id="btnSendMessage">发送消息</button>
+          </div>
+          <div class="item">
+            <p class="hint">最近消息</p>
+            <div class="list" id="messageList"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="tab-navigation" class="card hidden">
+        <h3 style="margin:0 0 8px;">导航页</h3>
+        <div class="row" style="margin-bottom:10px;">
+          <span class="hint">先用导航功能，准备好后再进入主流程。</span>
+          <button class="btn btn-primary" id="btnEnterFlow">进入我们的小世界</button>
+        </div>
+        <div class="grid">
+          <div class="item">
+            <h4 style="margin:0 0 8px;">地铁出行</h4>
+            <p class="hint" style="margin:0 0 8px;">输入城市和起终点，一键跳转搜索地铁路线。</p>
+            <div class="field">
+              <label class="label">城市</label>
+              <input id="metroCity" placeholder="例如：上海" />
+            </div>
+            <div class="field">
+              <label class="label">起点</label>
+              <input id="metroFrom" placeholder="例如：世纪大道" />
+            </div>
+            <div class="field">
+              <label class="label">终点</label>
+              <input id="metroTo" placeholder="例如：虹桥火车站" />
+            </div>
+            <div class="row">
+              <button class="btn btn-primary" id="btnMetroSearchAmap">高德搜索</button>
+              <button class="btn btn-ghost" id="btnMetroSearchBaidu">百度搜索</button>
+            </div>
+            <p class="hint" id="metroPreview" style="margin:10px 0 0;">示例：上海 世纪大道 到 虹桥火车站 地铁路线</p>
+          </div>
+          <div class="item">
+            <h4 style="margin:0 0 8px;">常用入口</h4>
+            <p class="hint" style="margin:0 0 10px;">保留小程序里的导航能力，Web 版通过外链快速跳转。</p>
+            <div class="list">
+              <button class="btn btn-ghost" data-nav-url="https://www.amap.com/" data-nav-name="高德地图">打开高德地图</button>
+              <button class="btn btn-ghost" data-nav-url="https://map.baidu.com/" data-nav-name="百度地图">打开百度地图</button>
+              <button class="btn btn-ghost" data-nav-url="https://map.qq.com/" data-nav-name="腾讯地图">打开腾讯地图</button>
+              <button class="btn btn-ghost" data-nav-url="https://map.qq.com/subway/index.html" data-nav-name="地铁图">打开地铁线路图</button>
+            </div>
+          </div>
+          <div class="item">
+            <h4 style="margin:0 0 8px;">链接管理</h4>
+            <p class="hint" style="margin:0 0 10px;">新增你的常用链接，支持本机保存与快速打开。</p>
+            <div class="field">
+              <label class="label">名称</label>
+              <input id="linkNameInput" maxlength="40" placeholder="例如：公司 Wiki" />
+            </div>
+            <div class="field">
+              <label class="label">URL</label>
+              <input id="linkUrlInput" placeholder="例如：https://example.com" />
+            </div>
+            <div class="row" style="margin-bottom:10px;">
+              <button class="btn btn-primary" id="btnAddLink">添加链接</button>
+              <button class="btn btn-ghost" id="btnResetLinks">清空自定义</button>
+            </div>
+            <div class="list" id="customLinkList"></div>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script type="module">
+    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+    const AVATARS = ["🐻", "🐰", "🐱", "🐶", "🐼", "🦊", "🐨", "🦁"];
+
+    const APP = {
+      supabaseUrl: "",
+      supabaseAnonKey: ""
+    };
+
+    const STORAGE_KEYS = {
+      deviceId: "mini-love-web-device-id",
+      customLinks: "mini-love-web-custom-links"
+    };
+
+    const state = {
+      supabase: null,
+      ready: false,
+      deviceId: "",
+      user: null,
+      partner: null,
+      selectedPost: null,
+      tab: "home",
+      selectedAvatar: AVATARS[0],
+      editAvatar: AVATARS[0],
+      customLinks: []
+    };
+
+    const els = {
+      configWarning: byId("configWarning"),
+      envState: byId("envState"),
+      authFlow: byId("authFlow"),
+      mainApp: byId("mainApp"),
+      gatewayView: byId("gatewayView"),
+      loginView: byId("loginView"),
+      pairView: byId("pairView"),
+      btnGoMain: byId("btnGoMain"),
+      deviceBadge: byId("deviceBadge"),
+      avatarList: byId("avatarList"),
+      nicknameInput: byId("nicknameInput"),
+      btnRegister: byId("btnRegister"),
+      myPairCode: byId("myPairCode"),
+      pairCodeInput: byId("pairCodeInput"),
+      btnPair: byId("btnPair"),
+      btnRefreshPair: byId("btnRefreshPair"),
+      myInfo: byId("myInfo"),
+      partnerInfo: byId("partnerInfo"),
+      daysTogether: byId("daysTogether"),
+      pendingCount: byId("pendingCount"),
+      questionInput: byId("questionInput"),
+      btnAsk: byId("btnAsk"),
+      myQuestionsList: byId("myQuestionsList"),
+      receivedQuestionsList: byId("receivedQuestionsList"),
+      historyDate: byId("historyDate"),
+      historyList: byId("historyList"),
+      editNickname: byId("editNickname"),
+      editAvatarList: byId("editAvatarList"),
+      btnSaveProfile: byId("btnSaveProfile"),
+      btnUnpair: byId("btnUnpair"),
+      btnLogout: byId("btnLogout"),
+      postTitle: byId("postTitle"),
+      postContent: byId("postContent"),
+      btnPublishPost: byId("btnPublishPost"),
+      forumList: byId("forumList"),
+      forumDetail: byId("forumDetail"),
+      commentInput: byId("commentInput"),
+      btnPublishComment: byId("btnPublishComment"),
+      commentList: byId("commentList"),
+      msgToUser: byId("msgToUser"),
+      msgContent: byId("msgContent"),
+      btnSendMessage: byId("btnSendMessage"),
+      messageList: byId("messageList"),
+      metroCity: byId("metroCity"),
+      metroFrom: byId("metroFrom"),
+      metroTo: byId("metroTo"),
+      btnMetroSearchAmap: byId("btnMetroSearchAmap"),
+      btnMetroSearchBaidu: byId("btnMetroSearchBaidu"),
+      metroPreview: byId("metroPreview"),
+      btnEnterFlow: byId("btnEnterFlow"),
+      linkNameInput: byId("linkNameInput"),
+      linkUrlInput: byId("linkUrlInput"),
+      btnAddLink: byId("btnAddLink"),
+      btnResetLinks: byId("btnResetLinks"),
+      customLinkList: byId("customLinkList"),
+      toast: byId("toast")
+    };
+
+    init();
+
+    async function init() {
+      bindEvents();
+      renderAvatarPickers();
+      loadCustomLinks();
+      renderCustomLinks();
+      updateMetroPreview();
+
+      state.deviceId = loadOrCreateDeviceId();
+      els.deviceBadge.textContent = "设备ID: " + state.deviceId.slice(0, 8) + "...";
+
+      await loadRuntimeConfig();
+      if (!configReady()) {
+        renderDisconnected();
+        return;
+      }
+
+      state.supabase = createClient(APP.supabaseUrl, APP.supabaseAnonKey);
+      state.ready = true;
+      els.configWarning.classList.add("hidden");
+      els.envState.textContent = "Supabase 已连接";
+      els.envState.className = "badge b-ok";
+      showView("main");
+      switchTab("navigation");
+    }
+
+    function bindEvents() {
+      els.btnGoMain.addEventListener("click", refreshUserFlow);
+      els.btnRegister.addEventListener("click", handleRegister);
+      els.btnPair.addEventListener("click", handlePair);
+      els.btnRefreshPair.addEventListener("click", handleRefreshPair);
+      els.btnAsk.addEventListener("click", handleAskQuestion);
+      els.historyDate.addEventListener("change", loadHistory);
+      els.btnSaveProfile.addEventListener("click", saveProfile);
+      els.btnUnpair.addEventListener("click", unpair);
+      els.btnLogout.addEventListener("click", logout);
+      els.btnPublishPost.addEventListener("click", publishPost);
+      els.btnPublishComment.addEventListener("click", publishComment);
+      els.btnSendMessage.addEventListener("click", sendMessage);
+      els.btnMetroSearchAmap.addEventListener("click", () => openMetroSearch("amap"));
+      els.btnMetroSearchBaidu.addEventListener("click", () => openMetroSearch("baidu"));
+      els.btnEnterFlow.addEventListener("click", refreshUserFlow);
+      els.metroCity.addEventListener("input", updateMetroPreview);
+      els.metroFrom.addEventListener("input", updateMetroPreview);
+      els.metroTo.addEventListener("input", updateMetroPreview);
+      els.btnAddLink.addEventListener("click", addCustomLink);
+      els.btnResetLinks.addEventListener("click", resetCustomLinks);
+      document.querySelectorAll("[data-nav-url]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const url = btn.getAttribute("data-nav-url");
+          const name = btn.getAttribute("data-nav-name") || "链接";
+          if (!url) return;
+          window.open(url, "_blank", "noopener,noreferrer");
+          showToast("已打开" + name);
+        });
+      });
+
+      document.querySelectorAll(".tab").forEach((btn) => {
+        btn.addEventListener("click", () => switchTab(btn.getAttribute("data-tab")));
+      });
+    }
+
+    function renderAvatarPickers() {
+      els.avatarList.innerHTML = AVATARS.map((x) => {
+        return '<button class="avatar-btn' + (x === state.selectedAvatar ? ' active' : '') + '" data-role="register" data-avatar="' + x + '">' + x + '</button>';
+      }).join("");
+
+      els.editAvatarList.innerHTML = AVATARS.map((x) => {
+        return '<button class="avatar-btn' + (x === state.editAvatar ? ' active' : '') + '" data-role="edit" data-avatar="' + x + '">' + x + '</button>';
+      }).join("");
+
+      document.querySelectorAll(".avatar-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const role = btn.getAttribute("data-role");
+          const avatar = btn.getAttribute("data-avatar");
+          if (!avatar) return;
+          if (role === "register") state.selectedAvatar = avatar;
+          if (role === "edit") state.editAvatar = avatar;
+          renderAvatarPickers();
+        });
+      });
+    }
+
+    async function refreshUserFlow() {
+      if (!guardReady()) return;
+
+      const user = await getCurrentUserByDevice();
+      if (!user) {
+        showView("login");
+        return;
+      }
+
+      state.user = user;
+      if (!user.partner_id) {
+        showView("pair");
+        els.myPairCode.textContent = user.pair_code;
+        return;
+      }
+
+      showView("main");
+      await loadMainData();
+    }
+
+    async function getCurrentUserByDevice() {
+      const { data, error } = await state.supabase
+        .from("users")
+        .select("*")
+        .eq("device_id", state.deviceId)
+        .maybeSingle();
+
+      if (error) {
+        console.error(error);
+        showToast("读取用户失败");
+        return null;
+      }
+      return data || null;
+    }
+
+    async function handleRegister() {
+      const nickname = String(els.nicknameInput.value || "").trim();
+      if (!nickname) {
+        showToast("请输入昵称");
+        return;
+      }
+
+      const pairCode = await generateUniquePairCode();
+      if (!pairCode) {
+        showToast("生成配对码失败，请重试");
+        return;
+      }
+
+      const { data, error } = await state.supabase
+        .from("users")
+        .insert({
+          device_id: state.deviceId,
+          nickname,
+          avatar: state.selectedAvatar,
+          pair_code: pairCode
+        })
+        .select("*")
+        .single();
+
+      if (error) {
+        console.error(error);
+        showToast("注册失败，可能是昵称或设备重复");
+        return;
+      }
+
+      state.user = data;
+      showToast("注册成功");
+      showView("pair");
+      els.myPairCode.textContent = data.pair_code;
+    }
+
+    async function generateUniquePairCode() {
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      for (let i = 0; i < 8; i += 1) {
+        let code = "";
+        for (let j = 0; j < 6; j += 1) {
+          code += chars[Math.floor(Math.random() * chars.length)];
+        }
+
+        const { data, error } = await state.supabase
+          .from("users")
+          .select("id")
+          .eq("pair_code", code)
+          .limit(1);
+
+        if (error) return null;
+        if (!data || !data.length) return code;
+      }
+      return null;
+    }
+
+    async function handlePair() {
+      const code = String(els.pairCodeInput.value || "").trim().toUpperCase();
+      if (code.length !== 6) {
+        showToast("请输入 6 位配对码");
+        return;
+      }
+
+      if (!state.user) {
+        showToast("请先注册");
+        return;
+      }
+
+      const { data: partnerRows, error: partnerErr } = await state.supabase
+        .from("users")
+        .select("*")
+        .eq("pair_code", code)
+        .limit(1);
+
+      if (partnerErr) {
+        showToast("查询配对码失败");
+        return;
+      }
+      if (!partnerRows.length) {
+        showToast("配对码不存在");
+        return;
+      }
+
+      const partner = partnerRows[0];
+      if (partner.id !== state.user.id && partner.partner_id) {
+        showToast("对方已经配对");
+        return;
+      }
+
+      const now = new Date().toISOString();
+
+      const { error: myErr } = await state.supabase
+        .from("users")
+        .update({ partner_id: partner.id, pair_time: now })
+        .eq("id", state.user.id);
+
+      if (myErr) {
+        showToast("更新我的配对状态失败");
+        return;
+      }
+
+      if (partner.id !== state.user.id) {
+        const { error: pErr } = await state.supabase
+          .from("users")
+          .update({ partner_id: state.user.id, pair_time: now })
+          .eq("id", partner.id);
+
+        if (pErr) {
+          showToast("更新对方配对状态失败");
+          return;
+        }
+      }
+
+      showToast("配对成功");
+      await refreshUserFlow();
+    }
+
+    async function handleRefreshPair() {
+      await refreshUserFlow();
+      if (state.user && !state.user.partner_id) {
+        showToast("对方还未输入你的配对码");
+      }
+    }
+
+    async function loadMainData() {
+      await refreshCurrentUser();
+      await Promise.all([loadPending(), loadTodayQuestions(), loadHistory(), loadForumPosts(), loadMessages()]);
+      fillSettings();
+      renderHome();
+    }
+
+    async function refreshCurrentUser() {
+      const user = await getCurrentUserByDevice();
+      if (!user) return;
+      state.user = user;
+
+      if (!user.partner_id) {
+        state.partner = null;
+        return;
+      }
+
+      const { data, error } = await state.supabase
+        .from("users")
+        .select("*")
+        .eq("id", user.partner_id)
+        .maybeSingle();
+
+      if (error) {
+        console.error(error);
+        state.partner = null;
+      } else {
+        state.partner = data || null;
+      }
+    }
+
+    function renderHome() {
+      if (!state.user) return;
+
+      const me = state.user;
+      const partner = state.partner;
+      els.myInfo.innerHTML = [
+        '<p style="margin:0 0 4px;"><b>' + escapeHtml(me.avatar) + " " + escapeHtml(me.nickname) + "</b></p>",
+        '<p class="hint" style="margin:0;">配对码：' + escapeHtml(me.pair_code) + "</p>"
+      ].join("");
+
+      if (!partner) {
+        els.partnerInfo.innerHTML = '<p class="hint" style="margin:0;">未配对</p>';
+        els.daysTogether.textContent = "0 天";
+        return;
+      }
+
+      els.partnerInfo.innerHTML = '<p style="margin:0;"><b>' + escapeHtml(partner.avatar) + " " + escapeHtml(partner.nickname) + "</b></p>";
+      const start = new Date(me.pair_time || me.created_at);
+      const days = dayDiff(start, new Date());
+      els.daysTogether.textContent = days + " 天";
+    }
+
+    async function loadPending() {
+      if (!state.user) return;
+      const { count, error } = await state.supabase
+        .from("questions")
+        .select("id", { count: "exact", head: true })
+        .eq("answerer_id", state.user.id)
+        .eq("answered", false);
+
+      if (error) {
+        els.pendingCount.textContent = "-";
+        return;
+      }
+      els.pendingCount.textContent = String(count || 0) + " 条";
+    }
+
+    async function handleAskQuestion() {
+      const text = String(els.questionInput.value || "").trim();
+      if (!text) {
+        showToast("请输入问题");
+        return;
+      }
+      if (!state.user || !state.partner) {
+        showToast("请先完成配对");
+        return;
+      }
+
+      const payload = {
+        asker_id: state.user.id,
+        answerer_id: state.partner.id,
+        question: text,
+        question_date: localDateKey(new Date())
+      };
+
+      const { error } = await state.supabase
+        .from("questions")
+        .insert(payload);
+
+      if (error) {
+        console.error(error);
+        showToast("发送失败");
+        return;
+      }
+
+      els.questionInput.value = "";
+      showToast("发送成功");
+      await Promise.all([loadTodayQuestions(), loadHistory(), loadPending()]);
+    }
+
+    async function loadTodayQuestions() {
+      if (!state.user || !state.partner) {
+        els.myQuestionsList.innerHTML = '<div class="item">完成配对后可提问</div>';
+        els.receivedQuestionsList.innerHTML = '<div class="item">完成配对后可查看收到的问题</div>';
+        return;
+      }
+
+      const today = localDateKey(new Date());
+      const { data, error } = await state.supabase
+        .from("questions")
+        .select("*")
+        .eq("question_date", today)
+        .in("asker_id", [state.user.id, state.partner.id])
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error(error);
+        showToast("加载今日问答失败");
+        return;
+      }
+
+      const rows = data || [];
+      const myRows = rows.filter((x) => x.asker_id === state.user.id);
+      const receivedRows = rows.filter((x) => x.asker_id === state.partner.id);
+
+      els.myQuestionsList.innerHTML = myRows.length
+        ? myRows.map(renderQuestionItem).join("")
+        : '<div class="item">今天还没提问</div>';
+
+      els.receivedQuestionsList.innerHTML = receivedRows.length
+        ? receivedRows.map(renderReceivedItem).join("")
+        : '<div class="item">今天还没收到问题</div>';
+
+      document.querySelectorAll("[data-action='answer']").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const id = btn.getAttribute("data-id");
+          const input = byId("answer-" + id);
+          const answer = input ? String(input.value || "").trim() : "";
+          if (!id || !answer) {
+            showToast("请输入回答");
+            return;
+          }
+
+          const { error: updateError } = await state.supabase
+            .from("questions")
+            .update({ answered: true, answer, answered_at: new Date().toISOString() })
+            .eq("id", id)
+            .eq("answerer_id", state.user.id)
+            .eq("answered", false);
+
+          if (updateError) {
+            showToast("提交回答失败");
+            return;
+          }
+
+          showToast("回答成功");
+          await Promise.all([loadTodayQuestions(), loadHistory(), loadPending()]);
+        });
+      });
+    }
+
+    function renderQuestionItem(row) {
+      const answer = row.answered ? ('<p style="margin:6px 0 0;color:var(--ok);"><b>回答：</b>' + escapeHtml(row.answer || "") + "</p>") : '<p class="hint" style="margin:6px 0 0;">等待对方回答</p>';
+      return [
+        '<div class="item">',
+        '<p style="margin:0 0 4px;"><b>Q:</b> ' + escapeHtml(row.question) + '</p>',
+        answer,
+        '<p class="hint" style="margin:6px 0 0;">' + formatDateTime(row.created_at) + '</p>',
+        '</div>'
+      ].join("");
+    }
+
+    function renderReceivedItem(row) {
+      if (row.answered) {
+        return [
+          '<div class="item">',
+          '<p style="margin:0 0 4px;"><b>Q:</b> ' + escapeHtml(row.question) + '</p>',
+          '<p style="margin:0;color:var(--ok);"><b>A:</b> ' + escapeHtml(row.answer || "") + '</p>',
+          '<p class="hint" style="margin:6px 0 0;">' + formatDateTime(row.created_at) + '</p>',
+          '</div>'
+        ].join("");
+      }
+
+      return [
+        '<div class="item">',
+        '<p style="margin:0 0 6px;"><b>Q:</b> ' + escapeHtml(row.question) + '</p>',
+        '<textarea id="answer-' + row.id + '" placeholder="输入你的回答"></textarea>',
+        '<div class="row" style="margin-top:8px;"><button class="btn btn-primary" data-action="answer" data-id="' + row.id + '">提交回答</button></div>',
+        '</div>'
+      ].join("");
+    }
+
+    async function loadHistory() {
+      if (!state.user || !state.partner) {
+        els.historyList.innerHTML = '<div class="item">完成配对后可查看历史</div>';
+        return;
+      }
+
+      const selectedDate = String(els.historyDate.value || "").trim();
+      let query = state.supabase
+        .from("questions")
+        .select("*")
+        .in("asker_id", [state.user.id, state.partner.id])
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (selectedDate) {
+        query = query.eq("question_date", selectedDate);
+      }
+
+      const { data, error } = await query;
+      if (error) {
+        console.error(error);
+        showToast("加载历史失败");
+        return;
+      }
+
+      const rows = data || [];
+      els.historyList.innerHTML = rows.length
+        ? rows.map((row) => {
+            const asker = row.asker_id === state.user.id ? "我" : "TA";
+            return [
+              '<div class="item">',
+              '<div class="row"><b>' + asker + ' 提问</b><span class="badge ' + (row.answered ? 'b-ok' : 'b-warn') + '">' + (row.answered ? '已回答' : '待回答') + '</span></div>',
+              '<p style="margin:6px 0 0;"><b>Q:</b> ' + escapeHtml(row.question) + '</p>',
+              row.answer ? ('<p style="margin:6px 0 0;"><b>A:</b> ' + escapeHtml(row.answer) + '</p>') : '',
+              '<p class="hint" style="margin:6px 0 0;">' + escapeHtml(row.question_date) + ' · ' + formatDateTime(row.created_at) + '</p>',
+              '</div>'
+            ].join("");
+          }).join("")
+        : '<div class="item">暂无历史记录</div>';
+    }
+
+    function fillSettings() {
+      if (!state.user) return;
+      els.editNickname.value = state.user.nickname || "";
+      state.editAvatar = state.user.avatar || AVATARS[0];
+      renderAvatarPickers();
+    }
+
+    async function saveProfile() {
+      if (!state.user) return;
+      const nickname = String(els.editNickname.value || "").trim();
+      if (!nickname) {
+        showToast("昵称不能为空");
+        return;
+      }
+
+      const { error } = await state.supabase
+        .from("users")
+        .update({ nickname, avatar: state.editAvatar })
+        .eq("id", state.user.id);
+
+      if (error) {
+        showToast("保存失败");
+        return;
+      }
+
+      showToast("保存成功");
+      await loadMainData();
+    }
+
+    async function unpair() {
+      if (!state.user) return;
+      if (!confirm("确认解除配对？")) return;
+
+      const partnerId = state.user.partner_id;
+      const { error: mineErr } = await state.supabase
+        .from("users")
+        .update({ partner_id: null, pair_time: null })
+        .eq("id", state.user.id);
+
+      if (mineErr) {
+        showToast("解除失败");
+        return;
+      }
+
+      if (partnerId) {
+        await state.supabase
+          .from("users")
+          .update({ partner_id: null, pair_time: null })
+          .eq("id", partnerId);
+      }
+
+      showToast("已解除配对");
+      await refreshUserFlow();
+    }
+
+    function logout() {
+      localStorage.removeItem(STORAGE_KEYS.deviceId);
+      state.user = null;
+      state.partner = null;
+      state.deviceId = loadOrCreateDeviceId();
+      els.deviceBadge.textContent = "设备ID: " + state.deviceId.slice(0, 8) + "...";
+      showToast("已退出登录");
+      showView("gateway");
+    }
+
+    async function publishPost() {
+      if (!state.user) return;
+      const title = String(els.postTitle.value || "").trim();
+      const content = String(els.postContent.value || "").trim();
+      if (!title || !content) {
+        showToast("请先填写标题和内容");
+        return;
+      }
+
+      const { error } = await state.supabase
+        .from("posts")
+        .insert({
+          title,
+          content,
+          author_id: state.user.id,
+          author_name: state.user.nickname
+        });
+
+      if (error) {
+        console.error(error);
+        showToast("发布失败");
+        return;
+      }
+
+      els.postTitle.value = "";
+      els.postContent.value = "";
+      showToast("发布成功");
+      await loadForumPosts();
+    }
+
+    async function loadForumPosts() {
+      const { data, error } = await state.supabase
+        .from("posts")
+        .select("*")
+        .eq("is_deleted", false)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (error) {
+        console.error(error);
+        els.forumList.innerHTML = '<div class="item">加载帖子失败</div>';
+        return;
+      }
+
+      const rows = data || [];
+      els.forumList.innerHTML = rows.length
+        ? rows.map((post) => {
+            return [
+              '<button class="item" style="text-align:left;cursor:pointer;" data-post-id="' + post.id + '">',
+              '<div class="row"><b>' + escapeHtml(post.title) + '</b><span class="hint">' + escapeHtml(post.author_name || "匿名用户") + '</span></div>',
+              '<p class="hint" style="margin:6px 0 0;">' + escapeHtml(shorten(post.content, 88)) + '</p>',
+              '<p class="hint" style="margin:6px 0 0;">' + formatDateTime(post.created_at) + '</p>',
+              '</button>'
+            ].join("");
+          }).join("")
+        : '<div class="item">还没有帖子，发一条试试</div>';
+
+      document.querySelectorAll("[data-post-id]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const postId = btn.getAttribute("data-post-id");
+          if (!postId) return;
+          await loadPostDetail(postId);
+        });
+      });
+    }
+
+    async function loadPostDetail(postId) {
+      const { data: post, error: postErr } = await state.supabase
+        .from("posts")
+        .select("*")
+        .eq("id", postId)
+        .maybeSingle();
+
+      if (postErr || !post) {
+        showToast("帖子详情加载失败");
+        return;
+      }
+
+      state.selectedPost = post;
+      els.forumDetail.innerHTML = [
+        '<b>' + escapeHtml(post.title) + '</b>',
+        '<p style="margin:6px 0 0;">' + escapeHtml(post.content) + '</p>',
+        '<p class="hint" style="margin:6px 0 0;">作者：' + escapeHtml(post.author_name || "匿名用户") + ' · ' + formatDateTime(post.created_at) + '</p>'
+      ].join("");
+
+      await state.supabase
+        .from("posts")
+        .update({ view_count: Number(post.view_count || 0) + 1 })
+        .eq("id", post.id);
+
+      await loadComments(post.id);
+    }
+
+    async function loadComments(postId) {
+      const { data, error } = await state.supabase
+        .from("comments")
+        .select("*")
+        .eq("post_id", postId)
+        .eq("is_deleted", false)
+        .order("created_at", { ascending: false })
+        .limit(100);
+
+      if (error) {
+        console.error(error);
+        els.commentList.innerHTML = '<div class="item">加载评论失败</div>';
+        return;
+      }
+
+      const rows = data || [];
+      els.commentList.innerHTML = rows.length
+        ? rows.map((row) => {
+            return [
+              '<div class="item">',
+              '<div class="row"><b>' + escapeHtml(row.author_name || "匿名用户") + '</b><span class="hint">' + formatDateTime(row.created_at) + '</span></div>',
+              '<p style="margin:6px 0 0;">' + escapeHtml(row.content) + '</p>',
+              '</div>'
+            ].join("");
+          }).join("")
+        : '<div class="item">暂无评论</div>';
+    }
+
+    async function publishComment() {
+      if (!state.user) return;
+      if (!state.selectedPost) {
+        showToast("请先选择一个帖子");
+        return;
+      }
+
+      const content = String(els.commentInput.value || "").trim();
+      if (!content) {
+        showToast("请输入评论");
+        return;
+      }
+
+      const { error } = await state.supabase
+        .from("comments")
+        .insert({
+          post_id: state.selectedPost.id,
+          user_id: state.user.id,
+          author_name: state.user.nickname,
+          content
+        });
+
+      if (error) {
+        console.error(error);
+        showToast("评论失败");
+        return;
+      }
+
+      await state.supabase
+        .from("posts")
+        .update({ comment_count: Number(state.selectedPost.comment_count || 0) + 1 })
+        .eq("id", state.selectedPost.id);
+
+      els.commentInput.value = "";
+      showToast("评论成功");
+      await loadPostDetail(state.selectedPost.id);
+      await loadForumPosts();
+    }
+
+    async function sendMessage() {
+      if (!state.user) return;
+      const toUserId = String(els.msgToUser.value || "").trim();
+      const content = String(els.msgContent.value || "").trim();
+      if (!toUserId || !content) {
+        showToast("请输入接收人和消息内容");
+        return;
+      }
+      if (toUserId === state.user.id) {
+        showToast("不能给自己发消息");
+        return;
+      }
+
+      const { error } = await state.supabase
+        .from("messages")
+        .insert({
+          from_user_id: state.user.id,
+          to_user_id: toUserId,
+          content
+        });
+
+      if (error) {
+        console.error(error);
+        showToast("发送失败");
+        return;
+      }
+
+      els.msgContent.value = "";
+      showToast("发送成功");
+      await loadMessages();
+    }
+
+    async function loadMessages() {
+      if (!state.user) return;
+      const { data, error } = await state.supabase
+        .from("messages")
+        .select("*")
+        .or("from_user_id.eq." + state.user.id + ",to_user_id.eq." + state.user.id)
+        .eq("is_deleted", false)
+        .order("created_at", { ascending: false })
+        .limit(80);
+
+      if (error) {
+        console.error(error);
+        els.messageList.innerHTML = '<div class="item">加载消息失败</div>';
+        return;
+      }
+
+      const rows = data || [];
+      els.messageList.innerHTML = rows.length
+        ? rows.map((row) => {
+            const mine = row.from_user_id === state.user.id;
+            return [
+              '<div class="item">',
+              '<div class="row"><b>' + (mine ? "我" : "TA") + '</b><span class="hint">' + formatDateTime(row.created_at) + '</span></div>',
+              '<p style="margin:6px 0 0;">' + escapeHtml(row.content) + '</p>',
+              '</div>'
+            ].join("");
+          }).join("")
+        : '<div class="item">暂无消息</div>';
+    }
+
+    function switchTab(tabName) {
+      state.tab = tabName;
+      document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("active", x.getAttribute("data-tab") === tabName));
+      byId("tab-home").classList.toggle("hidden", tabName !== "home");
+      byId("tab-questions").classList.toggle("hidden", tabName !== "questions");
+      byId("tab-history").classList.toggle("hidden", tabName !== "history");
+      byId("tab-settings").classList.toggle("hidden", tabName !== "settings");
+      byId("tab-forum").classList.toggle("hidden", tabName !== "forum");
+      byId("tab-messages").classList.toggle("hidden", tabName !== "messages");
+      byId("tab-navigation").classList.toggle("hidden", tabName !== "navigation");
+    }
+
+    function showView(name) {
+      els.authFlow.classList.remove("hidden");
+      els.mainApp.classList.add("hidden");
+      els.gatewayView.classList.add("hidden");
+      els.loginView.classList.add("hidden");
+      els.pairView.classList.add("hidden");
+
+      if (name === "main") {
+        els.authFlow.classList.add("hidden");
+        els.mainApp.classList.remove("hidden");
+        switchTab(state.tab || "home");
+        return;
+      }
+
+      if (name === "gateway") els.gatewayView.classList.remove("hidden");
+      if (name === "login") els.loginView.classList.remove("hidden");
+      if (name === "pair") els.pairView.classList.remove("hidden");
+    }
+
+    function renderDisconnected() {
+      els.envState.textContent = "Supabase 未配置";
+      els.envState.className = "badge b-danger";
+      els.configWarning.classList.remove("hidden");
+      showView("gateway");
+    }
+
+    async function loadRuntimeConfig() {
+      try {
+        const response = await fetch("/api/env", { cache: "no-store" });
+        if (!response.ok) return;
+        const data = await response.json();
+        APP.supabaseUrl = String(data.supabaseUrl || "").trim();
+        APP.supabaseAnonKey = String(data.supabaseAnonKey || "").trim();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function configReady() {
+      return Boolean(APP.supabaseUrl && APP.supabaseAnonKey);
+    }
+
+    function guardReady() {
+      if (!state.ready) {
+        showToast("Supabase 尚未连接");
+        return false;
+      }
+      return true;
+    }
+
+    function loadOrCreateDeviceId() {
+      let id = localStorage.getItem(STORAGE_KEYS.deviceId);
+      if (!id) {
+        id = "dev_" + cryptoRandom(24);
+        localStorage.setItem(STORAGE_KEYS.deviceId, id);
+      }
+      return id;
+    }
+
+    function cryptoRandom(len) {
+      const chars = "abcdef0123456789";
+      const bytes = new Uint8Array(len);
+      crypto.getRandomValues(bytes);
+      let out = "";
+      for (let i = 0; i < len; i += 1) {
+        out += chars[bytes[i] % chars.length];
+      }
+      return out;
+    }
+
+    function localDateKey(date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const d = String(date.getDate()).padStart(2, "0");
+      return y + "-" + m + "-" + d;
+    }
+
+    function metroQueryText() {
+      const city = String(els.metroCity.value || "").trim() || "当前城市";
+      const from = String(els.metroFrom.value || "").trim();
+      const to = String(els.metroTo.value || "").trim();
+      if (!from || !to) return city + " 地铁路线";
+      return city + " " + from + " 到 " + to + " 地铁路线";
+    }
+
+    function updateMetroPreview() {
+      if (!els.metroPreview) return;
+      els.metroPreview.textContent = "搜索词：" + metroQueryText();
+    }
+
+    function openMetroSearch(vendor) {
+      const from = String(els.metroFrom.value || "").trim();
+      const to = String(els.metroTo.value || "").trim();
+      if (!from || !to) {
+        showToast("请先输入起点和终点");
+        return;
+      }
+
+      const query = metroQueryText();
+      const encoded = encodeURIComponent(query);
+      const url = vendor === "amap"
+        ? "https://www.amap.com/search?query=" + encoded
+        : "https://www.baidu.com/s?wd=" + encoded;
+
+      window.open(url, "_blank", "noopener,noreferrer");
+      showToast("已打开地铁路线搜索");
+    }
+
+    function loadCustomLinks() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEYS.customLinks);
+        if (!raw) {
+          state.customLinks = [];
+          return;
+        }
+        const parsed = JSON.parse(raw);
+        state.customLinks = Array.isArray(parsed) ? parsed.filter(isValidLinkItem) : [];
+      } catch (_err) {
+        state.customLinks = [];
+      }
+    }
+
+    function saveCustomLinks() {
+      localStorage.setItem(STORAGE_KEYS.customLinks, JSON.stringify(state.customLinks));
+    }
+
+    function addCustomLink() {
+      const name = String(els.linkNameInput.value || "").trim();
+      const url = normalizeUrl(String(els.linkUrlInput.value || "").trim());
+      if (!name) {
+        showToast("请输入链接名称");
+        return;
+      }
+      if (!url) {
+        showToast("请输入正确的 URL");
+        return;
+      }
+      state.customLinks.unshift({
+        id: "lnk_" + cryptoRandom(12),
+        name,
+        url
+      });
+      saveCustomLinks();
+      renderCustomLinks();
+      els.linkNameInput.value = "";
+      els.linkUrlInput.value = "";
+      showToast("链接已添加");
+    }
+
+    function resetCustomLinks() {
+      if (!state.customLinks.length) {
+        showToast("当前没有自定义链接");
+        return;
+      }
+      if (!confirm("确认清空所有自定义链接？")) return;
+      state.customLinks = [];
+      saveCustomLinks();
+      renderCustomLinks();
+      showToast("已清空");
+    }
+
+    function renderCustomLinks() {
+      if (!els.customLinkList) return;
+      if (!state.customLinks.length) {
+        els.customLinkList.innerHTML = '<div class="item">还没有自定义链接，先添加一个吧</div>';
+        return;
+      }
+
+      els.customLinkList.innerHTML = state.customLinks.map((item) => {
+        return [
+          '<div class="item">',
+          '<div class="row"><b>' + escapeHtml(item.name) + '</b><span class="hint">' + escapeHtml(shorten(item.url, 32)) + '</span></div>',
+          '<div class="row" style="margin-top:8px;">',
+          '<button class="btn btn-ghost" data-link-action="open" data-link-id="' + item.id + '">打开</button>',
+          '<button class="btn btn-danger" data-link-action="delete" data-link-id="' + item.id + '">删除</button>',
+          '</div>',
+          '</div>'
+        ].join("");
+      }).join("");
+
+      document.querySelectorAll("[data-link-action]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const action = btn.getAttribute("data-link-action");
+          const id = btn.getAttribute("data-link-id");
+          if (!id) return;
+          if (action === "open") {
+            openCustomLink(id);
+            return;
+          }
+          if (action === "delete") {
+            deleteCustomLink(id);
+          }
+        });
+      });
+    }
+
+    function openCustomLink(id) {
+      const item = state.customLinks.find((x) => x.id === id);
+      if (!item) return;
+      window.open(item.url, "_blank", "noopener,noreferrer");
+      showToast("已打开" + item.name);
+    }
+
+    function deleteCustomLink(id) {
+      const before = state.customLinks.length;
+      state.customLinks = state.customLinks.filter((x) => x.id !== id);
+      if (state.customLinks.length === before) return;
+      saveCustomLinks();
+      renderCustomLinks();
+      showToast("已删除链接");
+    }
+
+    function normalizeUrl(input) {
+      const raw = String(input || "").trim();
+      if (!raw) return "";
+      const candidate = /^https?:\/\//i.test(raw) ? raw : "https://" + raw;
+      try {
+        const url = new URL(candidate);
+        if (!/^https?:$/i.test(url.protocol)) return "";
+        return url.toString();
+      } catch (_err) {
+        return "";
+      }
+    }
+
+    function isValidLinkItem(item) {
+      if (!item || typeof item !== "object") return false;
+      if (typeof item.id !== "string" || typeof item.name !== "string" || typeof item.url !== "string") return false;
+      return Boolean(item.id && item.name && normalizeUrl(item.url));
+    }
+
+    function formatDateTime(v) {
+      const d = new Date(v);
+      return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0") + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+    }
+
+    function dayDiff(a, b) {
+      const x = new Date(a.getFullYear(), a.getMonth(), a.getDate());
+      const y = new Date(b.getFullYear(), b.getMonth(), b.getDate());
+      return Math.max(0, Math.floor((y.getTime() - x.getTime()) / 86400000) + 1);
+    }
+
+    function shorten(text, maxLen) {
+      const value = String(text || "");
+      return value.length > maxLen ? value.slice(0, maxLen) + "..." : value;
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function showToast(text, ms = 1800) {
+      els.toast.textContent = text;
+      els.toast.classList.add("show");
+      clearTimeout(showToast.tid);
+      showToast.tid = setTimeout(() => els.toast.classList.remove("show"), ms);
+    }
+
+    function byId(id) {
+      return document.getElementById(id);
+    }
+  </script>
+</body>
+</html>
