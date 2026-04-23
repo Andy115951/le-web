@@ -39,6 +39,9 @@ Completed:
   - prev/next navigation
 - Added timeline quick search:
   - app/window/project/tag/source text filter
+- Switched long scrolling layout to single-view tabs:
+  - Overview / Dashboard / Rules / Timeline
+  - One main module visible at a time
   - Top stats aggregate by `project` first, fallback to app name
 
 Files touched:

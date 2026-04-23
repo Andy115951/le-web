@@ -54,6 +54,8 @@ type DashboardBucket = {
   sec: number;
 };
 
+type ViewMode = "overview" | "dashboard" | "rules" | "timeline";
+
 type Dict = Record<string, string>;
 
 const LOCALE_KEY = "timing-lite-locale";
@@ -62,6 +64,11 @@ const I18N: Record<Locale, Dict> = {
   zh: {
     title: "Timing Lite",
     subtitle: "后台记录 + 自动分类规则",
+    view: "视图",
+    viewOverview: "概览",
+    viewDashboard: "统计看板",
+    viewRules: "规则管理",
+    viewTimeline: "活动列表",
     language: "语言",
     tracking: "采集开关",
     interval: "采集间隔",
@@ -125,6 +132,11 @@ const I18N: Record<Locale, Dict> = {
   en: {
     title: "Timing Lite",
     subtitle: "Background tracking + auto classify rules",
+    view: "View",
+    viewOverview: "Overview",
+    viewDashboard: "Dashboard",
+    viewRules: "Rules",
+    viewTimeline: "Timeline",
     language: "Language",
     tracking: "Tracking",
     interval: "Interval",
@@ -238,6 +250,7 @@ export default function App() {
   const [timelineQuery, setTimelineQuery] = useState("");
   const [pageSize, setPageSize] = useState<number>(20);
   const [page, setPage] = useState<number>(1);
+  const [viewMode, setViewMode] = useState<ViewMode>("dashboard");
 
   const t = (key: string): string => I18N[locale][key] ?? key;
 
@@ -506,6 +519,35 @@ export default function App() {
 
       {warning ? <p className="warn">{warning}</p> : null}
 
+      <div className="view-tabs" role="tablist" aria-label={t("view")}>
+        <button
+          className={`view-tab ${viewMode === "overview" ? "active" : ""}`}
+          onClick={() => setViewMode("overview")}
+        >
+          {t("viewOverview")}
+        </button>
+        <button
+          className={`view-tab ${viewMode === "dashboard" ? "active" : ""}`}
+          onClick={() => setViewMode("dashboard")}
+        >
+          {t("viewDashboard")}
+        </button>
+        <button
+          className={`view-tab ${viewMode === "rules" ? "active" : ""}`}
+          onClick={() => setViewMode("rules")}
+        >
+          {t("viewRules")}
+        </button>
+        <button
+          className={`view-tab ${viewMode === "timeline" ? "active" : ""}`}
+          onClick={() => setViewMode("timeline")}
+        >
+          {t("viewTimeline")}
+        </button>
+      </div>
+
+      {viewMode === "overview" ? (
+      <>
       <section className="panel">
         <h2>{t("current")}</h2>
         {active ? (
@@ -518,7 +560,22 @@ export default function App() {
           <p className="muted">{t("noActive")}</p>
         )}
       </section>
+      <section className="panel">
+        <h2>{t("topProjectApp")}</h2>
+        <div className="top-grid">
+          {totals.map((item) => (
+            <div className="stat" key={item.key}>
+              <span>{item.key}</span>
+              <strong>{formatDuration(item.sec)}</strong>
+            </div>
+          ))}
+          {!totals.length ? <p className="muted">No stats yet.</p> : null}
+        </div>
+      </section>
+      </>
+      ) : null}
 
+      {viewMode === "dashboard" ? (
       <section className="panel">
         <div className="panel-head">
           <h2>{t("statsDashboard")}</h2>
@@ -611,20 +668,9 @@ export default function App() {
           </div>
         </div>
       </section>
+      ) : null}
 
-      <section className="panel">
-        <h2>{t("topProjectApp")}</h2>
-        <div className="top-grid">
-          {totals.map((item) => (
-            <div className="stat" key={item.key}>
-              <span>{item.key}</span>
-              <strong>{formatDuration(item.sec)}</strong>
-            </div>
-          ))}
-          {!totals.length ? <p className="muted">No stats yet.</p> : null}
-        </div>
-      </section>
-
+      {viewMode === "rules" ? (
       <section className="panel">
         <div className="panel-head">
           <h2>{t("rules")}</h2>
@@ -760,7 +806,9 @@ export default function App() {
           </tbody>
         </table>
       </section>
+      ) : null}
 
+      {viewMode === "timeline" ? (
       <section className="panel">
         <div className="panel-head">
           <h2>{t("timeline")}</h2>
@@ -847,6 +895,7 @@ export default function App() {
           </>
         )}
       </section>
+      ) : null}
     </main>
   );
 }
