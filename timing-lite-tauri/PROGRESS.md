@@ -42,6 +42,9 @@ Completed:
 - Switched long scrolling layout to single-view tabs:
   - Overview / Dashboard / Rules / Timeline
   - One main module visible at a time
+- Added silent dmg packaging script:
+  - `npm run build:dmg:silent`
+  - build app first, then create dmg via `hdiutil` (no Finder popup)
   - Top stats aggregate by `project` first, fallback to app name
 
 Files touched:

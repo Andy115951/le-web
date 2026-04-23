@@ -33,6 +33,20 @@ npm install
 npm run tauri dev
 ```
 
+## Build (silent dmg)
+
+This command avoids Finder popups from `bundle_dmg.sh` and generates a dmg silently:
+
+```bash
+cd /Users/apple/Documents/code/other/le-web/timing-lite-tauri
+npm run build:dmg:silent
+```
+
+Output:
+
+- App bundle: `src-tauri/target/release/bundle/macos/Timing Lite.app`
+- DMG: `src-tauri/target/release/bundle/dmg/Timing-Lite.dmg`
+
 ## macOS permission note
 
 On first run, macOS may block front-window capture until you grant permissions:
