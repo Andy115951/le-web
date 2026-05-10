@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>股票自选看板</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="top card">
+      <div>
+        <p class="eyebrow">Custom Watchlist</p>
+        <h1 class="title">股票自选看板</h1>
+        <p class="subtitle">支持美股/A股代码、分组筛选、涨跌排序、备注和迷你走势图。</p>
+      </div>
+      <div class="top-actions">
+        <div class="timestamp-wrap">
+          <span class="muted">最后更新</span>
+          <strong id="lastUpdated">--</strong>
+        </div>
+        <button type="button" class="btn btn-primary" id="refreshBtn">刷新行情</button>
+      </div>
+    </header>
+
+    <section class="card controls">
+      <form id="stockForm" class="stock-form">
+        <div class="field">
+          <label for="symbolInput">代码</label>
+          <input id="symbolInput" name="symbol" placeholder="例如 AAPL / 600519 / 300750" maxlength="10" required />
+        </div>
+        <div class="field">
+          <label for="nameInput">名称</label>
+          <input id="nameInput" name="displayName" placeholder="例如 Apple" maxlength="40" />
+        </div>
+        <div class="field">
+          <label for="groupInput">分组</label>
+          <input id="groupInput" name="group" placeholder="例如 科技 / AI" maxlength="20" />
+        </div>
+        <div class="field note-field">
+          <label for="noteInput">备注</label>
+          <input id="noteInput" name="note" placeholder="例如 财报临近，重点跟踪" maxlength="80" />
+        </div>
+        <button type="submit" class="btn btn-primary form-submit">添加股票</button>
+      </form>
+
+      <div class="toolbar">
+        <div class="toolbar-item">
+          <label for="groupFilter">分组筛选</label>
+          <select id="groupFilter"></select>
+        </div>
+        <div class="toolbar-item">
+          <label for="sortSelect">排序方式</label>
+          <select id="sortSelect">
+            <option value="symbol">代码</option>
+            <option value="displayName">名称</option>
+            <option value="price">最新价</option>
+            <option value="changePercent">涨跌幅</option>
+          </select>
+        </div>
+        <div class="toolbar-item direction-item">
+          <label for="sortDirection">排序方向</label>
+          <select id="sortDirection">
+            <option value="desc">降序</option>
+            <option value="asc">升序</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <section class="stats-grid">
+      <article class="card stat-card">
+        <span class="stat-label">股票数量</span>
+        <strong class="stat-value" id="countStat">0</strong>
+      </article>
+      <article class="card stat-card">
+        <span class="stat-label">上涨</span>
+        <strong class="stat-value positive" id="upStat">0</strong>
+      </article>
+      <article class="card stat-card">
+        <span class="stat-label">下跌</span>
+        <strong class="stat-value negative" id="downStat">0</strong>
+      </article>
+      <article class="card stat-card">
+        <span class="stat-label">平盘</span>
+        <strong class="stat-value neutral" id="flatStat">0</strong>
+      </article>
+    </section>
+
+    <section class="card list-card">
+      <div class="list-head">
+        <div>
+          <h2>我的自选</h2>
+          <p class="muted" id="listHint">当前接入东方财富公开接口，可直接拉取 A 股与常见美股行情。</p>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="stock-table">
+          <thead>
+            <tr>
+              <th>股票</th>
+              <th>分组</th>
+              <th>最新价</th>
+              <th>涨跌额</th>
+              <th>涨跌幅</th>
+              <th>趋势</th>
+              <th>备注</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="stockTableBody"></tbody>
+        </table>
+      </div>
+
+      <div id="emptyState" class="empty-state hidden">
+        还没有自选股，先添加几只常看的股票吧。
+      </div>
+
+      <div class="mobile-list hidden" id="mobileList"></div>
+    </section>
+  </main>
+
+  <template id="rowTemplate">
+    <tr>
+      <td>
+        <div class="stock-cell">
+          <strong class="stock-symbol"></strong>
+          <span class="stock-name"></span>
+        </div>
+      </td>
+      <td><span class="group-badge"></span></td>
+      <td class="price-cell"></td>
+      <td class="change-cell"></td>
+      <td class="percent-cell"></td>
+      <td><div class="sparkline"></div></td>
+      <td class="note-cell"></td>
+      <td>
+        <button type="button" class="btn btn-ghost remove-btn">删除</button>
+      </td>
+    </tr>
+  </template>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
