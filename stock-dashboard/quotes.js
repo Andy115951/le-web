@@ -1,4 +1,4 @@
-const QUOTE_FIELDS = "f2,f3,f4,f12,f13,f14";
+const QUOTE_FIELDS = "f2,f3,f4,f12,f13,f14,f15,f16,f17,f18";
 const TREND_TOKEN = "fa5fd1943c7b386f172d6893dbfba10b";
 
 function normalizeSymbol(symbol) {
@@ -39,6 +39,15 @@ function parseScaledNumber(value, scale) {
   const num = Number(value);
   if (!Number.isFinite(num)) return null;
   return Number((num / scale).toFixed(3));
+}
+
+function marketLabel(marketCode, secid) {
+  const code = Number(marketCode);
+  const prefix = String(secid || "").split(".")[0];
+  if (code === 105 || prefix === "105") return "美股";
+  if (prefix === "1") return "沪市";
+  if (prefix === "0") return "深市";
+  return "未知";
 }
 
 function buildQuoteUrl(secids) {
@@ -112,9 +121,14 @@ function createEmptyQuote(symbol) {
   return {
     symbol,
     name: symbol,
+    market: null,
     price: null,
     change: null,
     changePercent: null,
+    open: null,
+    high: null,
+    low: null,
+    previousClose: null,
     updatedAt: new Date().toISOString(),
     sparkline: []
   };
@@ -153,9 +167,14 @@ export async function fetchQuotes(symbols) {
     quotes[symbol] = {
       symbol,
       name: String(item.f14 || symbol).trim() || symbol,
+      market: marketLabel(item.f13, entry.secid),
       price: parseScaledNumber(item.f2, scale),
       change: parseScaledNumber(item.f4, scale),
       changePercent: parseScaledNumber(item.f3, 100),
+      open: parseScaledNumber(item.f17, scale),
+      high: parseScaledNumber(item.f15, scale),
+      low: parseScaledNumber(item.f16, scale),
+      previousClose: parseScaledNumber(item.f18, scale),
       updatedAt: new Date().toISOString(),
       sparkline: []
     };

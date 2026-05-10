@@ -261,19 +261,31 @@ select:focus {
   font-size: 0.88rem;
 }
 
-.group-badge {
+.group-badge,
+.market-badge {
   display: inline-flex;
   align-items: center;
   padding: 6px 10px;
   border-radius: 999px;
-  background: rgba(79, 140, 255, 0.12);
   border: 1px solid rgba(79, 140, 255, 0.25);
+}
+
+.group-badge {
+  background: rgba(79, 140, 255, 0.12);
   color: #b8d0ff;
+}
+
+.market-badge {
+  background: rgba(33, 193, 107, 0.12);
+  border-color: rgba(33, 193, 107, 0.2);
+  color: #9fe1bd;
 }
 
 .price-cell,
 .change-cell,
 .percent-cell,
+.prev-open-cell,
+.range-cell,
 .note-cell {
   white-space: nowrap;
 }
@@ -295,6 +307,12 @@ select:focus {
   height: 40px;
   display: flex;
   align-items: center;
+}
+
+.prev-open-cell,
+.range-cell {
+  color: var(--sub);
+  font-size: 0.9rem;
 }
 
 .sparkline-svg {
@@ -333,6 +351,13 @@ select:focus {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+}
+
+.mobile-side-tags {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .mobile-metrics {
@@ -393,6 +418,10 @@ select:focus {
   .top-actions {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .stock-table {
+    min-width: 1220px;
   }
 }
 

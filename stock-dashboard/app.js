@@ -161,8 +161,11 @@ function render() {
     const quote = state.quotes[item.symbol] || null;
     const fragment = els.rowTemplate.content.cloneNode(true);
     const row = fragment.querySelector("tr");
-    row.querySelector(".stock-symbol").textContent = item.symbol;
-    row.querySelector(".stock-name").textContent = item.displayName;
+    const symbolNode = row.querySelector(".stock-symbol");
+    const nameNode = row.querySelector(".stock-name");
+    symbolNode.textContent = item.symbol;
+    nameNode.textContent = quote && quote.name ? quote.name : item.displayName;
+    row.querySelector(".market-badge").textContent = quote && quote.market ? quote.market : "--";
     row.querySelector(".group-badge").textContent = item.group;
     row.querySelector(".note-cell").textContent = item.note || "-";
     row.querySelector(".remove-btn").setAttribute("data-symbol", item.symbol);
@@ -170,11 +173,15 @@ function render() {
     const priceCell = row.querySelector(".price-cell");
     const changeCell = row.querySelector(".change-cell");
     const percentCell = row.querySelector(".percent-cell");
+    const prevOpenCell = row.querySelector(".prev-open-cell");
+    const rangeCell = row.querySelector(".range-cell");
 
     fillQuoteCells({
       priceCell,
       changeCell,
       percentCell,
+      prevOpenCell,
+      rangeCell,
       sparklineTarget: row.querySelector(".sparkline")
     }, quote);
 
@@ -188,6 +195,8 @@ function fillQuoteCells(cells, quote) {
     cells.priceCell.textContent = "--";
     cells.changeCell.textContent = "--";
     cells.percentCell.textContent = "--";
+    cells.prevOpenCell.textContent = "--";
+    cells.rangeCell.textContent = "--";
     renderSparkline(cells.sparklineTarget, quote ? quote.sparkline : [], 0);
     return;
   }
@@ -195,6 +204,8 @@ function fillQuoteCells(cells, quote) {
   cells.priceCell.textContent = formatNumber(quote.price);
   cells.changeCell.textContent = formatSigned(quote.change);
   cells.percentCell.textContent = formatSigned(quote.changePercent) + "%";
+  cells.prevOpenCell.textContent = formatPair(quote.previousClose, quote.open);
+  cells.rangeCell.textContent = formatRange(quote.low, quote.high);
   applyTone(cells.changeCell, quote.change);
   applyTone(cells.percentCell, quote.changePercent);
   renderSparkline(cells.sparklineTarget, quote.sparkline, quote.changePercent);
@@ -208,16 +219,20 @@ function createMobileCard(item, quote) {
   const percentText = quote && quote.changePercent !== null ? formatSigned(quote.changePercent) + "%" : "--";
   const changeText = quote && quote.change !== null ? formatSigned(quote.change) : "--";
   const priceText = quote && quote.price !== null ? formatNumber(quote.price) : "--";
+  const displayName = quote && quote.name ? quote.name : item.displayName;
 
   card.innerHTML = [
     '<div class="mobile-card-top">',
-    '<div class="stock-cell"><strong class="stock-symbol">' + escapeHtml(item.symbol) + '</strong><span class="stock-name">' + escapeHtml(item.displayName) + '</span></div>',
-    '<span class="group-badge">' + escapeHtml(item.group) + '</span>',
+    '<div class="stock-cell"><strong class="stock-symbol">' + escapeHtml(item.symbol) + '</strong><span class="stock-name">' + escapeHtml(displayName) + '</span></div>',
+    '<div class="mobile-side-tags"><span class="market-badge">' + escapeHtml(quote && quote.market ? quote.market : "--") + '</span><span class="group-badge">' + escapeHtml(item.group) + '</span></div>',
     '</div>',
     '<div class="mobile-metrics">',
     '<div><span class="muted">最新价</span><strong>' + priceText + '</strong></div>',
     '<div><span class="muted">涨跌额</span><strong class="' + toneClass + '">' + changeText + '</strong></div>',
     '<div><span class="muted">涨跌幅</span><strong class="' + toneClass + '">' + percentText + '</strong></div>',
+    '<div><span class="muted">昨收 / 今开</span><strong>' + formatPair(quote && quote.previousClose, quote && quote.open) + '</strong></div>',
+    '<div><span class="muted">日内区间</span><strong>' + formatRange(quote && quote.low, quote && quote.high) + '</strong></div>',
+    '<div><span class="muted">更新时间</span><strong>' + formatQuoteTime(quote && quote.updatedAt) + '</strong></div>',
     '</div>',
     '<div class="mobile-chart"></div>',
     '<p class="mobile-note">' + escapeHtml(item.note || "暂无备注") + '</p>',
@@ -298,6 +313,23 @@ function formatNumber(value) {
 function formatSigned(value) {
   const text = Number(value).toFixed(2);
   return value > 0 ? "+" + text : text;
+}
+
+function formatPair(left, right) {
+  if (!Number.isFinite(left) && !Number.isFinite(right)) return "--";
+  return [Number.isFinite(left) ? formatNumber(left) : "--", Number.isFinite(right) ? formatNumber(right) : "--"].join(" / ");
+}
+
+function formatRange(low, high) {
+  if (!Number.isFinite(low) && !Number.isFinite(high)) return "--";
+  return [Number.isFinite(low) ? formatNumber(low) : "--", Number.isFinite(high) ? formatNumber(high) : "--"].join(" - ");
+}
+
+function formatQuoteTime(value) {
+  if (!value) return "--";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "--";
+  return date.getHours().toString().padStart(2, "0") + ":" + date.getMinutes().toString().padStart(2, "0") + ":" + date.getSeconds().toString().padStart(2, "0");
 }
 
 function escapeHtml(str) {
