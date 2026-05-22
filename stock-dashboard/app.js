@@ -1,6 +1,17 @@
 import { loadState, saveState, upsertItem, removeItem, collectGroups } from "./storage.js";
 import { fetchQuotes } from "./quotes.js";
 import { renderSparkline } from "./chart.js";
+import {
+  loadCloudConfig,
+  saveCloudConfig,
+  createCloudClient,
+  getCloudUser,
+  sendMagicLink,
+  signOutCloud,
+  onCloudAuthChange,
+  loadRemoteState,
+  saveRemoteState
+} from "./cloud.js";
 
 const els = {
   stockForm: document.getElementById("stockForm"),
@@ -9,9 +20,29 @@ const els = {
   groupInput: document.getElementById("groupInput"),
   noteInput: document.getElementById("noteInput"),
   refreshBtn: document.getElementById("refreshBtn"),
+  supabaseUrlInput: document.getElementById("supabaseUrlInput"),
+  supabaseAnonKeyInput: document.getElementById("supabaseAnonKeyInput"),
+  cloudEmailInput: document.getElementById("cloudEmailInput"),
+  saveCloudConfigBtn: document.getElementById("saveCloudConfigBtn"),
+  sendMagicLinkBtn: document.getElementById("sendMagicLinkBtn"),
+  loadCloudBtn: document.getElementById("loadCloudBtn"),
+  syncCloudBtn: document.getElementById("syncCloudBtn"),
+  logoutCloudBtn: document.getElementById("logoutCloudBtn"),
+  cloudStatus: document.getElementById("cloudStatus"),
   groupFilter: document.getElementById("groupFilter"),
+  performanceFilter: document.getElementById("performanceFilter"),
+  searchInput: document.getElementById("searchInput"),
   sortSelect: document.getElementById("sortSelect"),
   sortDirection: document.getElementById("sortDirection"),
+  autoRefreshSelect: document.getElementById("autoRefreshSelect"),
+  clearFiltersBtn: document.getElementById("clearFiltersBtn"),
+  pageSizeSelect: document.getElementById("pageSizeSelect"),
+  prevPageBtn: document.getElementById("prevPageBtn"),
+  nextPageBtn: document.getElementById("nextPageBtn"),
+  pageInfo: document.getElementById("pageInfo"),
+  pagination: document.getElementById("pagination"),
+  statusDot: document.getElementById("statusDot"),
+  statusText: document.getElementById("statusText"),
   stockTableBody: document.getElementById("stockTableBody"),
   lastUpdated: document.getElementById("lastUpdated"),
   rowTemplate: document.getElementById("rowTemplate"),
@@ -21,29 +52,57 @@ const els = {
   flatStat: document.getElementById("flatStat"),
   emptyState: document.getElementById("emptyState"),
   mobileList: document.getElementById("mobileList"),
-  listHint: document.getElementById("listHint")
+  listHint: document.getElementById("listHint"),
+  strategyRulesInput: document.getElementById("strategyRulesInput"),
+  saveStrategyBtn: document.getElementById("saveStrategyBtn"),
+  strategyHint: document.getElementById("strategyHint"),
+  signalSummary: document.getElementById("signalSummary"),
+  signalList: document.getElementById("signalList")
 };
 
 const state = {
   items: [],
   preferences: {
     selectedGroup: "all",
+    performanceFilter: "all",
+    searchKeyword: "",
     sortKey: "changePercent",
-    sortDirection: "desc"
+    sortDirection: "desc",
+    autoRefreshSec: 0,
+    pageSize: 10,
+    currentPage: 1,
+    strategyRulesText: "8:20,12:30,18:50"
   },
   quotes: {},
-  loading: false
+  usPeaks: {},
+  loading: false,
+  autoRefreshTimer: null,
+  lastSuccessAt: null,
+  cloud: {
+    client: null,
+    user: null,
+    syncing: false,
+    unsubscribeAuth: null
+  }
 };
 
 init();
 
 async function init() {
   const saved = loadState();
+  const cloudConfig = loadCloudConfig();
   state.items = saved.items;
   state.preferences = saved.preferences;
+  state.usPeaks = saved.usPeaks || {};
   bindEvents();
+  syncCloudConfigInputs(cloudConfig);
   syncControls();
   renderGroupFilter();
+  configureAutoRefresh();
+  setStatus("neutral", "等待刷新");
+  setCloudStatus("未连接云端");
+  updateCloudButtons();
+  await initCloud(cloudConfig);
   await refreshQuotes();
 }
 
@@ -74,8 +133,67 @@ function bindEvents() {
     await refreshQuotes();
   });
 
+  els.saveCloudConfigBtn.addEventListener("click", async function () {
+    const config = readCloudConfigInputs();
+    const normalized = saveCloudConfig(config);
+    syncCloudConfigInputs(normalized);
+    await initCloud(normalized);
+  });
+
+  els.sendMagicLinkBtn.addEventListener("click", async function () {
+    const cloud = state.cloud;
+    if (!cloud.client) {
+      setCloudStatus("请先保存有效的 Supabase 配置");
+      return;
+    }
+
+    toggleCloudButtons(true);
+    const result = await sendMagicLink(cloud.client, els.cloudEmailInput.value);
+    toggleCloudButtons(false);
+    if (result.error) {
+      setCloudStatus("发送失败：" + result.error);
+      return;
+    }
+    setCloudStatus("登录链接已发送，请在邮箱点击后返回本页");
+  });
+
+  els.loadCloudBtn.addEventListener("click", async function () {
+    await pullFromCloud({ overrideLocal: true });
+  });
+
+  els.syncCloudBtn.addEventListener("click", async function () {
+    await pushToCloud("manual");
+  });
+
+  els.logoutCloudBtn.addEventListener("click", async function () {
+    if (!state.cloud.client) return;
+    const result = await signOutCloud(state.cloud.client);
+    if (result.error) {
+      setCloudStatus("退出失败：" + result.error);
+      return;
+    }
+    state.cloud.user = null;
+    setCloudStatus("已退出云端账号");
+    updateCloudButtons();
+  });
+
   els.groupFilter.addEventListener("change", function () {
     state.preferences.selectedGroup = els.groupFilter.value;
+    state.preferences.currentPage = 1;
+    persist();
+    render();
+  });
+
+  els.performanceFilter.addEventListener("change", function () {
+    state.preferences.performanceFilter = els.performanceFilter.value;
+    state.preferences.currentPage = 1;
+    persist();
+    render();
+  });
+
+  els.searchInput.addEventListener("input", function () {
+    state.preferences.searchKeyword = els.searchInput.value.trim();
+    state.preferences.currentPage = 1;
     persist();
     render();
   });
@@ -92,20 +210,257 @@ function bindEvents() {
     render();
   });
 
-  els.stockTableBody.addEventListener("click", async function (event) {
+  els.autoRefreshSelect.addEventListener("change", function () {
+    state.preferences.autoRefreshSec = Number(els.autoRefreshSelect.value) || 0;
+    persist();
+    configureAutoRefresh();
+    renderListHint(getVisibleItems().length);
+  });
+
+  els.pageSizeSelect.addEventListener("change", function () {
+    state.preferences.pageSize = Number(els.pageSizeSelect.value) || 10;
+    state.preferences.currentPage = 1;
+    persist();
+    render();
+  });
+
+  els.saveStrategyBtn.addEventListener("click", function () {
+    const text = String(els.strategyRulesInput.value || "").trim();
+    const parsed = parseStrategyRules(text);
+    if (!parsed.length) {
+      els.strategyHint.textContent = "规则无效，请使用例如 8:20,12:30,18:50";
+      return;
+    }
+
+    state.preferences.strategyRulesText = parsed.map(function (rule) {
+      return rule.drawdown + ":" + rule.sellPercent;
+    }).join(",");
+    persist();
+    syncControls();
+    render();
+  });
+
+  els.clearFiltersBtn.addEventListener("click", function () {
+    state.preferences.selectedGroup = "all";
+    state.preferences.performanceFilter = "all";
+    state.preferences.searchKeyword = "";
+    state.preferences.currentPage = 1;
+    persist();
+    syncControls();
+    render();
+  });
+
+  els.prevPageBtn.addEventListener("click", function () {
+    if (state.preferences.currentPage > 1) {
+      state.preferences.currentPage -= 1;
+      persist();
+      render();
+    }
+  });
+
+  els.nextPageBtn.addEventListener("click", function () {
+    const totalPages = getTotalPages(getVisibleItems().length, state.preferences.pageSize);
+    if (state.preferences.currentPage < totalPages) {
+      state.preferences.currentPage += 1;
+      persist();
+      render();
+    }
+  });
+
+  async function handleDeleteClick(event) {
     const button = event.target.closest("button[data-symbol]");
     if (!button) return;
-    state.items = removeItem(state.items, button.getAttribute("data-symbol"));
+    const symbol = String(button.getAttribute("data-symbol") || "").trim().toUpperCase();
+    state.items = removeItem(state.items, symbol);
+    if (state.usPeaks[symbol]) {
+      delete state.usPeaks[symbol];
+    }
     persist();
     renderGroupFilter();
     await refreshQuotes();
-  });
+  }
+
+  els.stockTableBody.addEventListener("click", handleDeleteClick);
+  els.mobileList.addEventListener("click", handleDeleteClick);
 }
 
 function syncControls() {
   els.groupFilter.value = state.preferences.selectedGroup;
+  els.performanceFilter.value = state.preferences.performanceFilter;
+  els.searchInput.value = state.preferences.searchKeyword;
   els.sortSelect.value = state.preferences.sortKey;
   els.sortDirection.value = state.preferences.sortDirection;
+  els.autoRefreshSelect.value = String(state.preferences.autoRefreshSec);
+  els.pageSizeSelect.value = String(state.preferences.pageSize);
+  els.strategyRulesInput.value = state.preferences.strategyRulesText;
+}
+
+function syncCloudConfigInputs(config) {
+  els.supabaseUrlInput.value = String(config?.url || "");
+  els.supabaseAnonKeyInput.value = String(config?.anonKey || "");
+}
+
+function readCloudConfigInputs() {
+  return {
+    url: String(els.supabaseUrlInput.value || "").trim(),
+    anonKey: String(els.supabaseAnonKeyInput.value || "").trim()
+  };
+}
+
+function setCloudStatus(text) {
+  els.cloudStatus.textContent = text;
+}
+
+function toggleCloudButtons(disabled) {
+  els.saveCloudConfigBtn.disabled = disabled;
+  els.sendMagicLinkBtn.disabled = disabled;
+  els.loadCloudBtn.disabled = disabled;
+  els.syncCloudBtn.disabled = disabled;
+  els.logoutCloudBtn.disabled = disabled;
+}
+
+function updateCloudButtons() {
+  const hasClient = !!state.cloud.client;
+  const hasUser = !!state.cloud.user;
+  els.sendMagicLinkBtn.disabled = !hasClient;
+  els.loadCloudBtn.disabled = !(hasClient && hasUser);
+  els.syncCloudBtn.disabled = !(hasClient && hasUser) || state.cloud.syncing;
+  els.logoutCloudBtn.disabled = !(hasClient && hasUser);
+}
+
+async function initCloud(config) {
+  if (state.cloud.unsubscribeAuth) {
+    state.cloud.unsubscribeAuth();
+    state.cloud.unsubscribeAuth = null;
+  }
+
+  const result = await createCloudClient(config);
+  if (result.error || !result.client) {
+    state.cloud.client = null;
+    state.cloud.user = null;
+    setCloudStatus(result.error || "未连接云端");
+    updateCloudButtons();
+    return;
+  }
+
+  state.cloud.client = result.client;
+  state.cloud.unsubscribeAuth = onCloudAuthChange(result.client, async function (user) {
+    state.cloud.user = user;
+    if (user) {
+      setCloudStatus("已登录：" + (user.email || user.id));
+      await pullFromCloud({ overrideLocal: false });
+    } else {
+      setCloudStatus("已连接 Supabase，未登录");
+    }
+    updateCloudButtons();
+  });
+
+  const userResult = await getCloudUser(result.client);
+  if (userResult.error) {
+    setCloudStatus("云端已连接，登录状态检查失败");
+  } else {
+    state.cloud.user = userResult.user;
+    if (userResult.user) {
+      setCloudStatus("已登录：" + (userResult.user.email || userResult.user.id));
+      await pullFromCloud({ overrideLocal: false });
+    } else {
+      setCloudStatus("已连接 Supabase，未登录");
+    }
+  }
+
+  updateCloudButtons();
+}
+
+async function pullFromCloud(options) {
+  const cloud = state.cloud;
+  if (!cloud.client || !cloud.user) {
+    setCloudStatus("请先登录云端账号");
+    return;
+  }
+
+  toggleCloudButtons(true);
+  const remote = await loadRemoteState(cloud.client, cloud.user.id);
+  if (remote.error) {
+    toggleCloudButtons(false);
+    setCloudStatus("拉取失败：" + remote.error);
+    updateCloudButtons();
+    return;
+  }
+
+  if (!remote.data) {
+    const pushed = await pushToCloud("bootstrap");
+    toggleCloudButtons(false);
+    if (!pushed) return;
+    setCloudStatus("云端为空，已自动迁移本地数据");
+    updateCloudButtons();
+    return;
+  }
+
+  if (options?.overrideLocal !== false) {
+    applyRemoteState(remote.data);
+    setCloudStatus("已从云端拉取并覆盖本地");
+  } else {
+    const localFingerprint = JSON.stringify({
+      items: state.items,
+      preferences: state.preferences,
+      usPeaks: state.usPeaks
+    });
+    const remoteFingerprint = JSON.stringify({
+      items: Array.isArray(remote.data.items) ? remote.data.items : [],
+      preferences: remote.data.preferences && typeof remote.data.preferences === "object" ? remote.data.preferences : {},
+      usPeaks: remote.data.us_peaks && typeof remote.data.us_peaks === "object" ? remote.data.us_peaks : {}
+    });
+
+    if (localFingerprint !== remoteFingerprint) {
+      applyRemoteState(remote.data);
+      setCloudStatus("检测到云端有更新，已同步到本地");
+    } else {
+      setCloudStatus("云端与本地已一致");
+    }
+  }
+
+  toggleCloudButtons(false);
+  updateCloudButtons();
+}
+
+function applyRemoteState(remoteData) {
+  state.items = Array.isArray(remoteData.items) ? remoteData.items : [];
+  state.preferences = {
+    ...state.preferences,
+    ...(remoteData.preferences && typeof remoteData.preferences === "object" ? remoteData.preferences : {})
+  };
+  state.usPeaks = remoteData.us_peaks && typeof remoteData.us_peaks === "object" ? remoteData.us_peaks : {};
+  persist({ skipCloudSync: true });
+  renderGroupFilter();
+  syncControls();
+  render();
+}
+
+async function pushToCloud(reason) {
+  const cloud = state.cloud;
+  if (!cloud.client || !cloud.user) {
+    if (reason === "manual") setCloudStatus("请先登录云端账号");
+    return false;
+  }
+  if (cloud.syncing) return false;
+
+  cloud.syncing = true;
+  updateCloudButtons();
+  const result = await saveRemoteState(cloud.client, cloud.user.id, {
+    items: state.items,
+    preferences: state.preferences,
+    usPeaks: state.usPeaks
+  });
+  cloud.syncing = false;
+  updateCloudButtons();
+
+  if (result.error) {
+    if (reason === "manual") setCloudStatus("同步失败：" + result.error);
+    return false;
+  }
+
+  if (reason === "manual") setCloudStatus("已同步到云端");
+  return true;
 }
 
 function renderGroupFilter() {
@@ -122,42 +477,69 @@ function renderGroupFilter() {
   syncControls();
 }
 
-async function refreshQuotes() {
+function configureAutoRefresh() {
+  if (state.autoRefreshTimer) {
+    clearInterval(state.autoRefreshTimer);
+    state.autoRefreshTimer = null;
+  }
+
+  const intervalSec = Number(state.preferences.autoRefreshSec) || 0;
+  if (!intervalSec) return;
+
+  state.autoRefreshTimer = window.setInterval(async function () {
+    if (state.loading) return;
+    await refreshQuotes({ trigger: "auto" });
+  }, intervalSec * 1000);
+}
+
+async function refreshQuotes(options) {
+  const merged = options && options.trigger ? options : { trigger: "manual" };
+  return refreshQuotesInternal(merged);
+}
+
+async function refreshQuotesInternal(options) {
+  if (state.loading) return;
   state.loading = true;
   els.refreshBtn.disabled = true;
-  els.listHint.textContent = "正在刷新实时行情...";
+  setStatus("neutral", options.trigger === "auto" ? "自动刷新中..." : "正在刷新...");
   try {
     state.quotes = await fetchQuotes(state.items.map(function (item) {
       return item.symbol;
     }));
-    updateLastUpdated();
+    syncUsPeaksWithQuotes();
+    persist();
+    state.lastSuccessAt = new Date();
+    updateLastUpdated(state.lastSuccessAt);
+    setStatus("positive", options.trigger === "auto" ? "自动刷新成功" : "刷新成功");
   } catch (error) {
     console.error(error);
-    els.listHint.textContent = error && error.message ? error.message : "刷新行情失败，请稍后重试。";
+    setStatus("negative", error && error.message ? error.message : "刷新行情失败，请稍后重试。");
   } finally {
     state.loading = false;
     els.refreshBtn.disabled = false;
-    if (Object.keys(state.quotes).length) {
-      els.listHint.textContent = "当前接入东方财富公开接口；美股按字母代码，A股按 600519 / 300750 这类代码即可。";
-    }
     render();
   }
 }
 
-function updateLastUpdated() {
-  const now = new Date();
+function updateLastUpdated(now) {
   els.lastUpdated.textContent = now.getHours().toString().padStart(2, "0") + ":" + now.getMinutes().toString().padStart(2, "0") + ":" + now.getSeconds().toString().padStart(2, "0");
 }
 
 function render() {
   const rows = getVisibleItems();
+  const pagination = getPagination(rows.length, state.preferences.pageSize, state.preferences.currentPage);
+  state.preferences.currentPage = pagination.currentPage;
+  const pageRows = rows.slice(pagination.startIndex, pagination.endIndex);
+  const strategySignals = buildStrategySignals(rows);
+
   renderStats(rows);
   els.stockTableBody.innerHTML = "";
   els.mobileList.innerHTML = "";
   els.emptyState.classList.toggle("hidden", rows.length > 0);
   els.mobileList.classList.toggle("hidden", rows.length === 0);
+  els.pagination.classList.toggle("hidden", rows.length === 0);
 
-  for (const item of rows) {
+  for (const item of pageRows) {
     const quote = state.quotes[item.symbol] || null;
     const fragment = els.rowTemplate.content.cloneNode(true);
     const row = fragment.querySelector("tr");
@@ -170,6 +552,8 @@ function render() {
     const priceCell = row.querySelector(".price-cell");
     const changeCell = row.querySelector(".change-cell");
     const percentCell = row.querySelector(".percent-cell");
+    const drawdownCell = row.querySelector(".drawdown-cell");
+    const adviceCell = row.querySelector(".advice-cell");
 
     fillQuoteCells({
       priceCell,
@@ -177,10 +561,16 @@ function render() {
       percentCell,
       sparklineTarget: row.querySelector(".sparkline")
     }, quote);
+    fillDrawdownCell(drawdownCell, item, quote);
+    fillAdviceCell(adviceCell, item, quote);
 
     els.stockTableBody.appendChild(fragment);
     els.mobileList.appendChild(createMobileCard(item, quote));
   }
+
+  updatePagination(pagination, rows.length);
+  renderListHint(rows.length);
+  renderStrategyPanel(strategySignals);
 }
 
 function fillQuoteCells(cells, quote) {
@@ -200,6 +590,37 @@ function fillQuoteCells(cells, quote) {
   renderSparkline(cells.sparklineTarget, quote.sparkline, quote.changePercent);
 }
 
+function fillDrawdownCell(cell, item, quote) {
+  const drawdown = getUsDrawdownPercent(item, quote);
+  cell.classList.remove("positive", "negative", "neutral");
+
+  if (drawdown === null) {
+    cell.textContent = "--";
+    cell.classList.add("neutral");
+    cell.title = isUsSymbol(item.symbol) ? "等待更多价格数据后开始计算" : "仅对美股跟踪峰值回撤";
+    return;
+  }
+
+  cell.textContent = formatUnsignedPercent(drawdown);
+  cell.classList.add(drawdown === 0 ? "neutral" : "negative");
+  const peak = state.usPeaks[item.symbol];
+  cell.title = peak ? "跟踪峰值 " + formatNumber(peak.peakPrice) : "";
+}
+
+function fillAdviceCell(cell, item, quote) {
+  const signal = getStrategySignal(item, quote);
+  cell.classList.remove("positive", "negative", "neutral");
+
+  if (!signal) {
+    cell.textContent = "观察";
+    cell.classList.add("neutral");
+    return;
+  }
+
+  cell.textContent = "回撤≥" + signal.drawdown + "% 卖出 " + signal.sellPercent + "%";
+  cell.classList.add("negative");
+}
+
 function createMobileCard(item, quote) {
   const card = document.createElement("article");
   card.className = "mobile-card";
@@ -208,6 +629,14 @@ function createMobileCard(item, quote) {
   const percentText = quote && quote.changePercent !== null ? formatSigned(quote.changePercent) + "%" : "--";
   const changeText = quote && quote.change !== null ? formatSigned(quote.change) : "--";
   const priceText = quote && quote.price !== null ? formatNumber(quote.price) : "--";
+  const drawdown = getUsDrawdownPercent(item, quote);
+  const drawdownText = drawdown === null ? "--" : formatUnsignedPercent(drawdown);
+  const drawdownTone = drawdown === null || drawdown === 0 ? "neutral" : "negative";
+  const strategySignal = getStrategySignal(item, quote);
+  const strategyText = strategySignal
+    ? "建议：回撤≥" + strategySignal.drawdown + "%，卖出 " + strategySignal.sellPercent + "%"
+    : "建议：继续观察";
+  const strategyTone = strategySignal ? "negative" : "neutral";
 
   card.innerHTML = [
     '<div class="mobile-card-top">',
@@ -219,6 +648,8 @@ function createMobileCard(item, quote) {
     '<div><span class="muted">涨跌额</span><strong class="' + toneClass + '">' + changeText + '</strong></div>',
     '<div><span class="muted">涨跌幅</span><strong class="' + toneClass + '">' + percentText + '</strong></div>',
     '</div>',
+    '<p class="mobile-drawdown"><span class="muted">较峰值回撤</span> <strong class="' + drawdownTone + '">' + drawdownText + '</strong></p>',
+    '<p class="mobile-drawdown"><span class="muted">止盈建议</span> <strong class="' + strategyTone + '">' + strategyText + '</strong></p>',
     '<div class="mobile-chart"></div>',
     '<p class="mobile-note">' + escapeHtml(item.note || "暂无备注") + '</p>',
     '<button type="button" class="btn btn-ghost remove-btn" data-symbol="' + escapeHtml(item.symbol) + '">删除</button>'
@@ -252,8 +683,21 @@ function renderStats(rows) {
 
 function getVisibleItems() {
   const selectedGroup = state.preferences.selectedGroup;
+  const performanceFilter = state.preferences.performanceFilter;
+  const searchKeyword = state.preferences.searchKeyword.trim().toLowerCase();
   const rows = state.items.filter(function (item) {
-    return selectedGroup === "all" || item.group === selectedGroup;
+    if (selectedGroup !== "all" && item.group !== selectedGroup) return false;
+    if (!matchesPerformance(item, performanceFilter)) return false;
+    if (!searchKeyword) return true;
+
+    const haystack = [
+      item.symbol,
+      item.displayName,
+      item.group,
+      item.note
+    ].join(" ").toLowerCase();
+
+    return haystack.includes(searchKeyword);
   });
 
   const sortKey = state.preferences.sortKey;
@@ -263,6 +707,10 @@ function getVisibleItems() {
     const leftValue = getSortValue(left, sortKey);
     const rightValue = getSortValue(right, sortKey);
 
+    if (leftValue === null && rightValue === null) return left.symbol.localeCompare(right.symbol);
+    if (leftValue === null) return 1;
+    if (rightValue === null) return -1;
+
     if (leftValue < rightValue) return -1 * direction;
     if (leftValue > rightValue) return 1 * direction;
     return left.symbol.localeCompare(right.symbol) * direction;
@@ -271,10 +719,162 @@ function getVisibleItems() {
 
 function getSortValue(item, sortKey) {
   const quote = state.quotes[item.symbol];
-  if (sortKey === "price") return quote ? quote.price : -Infinity;
-  if (sortKey === "changePercent") return quote ? quote.changePercent : -Infinity;
+  if (sortKey === "price") return quote && typeof quote.price === "number" ? quote.price : null;
+  if (sortKey === "changePercent") return quote && typeof quote.changePercent === "number" ? quote.changePercent : null;
+  if (sortKey === "drawdownPercent") return getUsDrawdownPercent(item, quote);
   if (sortKey === "displayName") return item.displayName.toUpperCase();
   return item.symbol;
+}
+
+function matchesPerformance(item, performanceFilter) {
+  if (performanceFilter === "all") return true;
+  const quote = state.quotes[item.symbol];
+  if (!quote || quote.changePercent === null || typeof quote.changePercent !== "number") {
+    return performanceFilter === "flat";
+  }
+  if (performanceFilter === "up") return quote.changePercent > 0;
+  if (performanceFilter === "down") return quote.changePercent < 0;
+  return quote.changePercent === 0;
+}
+
+function getTotalPages(totalItems, pageSize) {
+  return Math.max(1, Math.ceil(totalItems / pageSize));
+}
+
+function getPagination(totalItems, pageSize, currentPage) {
+  const safePageSize = Math.max(1, Number(pageSize) || 10);
+  const totalPages = getTotalPages(totalItems, safePageSize);
+  const safeCurrentPage = Math.min(Math.max(1, Number(currentPage) || 1), totalPages);
+  const startIndex = (safeCurrentPage - 1) * safePageSize;
+  const endIndex = startIndex + safePageSize;
+
+  return {
+    totalPages,
+    currentPage: safeCurrentPage,
+    pageSize: safePageSize,
+    startIndex,
+    endIndex
+  };
+}
+
+function updatePagination(pagination, totalItems) {
+  els.pageInfo.textContent = "第 " + pagination.currentPage + " / " + pagination.totalPages + " 页 · 共 " + totalItems + " 条";
+  els.prevPageBtn.disabled = pagination.currentPage <= 1;
+  els.nextPageBtn.disabled = pagination.currentPage >= pagination.totalPages;
+}
+
+function renderListHint(filteredCount) {
+  const total = state.items.length;
+  const usTrackedCount = Object.keys(state.usPeaks).length;
+  const autoRefreshText = state.preferences.autoRefreshSec > 0
+    ? "自动刷新：每 " + describeSeconds(state.preferences.autoRefreshSec)
+    : "自动刷新：已关闭";
+  const freshnessText = state.lastSuccessAt
+    ? "上次成功刷新：" + formatRelativeTime(state.lastSuccessAt)
+    : "还没有成功刷新记录";
+  els.listHint.textContent = "共 " + total + " 只，筛选后 " + filteredCount + " 只。已跟踪美股峰值 " + usTrackedCount + " 只。 " + autoRefreshText + "。 " + freshnessText + "。";
+}
+
+function parseStrategyRules(text) {
+  const raw = String(text || "").trim();
+  if (!raw) return [];
+
+  const parsed = raw.split(",").map(function (entry) {
+    const parts = entry.split(":");
+    if (parts.length !== 2) return null;
+    const drawdown = Number(parts[0].trim());
+    const sellPercent = Number(parts[1].trim());
+    if (!Number.isFinite(drawdown) || !Number.isFinite(sellPercent)) return null;
+    if (drawdown <= 0 || sellPercent <= 0) return null;
+    return {
+      drawdown: Number(drawdown.toFixed(2)),
+      sellPercent: Number(sellPercent.toFixed(2))
+    };
+  }).filter(Boolean);
+
+  const map = new Map();
+  for (const rule of parsed) {
+    map.set(rule.drawdown, rule);
+  }
+
+  return Array.from(map.values()).sort(function (a, b) {
+    return a.drawdown - b.drawdown;
+  });
+}
+
+function getStrategySignal(item, quote) {
+  const drawdown = getUsDrawdownPercent(item, quote);
+  if (drawdown === null) return null;
+
+  const rules = parseStrategyRules(state.preferences.strategyRulesText);
+  if (!rules.length) return null;
+
+  let matched = null;
+  for (const rule of rules) {
+    if (drawdown >= rule.drawdown) {
+      matched = rule;
+    }
+  }
+  return matched;
+}
+
+function buildStrategySignals(rows) {
+  const signals = [];
+  for (const item of rows) {
+    const quote = state.quotes[item.symbol];
+    const signal = getStrategySignal(item, quote);
+    if (!signal) continue;
+    const drawdown = getUsDrawdownPercent(item, quote);
+    signals.push({
+      symbol: item.symbol,
+      displayName: item.displayName,
+      drawdown: drawdown,
+      signal: signal
+    });
+  }
+
+  return signals.sort(function (left, right) {
+    return Number(right.drawdown || 0) - Number(left.drawdown || 0);
+  });
+}
+
+function renderStrategyPanel(signals) {
+  const rules = parseStrategyRules(state.preferences.strategyRulesText);
+  if (!rules.length) {
+    els.strategyHint.textContent = "规则无效，请使用例如 8:20,12:30,18:50";
+  } else {
+    els.strategyHint.textContent = "当前规则：" + rules.map(function (rule) {
+      return "回撤≥" + rule.drawdown + "% 卖 " + rule.sellPercent + "%";
+    }).join(" ｜ ");
+  }
+
+  if (!signals.length) {
+    els.signalSummary.textContent = "当前无触发建议";
+    els.signalList.innerHTML = "";
+    return;
+  }
+
+  els.signalSummary.textContent = "触发建议 " + signals.length + " 条";
+  els.signalList.innerHTML = signals.map(function (entry) {
+    return [
+      '<article class="signal-item">',
+      '<strong>' + escapeHtml(entry.symbol) + " / " + escapeHtml(entry.displayName) + "</strong>",
+      '<span class="muted">当前回撤 ' + formatUnsignedPercent(entry.drawdown) + "，建议卖出 " + entry.signal.sellPercent + "%</span>",
+      "</article>"
+    ].join("");
+  }).join("");
+}
+
+function setStatus(type, text) {
+  els.statusDot.classList.remove("positive", "negative", "neutral");
+  if (type === "positive") {
+    els.statusDot.classList.add("positive");
+  } else if (type === "negative") {
+    els.statusDot.classList.add("negative");
+  } else {
+    els.statusDot.classList.add("neutral");
+  }
+  els.statusText.textContent = text;
 }
 
 function applyTone(node, value) {
@@ -284,11 +884,16 @@ function applyTone(node, value) {
   else node.classList.add("neutral");
 }
 
-function persist() {
+function persist(options) {
   saveState({
     items: state.items,
-    preferences: state.preferences
+    preferences: state.preferences,
+    usPeaks: state.usPeaks
   });
+
+  if (!options?.skipCloudSync) {
+    void pushToCloud("auto");
+  }
 }
 
 function formatNumber(value) {
@@ -300,6 +905,10 @@ function formatSigned(value) {
   return value > 0 ? "+" + text : text;
 }
 
+function formatUnsignedPercent(value) {
+  return Number(value).toFixed(2) + "%";
+}
+
 function escapeHtml(str) {
   return String(str)
     .replace(/&/g, "&amp;")
@@ -307,4 +916,62 @@ function escapeHtml(str) {
     .replace(/>/g, "&gt;")
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function describeSeconds(seconds) {
+  if (seconds % 60 === 0) return String(seconds / 60) + " 分钟";
+  return String(seconds) + " 秒";
+}
+
+function formatRelativeTime(date) {
+  const diffMs = Date.now() - date.getTime();
+  const diffSec = Math.max(0, Math.floor(diffMs / 1000));
+  if (diffSec < 60) return diffSec + " 秒前";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return diffMin + " 分钟前";
+  const diffHour = Math.floor(diffMin / 60);
+  return diffHour + " 小时前";
+}
+
+function isUsSymbol(symbol) {
+  return /^[A-Z][A-Z0-9.-]{0,9}$/.test(String(symbol || "").trim().toUpperCase());
+}
+
+function syncUsPeaksWithQuotes() {
+  const activeUsSymbols = new Set();
+
+  for (const item of state.items) {
+    const symbol = item.symbol;
+    if (!isUsSymbol(symbol)) continue;
+    activeUsSymbols.add(symbol);
+    const quote = state.quotes[symbol];
+    const price = Number(quote?.price);
+    if (!Number.isFinite(price) || price <= 0) continue;
+
+    const current = state.usPeaks[symbol];
+    if (!current || price > Number(current.peakPrice || 0)) {
+      state.usPeaks[symbol] = {
+        peakPrice: Number(price.toFixed(3)),
+        peakAt: new Date().toISOString()
+      };
+    }
+  }
+
+  for (const symbol of Object.keys(state.usPeaks)) {
+    if (!activeUsSymbols.has(symbol)) {
+      delete state.usPeaks[symbol];
+    }
+  }
+}
+
+function getUsDrawdownPercent(item, quote) {
+  if (!isUsSymbol(item.symbol)) return null;
+  const currentPrice = Number(quote?.price);
+  const peak = state.usPeaks[item.symbol];
+  const peakPrice = Number(peak?.peakPrice);
+  if (!Number.isFinite(currentPrice) || currentPrice <= 0 || !Number.isFinite(peakPrice) || peakPrice <= 0) {
+    return null;
+  }
+  const drawdown = ((peakPrice - currentPrice) / peakPrice) * 100;
+  return Number(Math.max(0, drawdown).toFixed(3));
 }

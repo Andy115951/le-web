@@ -15,6 +15,42 @@ body {
   padding: 20px;
 }
 
+.app--overview {
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px;
+}
+
+.app--overview .header {
+  margin-bottom: 8px;
+}
+
+.app--overview .warn {
+  margin-top: 8px;
+  margin-bottom: 0;
+}
+
+.app--overview .view-tabs {
+  margin-top: 8px;
+}
+
+.app--overview .panel {
+  margin-top: 8px;
+  padding: 10px;
+  flex: 1;
+  min-height: 0;
+}
+
+.app--overview .panel-head h2 {
+  margin-bottom: 0;
+}
+
+.app--overview .overview-grid {
+  height: calc(100% - 32px);
+}
+
 .header {
   display: flex;
   justify-content: space-between;
@@ -146,6 +182,10 @@ select,
   gap: 10px;
 }
 
+.kpi-grid.compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .kpi-card {
   background: #111a27;
   border: 1px solid #2d3b53;
@@ -176,6 +216,74 @@ select,
   border: 1px solid #2d3b53;
   border-radius: 10px;
   padding: 10px;
+}
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1.4fr;
+  gap: 10px;
+}
+
+.overview-block {
+  background: #111a27;
+  border: 1px solid #2d3b53;
+  border-radius: 10px;
+  padding: 10px;
+  min-height: 120px;
+}
+
+.app--overview .overview-block {
+  min-height: 0;
+  padding: 8px;
+}
+
+.overview-block h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+
+.hour-bars {
+  display: grid;
+  grid-template-columns: repeat(24, minmax(0, 1fr));
+  gap: 4px;
+  align-items: end;
+  height: 145px;
+}
+
+.app--overview .hour-bars {
+  height: 110px;
+}
+
+.hour-col {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  align-items: end;
+}
+
+.hour-track {
+  width: 100%;
+  height: 120px;
+  border-radius: 6px;
+  border: 1px solid #26334a;
+  background: #0c1421;
+  display: flex;
+  align-items: end;
+}
+
+.app--overview .hour-track {
+  height: 88px;
+}
+
+.hour-fill {
+  width: 100%;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #22c55e, #2563eb);
+}
+
+.hour-col span {
+  font-size: 10px;
+  color: #8ea1be;
 }
 
 .mini-panel h3 {
@@ -320,6 +428,10 @@ th {
   }
 
   .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .overview-grid {
     grid-template-columns: 1fr;
   }
 

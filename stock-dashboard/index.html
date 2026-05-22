@@ -15,6 +15,10 @@
         <p class="subtitle">支持美股/A股代码、分组筛选、涨跌排序、备注和迷你走势图。</p>
       </div>
       <div class="top-actions">
+        <div class="status-wrap">
+          <span class="status-dot neutral" id="statusDot"></span>
+          <span class="status-text" id="statusText">等待刷新</span>
+        </div>
         <div class="timestamp-wrap">
           <span class="muted">最后更新</span>
           <strong id="lastUpdated">--</strong>
@@ -22,6 +26,37 @@
         <button type="button" class="btn btn-primary" id="refreshBtn">刷新行情</button>
       </div>
     </header>
+
+    <section class="card cloud-card">
+      <div class="cloud-head">
+        <div>
+          <h2>Supabase 云同步</h2>
+          <p class="muted">多设备共用同一账号数据。首次连接会自动把本地数据迁移到云端（仅当云端为空）。</p>
+        </div>
+        <span class="cloud-status muted" id="cloudStatus">未连接云端</span>
+      </div>
+      <div class="cloud-grid">
+        <div class="field">
+          <label for="supabaseUrlInput">Supabase URL</label>
+          <input id="supabaseUrlInput" placeholder="https://xxxx.supabase.co" />
+        </div>
+        <div class="field">
+          <label for="supabaseAnonKeyInput">Supabase Anon Key</label>
+          <input id="supabaseAnonKeyInput" placeholder="eyJhbGciOi..." />
+        </div>
+        <div class="field">
+          <label for="cloudEmailInput">登录邮箱</label>
+          <input id="cloudEmailInput" type="email" placeholder="you@example.com" />
+        </div>
+      </div>
+      <div class="cloud-actions">
+        <button type="button" class="btn btn-ghost" id="saveCloudConfigBtn">保存云配置</button>
+        <button type="button" class="btn btn-primary" id="sendMagicLinkBtn">发送登录链接</button>
+        <button type="button" class="btn btn-ghost" id="loadCloudBtn">从云端拉取</button>
+        <button type="button" class="btn btn-ghost" id="syncCloudBtn">同步到云端</button>
+        <button type="button" class="btn btn-ghost" id="logoutCloudBtn">退出登录</button>
+      </div>
+    </section>
 
     <section class="card controls">
       <form id="stockForm" class="stock-form">
@@ -45,9 +80,22 @@
       </form>
 
       <div class="toolbar">
+        <div class="toolbar-item search-item">
+          <label for="searchInput">搜索</label>
+          <input id="searchInput" placeholder="代码/名称/分组/备注" maxlength="40" />
+        </div>
         <div class="toolbar-item">
           <label for="groupFilter">分组筛选</label>
           <select id="groupFilter"></select>
+        </div>
+        <div class="toolbar-item">
+          <label for="performanceFilter">涨跌筛选</label>
+          <select id="performanceFilter">
+            <option value="all">全部</option>
+            <option value="up">只看上涨</option>
+            <option value="down">只看下跌</option>
+            <option value="flat">只看平盘</option>
+          </select>
         </div>
         <div class="toolbar-item">
           <label for="sortSelect">排序方式</label>
@@ -56,6 +104,7 @@
             <option value="displayName">名称</option>
             <option value="price">最新价</option>
             <option value="changePercent">涨跌幅</option>
+            <option value="drawdownPercent">较峰值回撤</option>
           </select>
         </div>
         <div class="toolbar-item direction-item">
@@ -64,6 +113,18 @@
             <option value="desc">降序</option>
             <option value="asc">升序</option>
           </select>
+        </div>
+        <div class="toolbar-item">
+          <label for="autoRefreshSelect">自动刷新</label>
+          <select id="autoRefreshSelect">
+            <option value="0">关闭</option>
+            <option value="30">每30秒</option>
+            <option value="60">每1分钟</option>
+            <option value="300">每5分钟</option>
+          </select>
+        </div>
+        <div class="toolbar-item action-item">
+          <button type="button" class="btn btn-ghost" id="clearFiltersBtn">清空筛选</button>
         </div>
       </div>
     </section>
@@ -87,11 +148,35 @@
       </article>
     </section>
 
+    <section class="card strategy-card">
+      <div class="strategy-head">
+        <h2>自动回撤止盈规则</h2>
+        <p class="muted" id="strategyHint">规则格式：回撤%:卖出%（逗号分隔）</p>
+      </div>
+      <div class="strategy-form">
+        <div class="field strategy-input-wrap">
+          <label for="strategyRulesInput">规则</label>
+          <input id="strategyRulesInput" placeholder="例如 8:20,12:30,18:50" maxlength="120" />
+        </div>
+        <button type="button" class="btn btn-primary" id="saveStrategyBtn">保存规则</button>
+      </div>
+      <div class="signal-summary" id="signalSummary">当前无触发建议</div>
+      <div class="signal-list" id="signalList"></div>
+    </section>
+
     <section class="card list-card">
       <div class="list-head">
         <div>
           <h2>我的自选</h2>
           <p class="muted" id="listHint">当前接入东方财富公开接口，可直接拉取 A 股与常见美股行情。</p>
+        </div>
+        <div class="page-size-wrap">
+          <label for="pageSizeSelect" class="muted">每页</label>
+          <select id="pageSizeSelect">
+            <option value="10">10 条</option>
+            <option value="20">20 条</option>
+            <option value="50">50 条</option>
+          </select>
         </div>
       </div>
 
@@ -104,6 +189,8 @@
               <th>最新价</th>
               <th>涨跌额</th>
               <th>涨跌幅</th>
+              <th>较峰值回撤</th>
+              <th>止盈建议</th>
               <th>趋势</th>
               <th>备注</th>
               <th>操作</th>
@@ -118,6 +205,12 @@
       </div>
 
       <div class="mobile-list hidden" id="mobileList"></div>
+
+      <div class="pagination" id="pagination">
+        <button type="button" class="btn btn-ghost" id="prevPageBtn">上一页</button>
+        <span class="muted" id="pageInfo">第 1 / 1 页</span>
+        <button type="button" class="btn btn-ghost" id="nextPageBtn">下一页</button>
+      </div>
     </section>
   </main>
 
@@ -133,6 +226,8 @@
       <td class="price-cell"></td>
       <td class="change-cell"></td>
       <td class="percent-cell"></td>
+      <td class="drawdown-cell"></td>
+      <td class="advice-cell"></td>
       <td><div class="sparkline"></div></td>
       <td class="note-cell"></td>
       <td>
