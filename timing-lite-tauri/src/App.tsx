@@ -64,6 +64,7 @@ const I18N: Record<Locale, Dict> = {
   zh: {
     title: "Timing Lite",
     subtitle: "后台记录 + 自动分类规则",
+    backgroundHint: "关闭窗口会隐藏到后台继续记录；休眠和关机时段不会再被误计入。",
     view: "视图",
     viewOverview: "概览",
     viewDashboard: "统计看板",
@@ -137,6 +138,7 @@ const I18N: Record<Locale, Dict> = {
   en: {
     title: "Timing Lite",
     subtitle: "Background tracking + auto classify rules",
+    backgroundHint: "Closing the window now keeps tracking in the background, and sleep/shutdown gaps are ignored.",
     view: "View",
     viewOverview: "Overview",
     viewDashboard: "Dashboard",
@@ -318,19 +320,6 @@ export default function App() {
       window.clearInterval(poll);
     };
   }, []);
-
-  const totals = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const row of entries) {
-      const key = row.project || row.app_name || t("unknown");
-      const prev = map.get(key) ?? 0;
-      map.set(key, prev + row.duration_seconds);
-    }
-    return Array.from(map.entries())
-      .map(([key, sec]) => ({ key, sec }))
-      .sort((a, b) => b.sec - a.sec)
-      .slice(0, 10);
-  }, [entries, locale]);
 
   const dashboard = useMemo(() => {
     const now = new Date();
@@ -548,6 +537,7 @@ export default function App() {
         <div>
           <h1>{t("title")}</h1>
           <p>{t("subtitle")}</p>
+          <p className="header-hint">{t("backgroundHint")}</p>
         </div>
         <div className="controls">
           <label>

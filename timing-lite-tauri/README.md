@@ -6,10 +6,13 @@ A local-first desktop MVP inspired by timing-style activity tracking.
 
 - Captures the current frontmost macOS app + window title.
 - Runs a background collector loop (capture does not depend on UI button clicks).
+- Closing the main window hides the app and keeps the collector running in the background.
+- Shows a macOS menu-bar status icon for reopening and quick control.
 - Stores timeline entries in local SQLite:
   - `~/.timing-lite/timing-lite.db`
 - Supports rule-based auto classification:
   - rule match -> `project` / `tag`
+- Ignores large sleep / shutdown gaps so one open segment will not suddenly inflate by hours.
 - Renders:
   - Chinese / English UI switch
   - Current active window
@@ -62,6 +65,6 @@ If permission is missing, the app will show a warning banner.
 
 ## Next steps
 
-- Tray + hide-to-background UX
 - Manual edit/merge for timeline segments
 - Daily/weekly report export (CSV)
+- Better menu-bar icon styling (template monochrome variant)
