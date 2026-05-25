@@ -158,10 +158,25 @@ function renderRegisterForm() {
 }
 
 function renderTaskCard(task) {
+  const isDone = task.status === "done";
+  const isToggleDisabled = task.status === "doing" || task.status === "archived";
+  const toggleLabel = isDone ? "取消完成" : "标记完成";
+  const doingLabel = task.status === "doing" ? "进行中" : "设为进行中";
   return `
-    <article class="task-card">
+    <article class="task-card ${isDone ? "task-card-done" : ""}">
       <div class="card-head">
-        <h4>${escapeHtml(task.title)}</h4>
+        <div class="task-title-row">
+          <button
+            class="task-check ${isDone ? "checked" : ""} ${isToggleDisabled ? "disabled" : ""}"
+            type="button"
+            data-toggle-done="${task.id}"
+            aria-label="${toggleLabel}"
+            ${isToggleDisabled ? "disabled" : ""}
+          >
+            <span class="task-check-box" aria-hidden="true">${isDone ? "✓" : ""}</span>
+          </button>
+          <h4>${escapeHtml(task.title)}</h4>
+        </div>
         <span class="stat-badge ${task.status}">${escapeHtml(STATUSES[task.status])}</span>
       </div>
       <p class="task-desc">${task.description ? escapeHtml(task.description) : "暂无备注"}</p>
@@ -170,8 +185,14 @@ function renderTaskCard(task) {
       </div>
       <div class="task-actions">
         <button class="mini-btn" data-open-task="${task.id}">编辑</button>
-        <button class="ghost-btn" data-quick-status="${task.id}" data-status="doing">进行中</button>
-        <button class="ghost-btn" data-quick-status="${task.id}" data-status="done">完成</button>
+        <button
+          class="ghost-btn ${task.status === "doing" ? "active" : ""}"
+          data-quick-status="${task.id}"
+          data-status="doing"
+          ${task.status === "doing" ? "disabled" : ""}
+        >
+          ${doingLabel}
+        </button>
       </div>
     </article>
   `;
@@ -451,6 +472,21 @@ async function updateTask(taskId, payload, successMessage = "任务已更新。"
   }
 }
 
+async function toggleTaskDone(taskId) {
+  const task = state.tasks.find((item) => item.id === taskId);
+  if (!task) {
+    return;
+  }
+
+  if (task.status === "doing" || task.status === "archived") {
+    return;
+  }
+
+  const nextStatus = task.status === "done" ? "todo" : "done";
+  const message = nextStatus === "done" ? "任务已完成。" : "任务已恢复为未完成。";
+  await updateTask(taskId, { status: nextStatus }, message);
+}
+
 async function deleteTask(taskId) {
   if (!window.confirm("确定要删除这条任务吗？")) {
     return;
@@ -532,7 +568,7 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  const authMode = target.getAttribute("data-auth-mode");
+  const authMode = target.closest("[data-auth-mode]")?.getAttribute("data-auth-mode");
   if (authMode) {
     state.authMode = authMode;
     clearMessage();
@@ -545,7 +581,7 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  const openTaskId = target.getAttribute("data-open-task");
+  const openTaskId = target.closest("[data-open-task]")?.getAttribute("data-open-task");
   if (openTaskId) {
     state.activeTaskId = openTaskId;
     const task = state.tasks.find((item) => item.id === openTaskId);
@@ -562,7 +598,7 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  const closeSheet = target.getAttribute("data-close-sheet");
+  const closeSheet = target.closest("[data-close-sheet]")?.getAttribute("data-close-sheet");
   if (closeSheet) {
     state.activeTaskId = null;
     state.sheetDraft = null;
@@ -570,14 +606,21 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  const quickStatusTaskId = target.getAttribute("data-quick-status");
+  const quickStatusTaskButton = target.closest("[data-quick-status]");
+  const quickStatusTaskId = quickStatusTaskButton?.getAttribute("data-quick-status");
   if (quickStatusTaskId) {
-    const status = target.getAttribute("data-status");
+    const status = quickStatusTaskButton.getAttribute("data-status");
     await updateTask(quickStatusTaskId, { status }, "状态已更新。");
     return;
   }
 
-  const pickQuadrant = target.getAttribute("data-pick-quadrant");
+  const toggleDoneTaskId = target.closest("[data-toggle-done]")?.getAttribute("data-toggle-done");
+  if (toggleDoneTaskId) {
+    await toggleTaskDone(toggleDoneTaskId);
+    return;
+  }
+
+  const pickQuadrant = target.closest("[data-pick-quadrant]")?.getAttribute("data-pick-quadrant");
   if (pickQuadrant) {
     const input = document.querySelector('#task-edit-form input[name="quadrant"]');
     if (input) {
@@ -590,7 +633,7 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  const pickStatus = target.getAttribute("data-pick-status");
+  const pickStatus = target.closest("[data-pick-status]")?.getAttribute("data-pick-status");
   if (pickStatus) {
     const input = document.querySelector('#task-edit-form input[name="status"]');
     if (input) {
@@ -603,7 +646,7 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  const deleteTaskId = target.getAttribute("data-delete-task");
+  const deleteTaskId = target.closest("[data-delete-task]")?.getAttribute("data-delete-task");
   if (deleteTaskId) {
     await deleteTask(deleteTaskId);
   }
