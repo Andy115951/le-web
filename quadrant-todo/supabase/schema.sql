@@ -29,7 +29,7 @@ create table if not exists public.quadrant_tasks (
   title text not null,
   description text not null default '',
   quadrant text not null check (quadrant in ('q1', 'q2', 'q3', 'q4')),
-  status text not null default 'todo' check (status in ('todo', 'doing', 'done', 'archived')),
+  status text not null default 'todo' check (status in ('todo', 'done', 'archived')),
   sort_order integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),

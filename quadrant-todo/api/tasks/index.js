@@ -3,7 +3,18 @@ const { json, methodNotAllowed, parseJson } = require("../_lib/http");
 const { getSupabaseAdmin } = require("../_lib/supabase");
 
 const QUADRANTS = new Set(["q1", "q2", "q3", "q4"]);
-const STATUSES = new Set(["todo", "doing", "done", "archived"]);
+const STATUSES = new Set(["todo", "done", "archived"]);
+
+function normalizeStatus(status) {
+  return status === "doing" ? "todo" : status;
+}
+
+function normalizeTask(task) {
+  return {
+    ...task,
+    status: normalizeStatus(task.status)
+  };
+}
 
 async function getNextSortOrder(supabase, userId, quadrant) {
   const { data, error } = await supabase
@@ -41,7 +52,7 @@ module.exports = async function handler(req, res) {
         throw new Error(error.message);
       }
 
-      return json(res, 200, { tasks: data || [] });
+      return json(res, 200, { tasks: (data || []).map(normalizeTask) });
     } catch (error) {
       return json(res, 500, { error: error.message || "Failed to load tasks" });
     }
@@ -58,7 +69,7 @@ module.exports = async function handler(req, res) {
       const title = String(body.title || "").trim();
       const description = String(body.description || "").trim();
       const quadrant = String(body.quadrant || "q2");
-      const status = String(body.status || "todo");
+      const status = normalizeStatus(String(body.status || "todo"));
 
       if (!title || title.length > 120) {
         return json(res, 400, { error: "Title is required and must be under 120 characters" });
@@ -97,7 +108,7 @@ module.exports = async function handler(req, res) {
         throw new Error(error.message);
       }
 
-      return json(res, 201, { task: data });
+      return json(res, 201, { task: normalizeTask(data) });
     } catch (error) {
       return json(res, 500, { error: error.message || "Failed to create task" });
     }

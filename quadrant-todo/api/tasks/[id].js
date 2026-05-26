@@ -3,7 +3,18 @@ const { json, methodNotAllowed, parseJson } = require("../_lib/http");
 const { getSupabaseAdmin } = require("../_lib/supabase");
 
 const QUADRANTS = new Set(["q1", "q2", "q3", "q4"]);
-const STATUSES = new Set(["todo", "doing", "done", "archived"]);
+const STATUSES = new Set(["todo", "done", "archived"]);
+
+function normalizeStatus(status) {
+  return status === "doing" ? "todo" : status;
+}
+
+function normalizeTask(task) {
+  return {
+    ...task,
+    status: normalizeStatus(task.status)
+  };
+}
 
 async function getNextSortOrder(supabase, userId, quadrant) {
   const { data, error } = await supabase
@@ -71,7 +82,7 @@ module.exports = async function handler(req, res) {
       }
 
       if (body.status !== undefined) {
-        const status = String(body.status || "");
+        const status = normalizeStatus(String(body.status || ""));
         if (!STATUSES.has(status)) {
           return json(res, 400, { error: "Invalid status" });
         }
@@ -107,7 +118,7 @@ module.exports = async function handler(req, res) {
         return json(res, 404, { error: "Task not found" });
       }
 
-      return json(res, 200, { task: data });
+      return json(res, 200, { task: normalizeTask(data) });
     } catch (error) {
       return json(res, 500, { error: error.message || "Failed to update task" });
     }

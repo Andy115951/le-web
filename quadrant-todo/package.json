@@ -5,11 +5,13 @@
   "description": "Quadrant Todo app with custom auth on Vercel + Supabase",
   "scripts": {
     "check": "node --check app.js && find api -name '*.js' -print0 | xargs -0 -n1 node --check",
+    "dev": "node dev-server.js",
     "dev:vercel": "vercel dev",
     "deploy": "vercel --prod"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.8",
-    "bcryptjs": "^2.4.3"
+    "bcryptjs": "^2.4.3",
+    "vercel": "^54.4.1"
   }
 }

@@ -7,7 +7,6 @@ const QUADRANTS = {
 
 const STATUSES = {
   todo: "待办",
-  doing: "进行中",
   done: "已完成",
   archived: "已归档"
 };
@@ -16,6 +15,7 @@ const state = {
   env: { appName: "Quadrant Todo", publicRegistration: true },
   user: null,
   tasks: [],
+  pendingTaskIds: new Set(),
   authMode: "login",
   activeTaskId: null,
   sheetDraft: null,
@@ -64,10 +64,10 @@ function clearMessage() {
 
 function getCounts() {
   const total = state.tasks.length;
-  const doing = state.tasks.filter((task) => task.status === "doing").length;
+  const todo = state.tasks.filter((task) => task.status === "todo").length;
   const done = state.tasks.filter((task) => task.status === "done").length;
   const q2 = state.tasks.filter((task) => task.quadrant === "q2").length;
-  return { total, doing, done, q2 };
+  return { total, todo, done, q2 };
 }
 
 function groupTasks() {
@@ -159,18 +159,18 @@ function renderRegisterForm() {
 
 function renderTaskCard(task) {
   const isDone = task.status === "done";
-  const isToggleDisabled = task.status === "doing" || task.status === "archived";
+  const isPending = state.pendingTaskIds.has(task.id);
+  const isToggleDisabled = task.status === "archived" || isPending;
   const toggleLabel = isDone ? "取消完成" : "标记完成";
-  const doingLabel = task.status === "doing" ? "进行中" : "设为进行中";
   return `
-    <article class="task-card ${isDone ? "task-card-done" : ""}">
+    <article class="task-card ${isDone ? "task-card-done" : ""} ${isPending ? "task-card-pending" : ""}">
       <div class="card-head">
         <div class="task-title-row">
           <button
-            class="task-check ${isDone ? "checked" : ""} ${isToggleDisabled ? "disabled" : ""}"
+            class="task-check ${isDone ? "checked" : ""} ${isToggleDisabled ? "disabled" : ""} ${isPending ? "pending" : ""}"
             type="button"
             data-toggle-done="${task.id}"
-            aria-label="${toggleLabel}"
+            aria-label="${isPending ? "正在同步" : toggleLabel}"
             ${isToggleDisabled ? "disabled" : ""}
           >
             <span class="task-check-box" aria-hidden="true">${isDone ? "✓" : ""}</span>
@@ -185,14 +185,6 @@ function renderTaskCard(task) {
       </div>
       <div class="task-actions">
         <button class="mini-btn" data-open-task="${task.id}">编辑</button>
-        <button
-          class="ghost-btn ${task.status === "doing" ? "active" : ""}"
-          data-quick-status="${task.id}"
-          data-status="doing"
-          ${task.status === "doing" ? "disabled" : ""}
-        >
-          ${doingLabel}
-        </button>
       </div>
     </article>
   `;
@@ -320,8 +312,8 @@ function renderAppView() {
               <strong>${counts.total}</strong>
             </div>
             <div class="summary-card">
-              <span class="muted">进行中</span>
-              <strong>${counts.doing}</strong>
+              <span class="muted">待完成</span>
+              <strong>${counts.todo}</strong>
             </div>
             <div class="summary-card">
               <span class="muted">已完成</span>
@@ -472,19 +464,47 @@ async function updateTask(taskId, payload, successMessage = "任务已更新。"
   }
 }
 
+function replaceTask(taskId, nextTask) {
+  state.tasks = state.tasks.map((task) => (task.id === taskId ? nextTask : task));
+}
+
 async function toggleTaskDone(taskId) {
   const task = state.tasks.find((item) => item.id === taskId);
   if (!task) {
     return;
   }
 
-  if (task.status === "doing" || task.status === "archived") {
+  if (task.status === "archived" || state.pendingTaskIds.has(taskId)) {
     return;
   }
 
   const nextStatus = task.status === "done" ? "todo" : "done";
-  const message = nextStatus === "done" ? "任务已完成。" : "任务已恢复为未完成。";
-  await updateTask(taskId, { status: nextStatus }, message);
+  const previousTask = { ...task };
+  const optimisticTask = {
+    ...task,
+    status: nextStatus,
+    completed_at: nextStatus === "done" ? new Date().toISOString() : null,
+    updated_at: new Date().toISOString()
+  };
+
+  state.pendingTaskIds.add(taskId);
+  replaceTask(taskId, optimisticTask);
+  render();
+
+  try {
+    const data = await apiFetch(`./api/tasks/${taskId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: nextStatus })
+    });
+    replaceTask(taskId, data.task);
+  } catch (error) {
+    replaceTask(taskId, previousTask);
+    setMessage(error.message, "error");
+    return;
+  } finally {
+    state.pendingTaskIds.delete(taskId);
+    render();
+  }
 }
 
 async function deleteTask(taskId) {
@@ -603,14 +623,6 @@ document.addEventListener("click", async (event) => {
     state.activeTaskId = null;
     state.sheetDraft = null;
     render();
-    return;
-  }
-
-  const quickStatusTaskButton = target.closest("[data-quick-status]");
-  const quickStatusTaskId = quickStatusTaskButton?.getAttribute("data-quick-status");
-  if (quickStatusTaskId) {
-    const status = quickStatusTaskButton.getAttribute("data-status");
-    await updateTask(quickStatusTaskId, { status }, "状态已更新。");
     return;
   }
 

@@ -37,7 +37,15 @@ quadrant-todo/
 ```bash
 cd quadrant-todo
 npm install
-vercel dev
+npm run dev
+```
+
+默认会启动项目内置的本地开发服务，地址是 `http://localhost:3000`。
+
+如果你需要和 Vercel 完全一致的本地运行方式，也可以用：
+
+```bash
+npm run dev:vercel
 ```
 
 ## 部署
