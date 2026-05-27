@@ -90,6 +90,29 @@ button {
   gap: 12px;
 }
 
+.status-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(19, 35, 58, 0.75);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-text {
+  color: var(--sub);
+  font-size: 0.86rem;
+}
+
 .timestamp-wrap {
   display: grid;
   gap: 4px;
@@ -99,6 +122,40 @@ button {
 .controls {
   padding: 18px;
   margin-bottom: 16px;
+}
+
+.cloud-card {
+  padding: 18px;
+  margin-bottom: 16px;
+}
+
+.cloud-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.cloud-head h2 {
+  margin: 0 0 6px;
+}
+
+.cloud-status {
+  white-space: nowrap;
+}
+
+.cloud-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.cloud-actions {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .stock-form {
@@ -158,8 +215,17 @@ select:focus {
   gap: 6px;
 }
 
+.search-item {
+  min-width: min(420px, 100%);
+  flex: 1;
+}
+
 .direction-item {
   max-width: 180px;
+}
+
+.action-item {
+  align-self: end;
 }
 
 .btn {
@@ -181,6 +247,11 @@ select:focus {
   color: var(--text);
 }
 
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .form-submit {
   white-space: nowrap;
 }
@@ -190,6 +261,47 @@ select:focus {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 16px;
+}
+
+.strategy-card {
+  padding: 18px;
+  margin-bottom: 16px;
+}
+
+.strategy-head h2 {
+  margin: 0 0 8px;
+}
+
+.strategy-form {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.strategy-input-wrap {
+  min-width: 0;
+}
+
+.signal-summary {
+  margin-top: 12px;
+  font-weight: 700;
+}
+
+.signal-list {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.signal-item {
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(35, 58, 88, 0.75);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(19, 35, 58, 0.55);
 }
 
 .stat-card {
@@ -223,6 +335,18 @@ select:focus {
   margin: 0 0 8px;
 }
 
+.page-size-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.page-size-wrap select {
+  width: auto;
+  min-width: 92px;
+  min-height: 38px;
+}
+
 .table-wrap {
   overflow-x: auto;
 }
@@ -230,7 +354,7 @@ select:focus {
 .stock-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 980px;
+  min-width: 1220px;
 }
 
 .stock-table th,
@@ -286,6 +410,8 @@ select:focus {
 .percent-cell,
 .prev-open-cell,
 .range-cell,
+.drawdown-cell,
+.advice-cell,
 .note-cell {
   white-space: nowrap;
 }
@@ -331,6 +457,14 @@ select:focus {
   border-radius: 14px;
   text-align: center;
   color: var(--sub);
+}
+
+.pagination {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .mobile-list {
@@ -393,6 +527,10 @@ select:focus {
   line-height: 1.5;
 }
 
+.mobile-drawdown {
+  margin: 12px 0 0;
+}
+
 .hidden {
   display: none;
 }
@@ -400,6 +538,14 @@ select:focus {
 @media (max-width: 960px) {
   .stock-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cloud-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .strategy-form {
+    grid-template-columns: 1fr;
   }
 
   .form-submit {
@@ -418,6 +564,7 @@ select:focus {
   .top-actions {
     width: 100%;
     justify-content: space-between;
+    flex-wrap: wrap;
   }
 
   .stock-table {
@@ -448,6 +595,11 @@ select:focus {
     max-width: none;
   }
 
+  .page-size-wrap {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
   .table-wrap {
     display: none;
   }
@@ -458,5 +610,9 @@ select:focus {
 
   .mobile-metrics {
     grid-template-columns: 1fr;
+  }
+
+  .pagination {
+    justify-content: space-between;
   }
 }

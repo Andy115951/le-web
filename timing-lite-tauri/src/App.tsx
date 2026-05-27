@@ -64,6 +64,7 @@ const I18N: Record<Locale, Dict> = {
   zh: {
     title: "Timing Lite",
     subtitle: "后台记录 + 自动分类规则",
+    backgroundHint: "关闭窗口会隐藏到后台继续记录；休眠和关机时段不会再被误计入。",
     view: "视图",
     viewOverview: "概览",
     viewDashboard: "统计看板",
@@ -73,6 +74,8 @@ const I18N: Record<Locale, Dict> = {
     tracking: "采集开关",
     interval: "采集间隔",
     captureNow: "立即采集",
+    dayOverview: "今日总览",
+    allInOneScreen: "一屏概览",
     current: "当前活动",
     noActive: "暂无活动窗口",
     statsDashboard: "统计看板",
@@ -89,6 +92,8 @@ const I18N: Record<Locale, Dict> = {
     topTags: "标签排行",
     noProjectData: "暂无项目数据",
     noTagData: "暂无标签数据",
+    topApps: "应用排行",
+    noAppData: "暂无应用数据",
     topProjectApp: "项目 / 应用排行（全量）",
     rules: "规则管理",
     refreshRules: "刷新规则",
@@ -125,6 +130,7 @@ const I18N: Record<Locale, Dict> = {
     next: "下一页",
     total: "总计",
     records: "条",
+    focusMinutes: "专注分钟",
     unknown: "未知",
     uncategorizedTag: "未分类",
     defaultSource: "默认"
@@ -132,6 +138,7 @@ const I18N: Record<Locale, Dict> = {
   en: {
     title: "Timing Lite",
     subtitle: "Background tracking + auto classify rules",
+    backgroundHint: "Closing the window now keeps tracking in the background, and sleep/shutdown gaps are ignored.",
     view: "View",
     viewOverview: "Overview",
     viewDashboard: "Dashboard",
@@ -141,6 +148,8 @@ const I18N: Record<Locale, Dict> = {
     tracking: "Tracking",
     interval: "Interval",
     captureNow: "Capture now",
+    dayOverview: "Today Overview",
+    allInOneScreen: "One-screen summary",
     current: "Current",
     noActive: "No active window",
     statsDashboard: "Stats Dashboard",
@@ -157,6 +166,8 @@ const I18N: Record<Locale, Dict> = {
     topTags: "Top Tags",
     noProjectData: "No project data yet",
     noTagData: "No tag data yet",
+    topApps: "Top Apps",
+    noAppData: "No app data yet",
     topProjectApp: "Top Project / App (All Data)",
     rules: "Rules",
     refreshRules: "Refresh Rules",
@@ -193,6 +204,7 @@ const I18N: Record<Locale, Dict> = {
     next: "Next",
     total: "Total",
     records: "records",
+    focusMinutes: "Focus Minutes",
     unknown: "Unknown",
     uncategorizedTag: "Uncategorized",
     defaultSource: "default"
@@ -309,19 +321,6 @@ export default function App() {
     };
   }, []);
 
-  const totals = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const row of entries) {
-      const key = row.project || row.app_name || t("unknown");
-      const prev = map.get(key) ?? 0;
-      map.set(key, prev + row.duration_seconds);
-    }
-    return Array.from(map.entries())
-      .map(([key, sec]) => ({ key, sec }))
-      .sort((a, b) => b.sec - a.sec)
-      .slice(0, 10);
-  }, [entries, locale]);
-
   const dashboard = useMemo(() => {
     const now = new Date();
     const rangeStartMs = now.getTime() - rangeHours * 3600 * 1000;
@@ -425,6 +424,81 @@ export default function App() {
     };
   }, [entries, rangeHours, locale]);
 
+  const dayOverview = useMemo(() => {
+    const now = new Date();
+    const todayKey = localDayKey(now);
+    const todayRows = entries.filter((row) => {
+      const d = parseDate(row.started_at);
+      return d ? localDayKey(d) === todayKey : false;
+    });
+
+    let totalSeconds = 0;
+    let uncategorizedSeconds = 0;
+    let runningSeconds = 0;
+
+    const byProject = new Map<string, number>();
+    const byTag = new Map<string, number>();
+    const byApp = new Map<string, number>();
+    const hourBuckets = Array.from({ length: 24 }, (_, h) => ({ hour: h, sec: 0 }));
+
+    for (const row of todayRows) {
+      const sec = Math.max(0, row.duration_seconds);
+      totalSeconds += sec;
+      if (!row.project && !row.tag) uncategorizedSeconds += sec;
+      if (!row.ended_at) runningSeconds += sec;
+
+      const app = row.app_name || t("unknown");
+      const project = row.project || app;
+      const tag = row.tag || t("uncategorizedTag");
+
+      byApp.set(app, (byApp.get(app) ?? 0) + sec);
+      byProject.set(project, (byProject.get(project) ?? 0) + sec);
+      byTag.set(tag, (byTag.get(tag) ?? 0) + sec);
+
+      const d = parseDate(row.started_at);
+      if (d) {
+        const h = d.getHours();
+        hourBuckets[h].sec += sec;
+      }
+    }
+
+    const topProjects = Array.from(byProject.entries())
+      .map(([name, sec]) => ({ name, sec }))
+      .sort((a, b) => b.sec - a.sec)
+      .slice(0, 4);
+    const topTags = Array.from(byTag.entries())
+      .map(([name, sec]) => ({ name, sec }))
+      .sort((a, b) => b.sec - a.sec)
+      .slice(0, 4);
+    const topApps = Array.from(byApp.entries())
+      .map(([name, sec]) => ({ name, sec }))
+      .sort((a, b) => b.sec - a.sec)
+      .slice(0, 4);
+
+    const coverage = totalSeconds
+      ? Math.max(
+          0,
+          Math.round(((totalSeconds - uncategorizedSeconds) / Math.max(1, totalSeconds)) * 100)
+        )
+      : 0;
+
+    const focusMinutes = Math.round(totalSeconds / 60);
+    const maxBucket = Math.max(1, ...hourBuckets.map((x) => x.sec));
+
+    return {
+      totalSeconds,
+      runningSeconds,
+      uncategorizedSeconds,
+      topProjects,
+      topTags,
+      topApps,
+      hourBuckets,
+      maxBucket,
+      coverage,
+      focusMinutes
+    };
+  }, [entries, locale]);
+
   const timelineRows = useMemo(() => {
     const q = timelineQuery.trim().toLowerCase();
     if (!q) return entries;
@@ -458,11 +532,12 @@ export default function App() {
   const active = status?.last_active ?? null;
 
   return (
-    <main className="app">
+    <main className={`app ${viewMode === "overview" ? "app--overview" : ""}`}>
       <header className="header">
         <div>
           <h1>{t("title")}</h1>
           <p>{t("subtitle")}</p>
+          <p className="header-hint">{t("backgroundHint")}</p>
         </div>
         <div className="controls">
           <label>
@@ -549,27 +624,100 @@ export default function App() {
       {viewMode === "overview" ? (
       <>
       <section className="panel">
-        <h2>{t("current")}</h2>
-        {active ? (
-          <div className="current">
-            <strong>{active.app_name}</strong>
-            <span>{active.window_title || "(No title)"}</span>
-            <small>{asDateText(active.captured_at)}</small>
+        <div className="panel-head">
+          <h2>{t("dayOverview")}</h2>
+          <span className="muted">{t("allInOneScreen")}</span>
+        </div>
+        <div className="overview-grid">
+          <div className="overview-block">
+            <h3>{t("current")}</h3>
+            {active ? (
+              <div className="current">
+                <strong>{active.app_name}</strong>
+                <span>{active.window_title || "(No title)"}</span>
+                <small>{asDateText(active.captured_at)}</small>
+              </div>
+            ) : (
+              <p className="muted">{t("noActive")}</p>
+            )}
           </div>
-        ) : (
-          <p className="muted">{t("noActive")}</p>
-        )}
-      </section>
-      <section className="panel">
-        <h2>{t("topProjectApp")}</h2>
-        <div className="top-grid">
-          {totals.map((item) => (
-            <div className="stat" key={item.key}>
-              <span>{item.key}</span>
-              <strong>{formatDuration(item.sec)}</strong>
+
+          <div className="overview-block">
+            <h3>KPI</h3>
+            <div className="kpi-grid compact">
+              <div className="kpi-card">
+                <span>{t("todayTotal")}</span>
+                <strong>{formatDuration(dayOverview.totalSeconds)}</strong>
+              </div>
+              <div className="kpi-card">
+                <span>{t("focusMinutes")}</span>
+                <strong>{dayOverview.focusMinutes}</strong>
+              </div>
+              <div className="kpi-card">
+                <span>{t("ruleCoverage")}</span>
+                <strong>{dayOverview.coverage}%</strong>
+              </div>
+              <div className="kpi-card">
+                <span>{t("runningSegments")}</span>
+                <strong>{formatDuration(dayOverview.runningSeconds)}</strong>
+              </div>
             </div>
-          ))}
-          {!totals.length ? <p className="muted">No stats yet.</p> : null}
+          </div>
+
+          <div className="overview-block">
+            <h3>24h</h3>
+            <div className="hour-bars">
+              {dayOverview.hourBuckets.map((item) => (
+                <div className="hour-col" key={item.hour}>
+                  <div className="hour-track">
+                    <div
+                      className="hour-fill"
+                      style={{
+                        height: `${Math.max(
+                          4,
+                          Math.round((item.sec / dayOverview.maxBucket) * 100)
+                        )}%`
+                      }}
+                    />
+                  </div>
+                  <span>{String(item.hour).padStart(2, "0")}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="overview-block">
+            <h3>{t("topProjects")}</h3>
+            {dayOverview.topProjects.map((item) => (
+              <div className="mini-row" key={item.name}>
+                <span>{item.name}</span>
+                <b>{formatDuration(item.sec)}</b>
+              </div>
+            ))}
+            {!dayOverview.topProjects.length ? <p className="muted">{t("noProjectData")}</p> : null}
+          </div>
+
+          <div className="overview-block">
+            <h3>{t("topTags")}</h3>
+            {dayOverview.topTags.map((item) => (
+              <div className="mini-row" key={item.name}>
+                <span>{item.name}</span>
+                <b>{formatDuration(item.sec)}</b>
+              </div>
+            ))}
+            {!dayOverview.topTags.length ? <p className="muted">{t("noTagData")}</p> : null}
+          </div>
+
+          <div className="overview-block">
+            <h3>{t("topApps")}</h3>
+            {dayOverview.topApps.map((item) => (
+              <div className="mini-row" key={item.name}>
+                <span>{item.name}</span>
+                <b>{formatDuration(item.sec)}</b>
+              </div>
+            ))}
+            {!dayOverview.topApps.length ? <p className="muted">{t("noAppData")}</p> : null}
+          </div>
         </div>
       </section>
       </>

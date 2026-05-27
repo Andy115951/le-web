@@ -65,3 +65,27 @@ Files touched:
 2. Daily/weekly report and CSV export.
 3. Idle detection and auto-segmentation.
 4. Rule tester preview (simulate match before saving).
+
+## 2026-05-25
+
+### Milestone: Stability pass (background + sleep/shutdown gap fix)
+
+Completed:
+
+- Window close now hides the app instead of exiting immediately.
+  - The collector keeps running while the app process is alive.
+  - Reopening the app from macOS reopen events shows the main window again.
+- Timeline duration logic now tracks `last_seen_at` for open segments.
+  - Large gaps caused by sleep, shutdown, or long pauses are no longer added into one segment.
+  - Existing rows are backfilled automatically on startup.
+- App exit now flushes the current open segment before quitting.
+- Added a macOS menu-bar status icon.
+  - Left click toggles the main window.
+  - Menu supports open window, toggle tracking, and quit.
+  - App now uses accessory activation policy, so it behaves more like a menu-bar utility.
+- Dock visibility is now forced off when the app hides back to the menu bar.
+
+Current limitations:
+
+- The app still relies on the Dock / reopen behavior; there is no dedicated tray or menu-bar icon yet.
+- If the process is force-killed, the current segment is only preserved up to the last successful capture tick.

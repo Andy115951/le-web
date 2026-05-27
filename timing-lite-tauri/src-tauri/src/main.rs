@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -9,7 +9,10 @@ use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
-use tauri::{Manager, State};
+use tauri::image::Image;
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tauri::{Manager, RunEvent, State, WindowEvent};
 
 #[derive(Clone, Serialize)]
 struct ActivityEntry {
@@ -74,9 +77,14 @@ struct RuntimeState {
   interval_ms: u64,
   last_active: Option<ActiveWindow>,
   last_warning: Option<String>,
+  allow_window_close: bool,
 }
 
 type SharedState = Arc<Mutex<RuntimeState>>;
+
+const MENU_SHOW: &str = "tray_show";
+const MENU_TOGGLE_TRACKING: &str = "tray_toggle_tracking";
+const MENU_QUIT: &str = "tray_quit";
 
 fn db_dir() -> Result<PathBuf, String> {
   let home = std::env::var("HOME").map_err(|e| format!("HOME not found: {e}"))?;
@@ -137,7 +145,8 @@ fn init_db_internal() -> Result<(), String> {
         window_title text not null default '',
         started_at text not null,
         ended_at text null,
-        duration_seconds integer not null default 0
+        duration_seconds integer not null default 0,
+        last_seen_at text null
       );
 
       create table if not exists rules (
@@ -173,6 +182,21 @@ fn init_db_internal() -> Result<(), String> {
     "source",
     "alter table activity_entries add column source text not null default 'manual'",
   )?;
+  ensure_column(
+    &conn,
+    "activity_entries",
+    "last_seen_at",
+    "alter table activity_entries add column last_seen_at text null",
+  )?;
+
+  conn
+    .execute(
+      "update activity_entries
+       set last_seen_at = coalesce(ended_at, started_at)
+       where last_seen_at is null or trim(last_seen_at) = ''",
+      [],
+    )
+    .map_err(|e| format!("backfill last_seen_at failed: {e}"))?;
 
   Ok(())
 }
@@ -226,10 +250,35 @@ fn read_frontmost_window() -> Result<(String, String), String> {
   }
 }
 
-fn close_last_open_entry(conn: &Connection, ended_at: &str) -> Result<(), String> {
+fn parse_rfc3339_utc(value: &str) -> Result<DateTime<Utc>, String> {
+  DateTime::parse_from_rfc3339(value)
+    .map(|dt| dt.with_timezone(&Utc))
+    .map_err(|e| format!("parse rfc3339 failed: {e}"))
+}
+
+fn tracking_gap_seconds(interval_ms: u64) -> i64 {
+  (((interval_ms.clamp(2000, 30000) as i64) * 3) / 1000).clamp(10, 60)
+}
+
+fn compute_delta_seconds(start_at: &str, end_at: &str) -> Result<i64, String> {
+  let start_ts = parse_rfc3339_utc(start_at)?;
+  let end_ts = parse_rfc3339_utc(end_at)?;
+  Ok((end_ts.timestamp() - start_ts.timestamp()).max(0))
+}
+
+fn live_tail_seconds(last_seen_at: &str, ended_at: &str, max_gap_seconds: i64) -> Result<i64, String> {
+  let delta = compute_delta_seconds(last_seen_at, ended_at)?;
+  if delta > max_gap_seconds {
+    Ok(0)
+  } else {
+    Ok(delta)
+  }
+}
+
+fn close_last_open_entry(conn: &Connection, ended_at: &str, max_gap_seconds: i64) -> Result<(), String> {
   let mut stmt = conn
     .prepare(
-      "select id, started_at from activity_entries
+      "select id, coalesce(last_seen_at, started_at), duration_seconds from activity_entries
        where ended_at is null
        order by id desc limit 1",
     )
@@ -238,26 +287,161 @@ fn close_last_open_entry(conn: &Connection, ended_at: &str) -> Result<(), String
   let row = stmt
     .query_row([], |row| {
       let id: i64 = row.get(0)?;
-      let started_at: String = row.get(1)?;
-      Ok((id, started_at))
+      let last_seen_at: String = row.get(1)?;
+      let duration_seconds: i64 = row.get(2)?;
+      Ok((id, last_seen_at, duration_seconds))
     })
     .ok();
 
-  if let Some((id, started_at)) = row {
-    let started_ts = chrono::DateTime::parse_from_rfc3339(&started_at)
-      .map_err(|e| format!("parse started_at failed: {e}"))?;
-    let ended_ts = chrono::DateTime::parse_from_rfc3339(ended_at)
-      .map_err(|e| format!("parse ended_at failed: {e}"))?;
-    let duration = (ended_ts.timestamp() - started_ts.timestamp()).max(0);
+  if let Some((id, last_seen_at, duration_seconds)) = row {
+    let tail = live_tail_seconds(&last_seen_at, ended_at, max_gap_seconds)?;
+    let safe_ended_at = if tail == 0 {
+      last_seen_at.clone()
+    } else {
+      ended_at.to_string()
+    };
     conn
       .execute(
         "update activity_entries
-         set ended_at = ?1, duration_seconds = ?2
+         set ended_at = ?1, last_seen_at = ?1, duration_seconds = ?2
          where id = ?3",
-        params![ended_at, duration, id],
+        params![safe_ended_at, duration_seconds + tail, id],
       )
       .map_err(|e| format!("update last entry failed: {e}"))?;
   }
+  Ok(())
+}
+
+fn close_stale_open_entry(conn: &Connection, now: &str, max_gap_seconds: i64) -> Result<(), String> {
+  let mut stmt = conn
+    .prepare(
+      "select coalesce(last_seen_at, started_at)
+       from activity_entries
+       where ended_at is null
+       order by id desc limit 1",
+    )
+    .map_err(|e| format!("prepare stale open query failed: {e}"))?;
+
+  let last_seen_at = stmt.query_row([], |row| row.get::<_, String>(0)).ok();
+  if let Some(last_seen_at) = last_seen_at {
+    let delta = compute_delta_seconds(&last_seen_at, now)?;
+    if delta > max_gap_seconds {
+      close_last_open_entry(conn, &last_seen_at, max_gap_seconds)?;
+    }
+  }
+
+  Ok(())
+}
+
+fn finalize_open_entry(interval_ms: u64) -> Result<(), String> {
+  init_db_internal()?;
+  let conn = open_db()?;
+  let now = Utc::now().to_rfc3339();
+  close_last_open_entry(&conn, &now, tracking_gap_seconds(interval_ms))
+}
+
+fn set_tracking_enabled_internal(state: &SharedState, enabled: bool) -> Result<RuntimeStatus, String> {
+  let mut st = state.lock().map_err(|_| "runtime state poisoned".to_string())?;
+  st.tracking_enabled = enabled;
+  Ok(RuntimeStatus {
+    tracking_enabled: st.tracking_enabled,
+    interval_ms: st.interval_ms,
+    last_active: st.last_active.clone(),
+    last_warning: st.last_warning.clone(),
+  })
+}
+
+fn toggle_tracking_internal(state: &SharedState) -> Result<RuntimeStatus, String> {
+  let enabled = {
+    let st = state.lock().map_err(|_| "runtime state poisoned".to_string())?;
+    !st.tracking_enabled
+  };
+  set_tracking_enabled_internal(state, enabled)
+}
+
+fn show_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+  #[cfg(target_os = "macos")]
+  let _ = app.set_dock_visibility(false);
+  if let Some(window) = app.get_webview_window("main") {
+    let _ = window.set_skip_taskbar(true);
+    let _ = window.show();
+    let _ = window.unminimize();
+    let _ = window.set_focus();
+  }
+}
+
+fn toggle_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
+  if let Some(window) = app.get_webview_window("main") {
+    let is_visible = window.is_visible().unwrap_or(false);
+    if is_visible {
+      let _ = window.hide();
+      #[cfg(target_os = "macos")]
+      let _ = app.set_dock_visibility(false);
+    } else {
+      #[cfg(target_os = "macos")]
+      let _ = app.set_dock_visibility(false);
+      let _ = window.set_skip_taskbar(true);
+      let _ = window.show();
+      let _ = window.unminimize();
+      let _ = window.set_focus();
+    }
+  }
+}
+
+fn build_tray<R: tauri::Runtime>(app: &tauri::AppHandle<R>, state: SharedState) -> Result<(), String> {
+  let show_item =
+    MenuItem::with_id(app, MENU_SHOW, "Open Timing Lite", true, None::<&str>)
+      .map_err(|e| format!("create tray show item failed: {e}"))?;
+  let toggle_tracking_item =
+    MenuItem::with_id(app, MENU_TOGGLE_TRACKING, "Pause / Resume Tracking", true, None::<&str>)
+      .map_err(|e| format!("create tray toggle item failed: {e}"))?;
+  let quit_item =
+    MenuItem::with_id(app, MENU_QUIT, "Quit", true, None::<&str>)
+      .map_err(|e| format!("create tray quit item failed: {e}"))?;
+  let separator =
+    PredefinedMenuItem::separator(app).map_err(|e| format!("create tray separator failed: {e}"))?;
+
+  let menu = Menu::with_items(
+    app,
+    &[&show_item, &toggle_tracking_item, &separator, &quit_item],
+  )
+  .map_err(|e| format!("create tray menu failed: {e}"))?;
+
+  let icon = Image::from_bytes(include_bytes!("../icons/32x32.png"))
+    .map_err(|e| format!("load tray icon failed: {e}"))?;
+
+  TrayIconBuilder::with_id("timing-lite-status")
+    .icon(icon)
+    .tooltip("Timing Lite")
+    .menu(&menu)
+    .icon_as_template(false)
+    .show_menu_on_left_click(false)
+    .on_tray_icon_event(move |_tray, event| {
+      if let TrayIconEvent::Click {
+        button: MouseButton::Left,
+        button_state: MouseButtonState::Up,
+        ..
+      } = event
+      {
+        toggle_main_window(_tray.app_handle());
+      }
+    })
+    .on_menu_event(move |app, event| {
+      if event.id() == MENU_SHOW {
+        show_main_window(app);
+      } else if event.id() == MENU_TOGGLE_TRACKING {
+        let _ = toggle_tracking_internal(&state);
+      } else if event.id() == MENU_QUIT {
+        if let Ok(mut st) = state.lock() {
+          st.allow_window_close = true;
+          let _ = finalize_open_entry(st.interval_ms);
+        }
+        app.exit(0);
+      }
+    })
+    .build(app)
+    .map_err(|e| format!("build tray icon failed: {e}"))?;
+
   Ok(())
 }
 
@@ -324,6 +508,12 @@ fn capture_once(state: &SharedState) -> Result<CaptureResult, String> {
   init_db_internal()?;
   let conn = open_db()?;
   let now = Utc::now().to_rfc3339();
+  let interval_ms = {
+    let st = state.lock().map_err(|_| "runtime state poisoned".to_string())?;
+    st.interval_ms
+  };
+  let max_gap_seconds = tracking_gap_seconds(interval_ms);
+  close_stale_open_entry(&conn, &now, max_gap_seconds)?;
 
   let (app_name, window_title) = match read_frontmost_window() {
     Ok(data) => data,
@@ -341,7 +531,7 @@ fn capture_once(state: &SharedState) -> Result<CaptureResult, String> {
 
   let mut stmt = conn
     .prepare(
-      "select id, app_name, window_title, project, tag
+      "select id, app_name, window_title, project, tag, duration_seconds, coalesce(last_seen_at, started_at)
        from activity_entries
        where ended_at is null
        order by id desc limit 1",
@@ -355,28 +545,40 @@ fn capture_once(state: &SharedState) -> Result<CaptureResult, String> {
       let title: String = row.get(2)?;
       let p: Option<String> = row.get(3)?;
       let t: Option<String> = row.get(4)?;
-      Ok((id, app, title, p, t))
+      let duration_seconds: i64 = row.get(5)?;
+      let last_seen_at: String = row.get(6)?;
+      Ok((id, app, title, p, t, duration_seconds, last_seen_at))
     })
     .ok();
 
   match open_entry {
-    Some((_id, open_app, open_title, open_project, open_tag)) => {
+    Some((id, open_app, open_title, open_project, open_tag, open_duration, last_seen_at)) => {
       if open_app != app_name || open_title != window_title || open_project != project || open_tag != tag {
-        close_last_open_entry(&conn, &now)?;
+        close_last_open_entry(&conn, &now, max_gap_seconds)?;
         conn
           .execute(
-            "insert into activity_entries (app_name, window_title, project, tag, source, started_at, ended_at, duration_seconds)
-             values (?1, ?2, ?3, ?4, ?5, ?6, null, 0)",
+            "insert into activity_entries (app_name, window_title, project, tag, source, started_at, ended_at, duration_seconds, last_seen_at)
+             values (?1, ?2, ?3, ?4, ?5, ?6, null, 0, ?6)",
             params![app_name, window_title, project, tag, source, now],
           )
           .map_err(|e| format!("insert new entry failed: {e}"))?;
+      } else {
+        let tail = live_tail_seconds(&last_seen_at, &now, max_gap_seconds)?;
+        conn
+          .execute(
+            "update activity_entries
+             set last_seen_at = ?1, duration_seconds = ?2
+             where id = ?3",
+            params![now, open_duration + tail, id],
+          )
+          .map_err(|e| format!("update running entry failed: {e}"))?;
       }
     }
     None => {
       conn
         .execute(
-          "insert into activity_entries (app_name, window_title, project, tag, source, started_at, ended_at, duration_seconds)
-           values (?1, ?2, ?3, ?4, ?5, ?6, null, 0)",
+          "insert into activity_entries (app_name, window_title, project, tag, source, started_at, ended_at, duration_seconds, last_seen_at)
+           values (?1, ?2, ?3, ?4, ?5, ?6, null, 0, ?6)",
           params![app_name, window_title, project, tag, source, now],
         )
         .map_err(|e| format!("insert first entry failed: {e}"))?;
@@ -427,10 +629,15 @@ fn capture_active_window(state: State<'_, SharedState>) -> Result<CaptureResult,
 }
 
 #[tauri::command]
-fn list_entries(limit: Option<i64>) -> Result<Vec<ActivityEntry>, String> {
+fn list_entries(limit: Option<i64>, state: State<'_, SharedState>) -> Result<Vec<ActivityEntry>, String> {
   init_db_internal()?;
   let conn = open_db()?;
   let max = limit.unwrap_or(120).clamp(1, 1000);
+  let interval_ms = {
+    let st = state.lock().map_err(|_| "runtime state poisoned".to_string())?;
+    st.interval_ms
+  };
+  let max_gap_seconds = tracking_gap_seconds(interval_ms);
   let mut stmt = conn
     .prepare(
       "select
@@ -444,7 +651,7 @@ fn list_entries(limit: Option<i64>) -> Result<Vec<ActivityEntry>, String> {
          ended_at,
          duration_seconds +
          case
-           when ended_at is null then max(0, strftime('%s','now') - strftime('%s', started_at))
+           when ended_at is null then min(?2, max(0, strftime('%s','now') - strftime('%s', coalesce(last_seen_at, started_at))))
            else 0
          end as effective_duration
        from activity_entries
@@ -454,7 +661,7 @@ fn list_entries(limit: Option<i64>) -> Result<Vec<ActivityEntry>, String> {
     .map_err(|e| format!("prepare list failed: {e}"))?;
 
   let rows = stmt
-    .query_map([max], |row| {
+    .query_map(params![max, max_gap_seconds], |row| {
       Ok(ActivityEntry {
         id: row.get(0)?,
         app_name: row.get(1)?,
@@ -581,19 +788,46 @@ fn main() {
     interval_ms: 5000,
     last_active: None,
     last_warning: None,
+    allow_window_close: false,
   }));
+  let shared_for_setup = shared.clone();
+  let shared_for_events = shared.clone();
 
-  spawn_background_collector(shared.clone());
-
-  tauri::Builder::default()
-    .setup(|app| {
+  let app = tauri::Builder::default()
+    .setup(move |app| {
       let _ = init_db_internal();
+      #[cfg(target_os = "macos")]
+      {
+        app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+        let _ = app.set_dock_visibility(false);
+      }
+      let _ = build_tray(&app.handle(), shared_for_setup.clone());
       if let Some(window) = app.get_webview_window("main") {
+        let _ = window.set_skip_taskbar(true);
         let _ = window.show();
       }
       Ok(())
     })
-    .manage(shared)
+    .on_window_event({
+      let shared = shared.clone();
+      move |window, event| {
+        if window.label() != "main" {
+          return;
+        }
+        if let WindowEvent::CloseRequested { api, .. } = event {
+          let allow_close = shared.lock().map(|st| st.allow_window_close).unwrap_or(true);
+          if !allow_close {
+            api.prevent_close();
+            let _ = window.hide();
+            #[cfg(target_os = "macos")]
+            {
+              let _ = window.app_handle().set_dock_visibility(false);
+            }
+          }
+        }
+      }
+    })
+    .manage(shared.clone())
     .invoke_handler(tauri::generate_handler![
       init_db,
       capture_active_window,
@@ -606,6 +840,24 @@ fn main() {
       set_rule_enabled,
       delete_rule
     ])
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+    .build(tauri::generate_context!())
+    .expect("error while building tauri application");
+
+  spawn_background_collector(shared.clone());
+
+  app.run(move |app_handle, event| match event {
+    RunEvent::Reopen { .. } => {
+      if let Some(window) = app_handle.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.set_focus();
+      }
+    }
+    RunEvent::ExitRequested { .. } | RunEvent::Exit => {
+      if let Ok(mut st) = shared_for_events.lock() {
+        st.allow_window_close = true;
+        let _ = finalize_open_entry(st.interval_ms);
+      }
+    }
+    _ => {}
+  });
 }
