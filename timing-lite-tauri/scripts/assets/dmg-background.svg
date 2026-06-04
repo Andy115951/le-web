@@ -1,0 +1,37 @@
+<svg width="900" height="500" viewBox="0 0 900 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="120" y1="60" x2="780" y2="440" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8F6F1"/>
+      <stop offset="1" stop-color="#EEEAE1"/>
+    </linearGradient>
+    <linearGradient id="arrow" x1="390" y1="250" x2="510" y2="250" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7C889D"/>
+      <stop offset="1" stop-color="#98A4BA"/>
+    </linearGradient>
+    <filter id="shadow" x="112" y="116" width="676" height="268" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="12" stdDeviation="20" flood-color="#4C5566" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <rect width="900" height="500" rx="22" fill="url(#bg)"/>
+  <g filter="url(#shadow)">
+    <rect x="140" y="140" width="620" height="220" rx="28" fill="rgba(255,255,255,0.34)"/>
+  </g>
+
+  <circle cx="240" cy="250" r="82" fill="rgba(255,255,255,0.66)"/>
+  <circle cx="660" cy="250" r="82" fill="rgba(255,255,255,0.66)"/>
+
+  <path
+    d="M392 250H504M504 250L468 214M504 250L468 286"
+    stroke="url(#arrow)"
+    stroke-width="12"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    stroke-dasharray="18 16"
+    opacity="0.88"
+  />
+
+  <text x="450" y="334" text-anchor="middle" font-family="SF Pro Text, PingFang SC, sans-serif" font-size="26" font-weight="600" fill="#8A93A5">
+    Drag to Applications
+  </text>
+</svg>

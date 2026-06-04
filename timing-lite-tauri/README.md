@@ -8,6 +8,12 @@ A local-first desktop MVP inspired by timing-style activity tracking.
 - Runs a background collector loop (capture does not depend on UI button clicks).
 - Closing the main window hides the app and keeps the collector running in the background.
 - Shows a macOS menu-bar status icon for reopening and quick control.
+- Uses single-instance startup behavior:
+  - opening the app again reuses the existing process instead of launching duplicates
+- Applies desktop guardrails:
+  - minimum window size
+  - centered startup window
+  - file drag-drop navigation disabled
 - Stores timeline entries in local SQLite:
   - `~/.timing-lite/timing-lite.db`
 - Supports rule-based auto classification:
@@ -49,6 +55,7 @@ Output:
 
 - App bundle: `src-tauri/target/release/bundle/macos/Timing Lite.app`
 - DMG: `src-tauri/target/release/bundle/dmg/Timing-Lite.dmg`
+- DMG contents: `Timing Lite.app` + `Applications` shortcut for drag-to-install
 
 ## macOS permission note
 

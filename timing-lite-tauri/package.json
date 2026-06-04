@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:build:app": "tauri build --bundles app",
-    "build:dmg:silent": "npm run tauri:build:app && mkdir -p src-tauri/target/release/bundle/dmg && hdiutil create -volname \"Timing Lite\" -srcfolder \"src-tauri/target/release/bundle/macos/Timing Lite.app\" -ov -format UDZO \"src-tauri/target/release/bundle/dmg/Timing-Lite.dmg\""
+    "build:dmg:silent": "npm run tauri:build:app && ./scripts/build-dmg-silent.sh"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.1.0",

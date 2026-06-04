@@ -4,6 +4,8 @@ use chrono::{DateTime, Utc};
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::io::Write;
+use std::net::{TcpListener, TcpStream};
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
@@ -85,6 +87,7 @@ type SharedState = Arc<Mutex<RuntimeState>>;
 const MENU_SHOW: &str = "tray_show";
 const MENU_TOGGLE_TRACKING: &str = "tray_toggle_tracking";
 const MENU_QUIT: &str = "tray_quit";
+const SINGLE_INSTANCE_ADDR: &str = "127.0.0.1:45873";
 
 fn db_dir() -> Result<PathBuf, String> {
   let home = std::env::var("HOME").map_err(|e| format!("HOME not found: {e}"))?;
@@ -386,6 +389,27 @@ fn toggle_main_window<R: tauri::Runtime>(app: &tauri::AppHandle<R>) {
       let _ = window.set_focus();
     }
   }
+}
+
+fn notify_existing_instance() {
+  if let Ok(mut stream) = TcpStream::connect(SINGLE_INSTANCE_ADDR) {
+    let _ = stream.write_all(b"show");
+  }
+}
+
+fn spawn_single_instance_server<R: tauri::Runtime>(app: tauri::AppHandle<R>, listener: TcpListener) {
+  thread::spawn(move || {
+    for incoming in listener.incoming() {
+      if incoming.is_err() {
+        continue;
+      }
+
+      let app_handle = app.clone();
+      let _ = app.run_on_main_thread(move || {
+        show_main_window(&app_handle);
+      });
+    }
+  });
 }
 
 fn build_tray<R: tauri::Runtime>(app: &tauri::AppHandle<R>, state: SharedState) -> Result<(), String> {
@@ -783,6 +807,14 @@ fn delete_rule(rule_id: i64) -> Result<Vec<RuleRow>, String> {
 }
 
 fn main() {
+  let single_instance_listener = match TcpListener::bind(SINGLE_INSTANCE_ADDR) {
+    Ok(listener) => listener,
+    Err(_) => {
+      notify_existing_instance();
+      return;
+    }
+  };
+
   let shared: SharedState = Arc::new(Mutex::new(RuntimeState {
     tracking_enabled: true,
     interval_ms: 5000,
@@ -843,6 +875,7 @@ fn main() {
     .build(tauri::generate_context!())
     .expect("error while building tauri application");
 
+  spawn_single_instance_server(app.handle().clone(), single_instance_listener);
   spawn_background_collector(shared.clone());
 
   app.run(move |app_handle, event| match event {

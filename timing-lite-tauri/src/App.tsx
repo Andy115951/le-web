@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
 type Locale = "zh" | "en";
@@ -54,7 +54,33 @@ type DashboardBucket = {
   sec: number;
 };
 
-type ViewMode = "overview" | "dashboard" | "rules" | "timeline";
+type ViewMode = "overview" | "dashboard" | "charts" | "rules" | "timeline";
+type ChartGroup = "project" | "app";
+
+type ChartSlice = {
+  name: string;
+  sec: number;
+  ratio: number;
+  color: string;
+};
+
+type TrendDay = {
+  key: string;
+  label: string;
+  totalSec: number;
+  segments: Array<{
+    name: string;
+    sec: number;
+    ratio: number;
+    color: string;
+  }>;
+};
+
+type HoverTip = {
+  text: string;
+  x: number;
+  y: number;
+};
 
 type Dict = Record<string, string>;
 
@@ -68,6 +94,7 @@ const I18N: Record<Locale, Dict> = {
     view: "视图",
     viewOverview: "概览",
     viewDashboard: "统计看板",
+    viewCharts: "图表分析",
     viewRules: "规则管理",
     viewTimeline: "活动列表",
     language: "语言",
@@ -88,6 +115,14 @@ const I18N: Record<Locale, Dict> = {
     recent24h: "最近 1 天",
     recent7d: "最近 1 周",
     trend: "趋势",
+    charts: "图表分析",
+    chartsRangeHint: "用饼图快速看时间分布",
+    dailyTrend: "最近 7 天趋势",
+    trendHint: "按天看时间投入，并支持按项目或应用进程分类",
+    groupBy: "分类方式",
+    groupByProject: "按项目",
+    groupByApp: "按应用进程",
+    otherGroup: "其他",
     topProjects: "项目排行",
     topTags: "标签排行",
     noProjectData: "暂无项目数据",
@@ -142,6 +177,7 @@ const I18N: Record<Locale, Dict> = {
     view: "View",
     viewOverview: "Overview",
     viewDashboard: "Dashboard",
+    viewCharts: "Charts",
     viewRules: "Rules",
     viewTimeline: "Timeline",
     language: "Language",
@@ -162,6 +198,14 @@ const I18N: Record<Locale, Dict> = {
     recent24h: "Last 1 Day",
     recent7d: "Last 1 Week",
     trend: "Trend",
+    charts: "Charts",
+    chartsRangeHint: "Use pie charts to see where time goes",
+    dailyTrend: "Last 7 Days Trend",
+    trendHint: "See daily time split by project or app process",
+    groupBy: "Group By",
+    groupByProject: "Project",
+    groupByApp: "App Process",
+    otherGroup: "Other",
     topProjects: "Top Projects",
     topTags: "Top Tags",
     noProjectData: "No project data yet",
@@ -220,6 +264,8 @@ const DEFAULT_RULE_FORM: RuleForm = {
   priority: 100
 };
 
+const CHART_COLORS = ["#3b82f6", "#22c55e", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#f97316"];
+
 function formatDuration(totalSeconds: number): string {
   const sec = Math.max(0, Math.floor(totalSeconds));
   const h = Math.floor(sec / 3600);
@@ -250,6 +296,162 @@ function parseDate(v: string): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+function buildChartSlices(map: Map<string, number>, fallbackLabel: string): ChartSlice[] {
+  const rows = Array.from(map.entries())
+    .map(([name, sec]) => ({ name, sec }))
+    .filter((item) => item.sec > 0)
+    .sort((a, b) => b.sec - a.sec);
+
+  const total = rows.reduce((sum, item) => sum + item.sec, 0);
+  if (!total) return [];
+
+  const top = rows.slice(0, 6);
+  const restSec = rows.slice(6).reduce((sum, item) => sum + item.sec, 0);
+  const combined = restSec > 0 ? [...top, { name: fallbackLabel, sec: restSec }] : top;
+
+  return combined.map((item, index) => ({
+    ...item,
+    ratio: item.sec / total,
+    color: CHART_COLORS[index % CHART_COLORS.length]
+  }));
+}
+
+function describeRange(hours: number, t: (key: string) => string): string {
+  if (hours === 6) return t("recent6h");
+  if (hours === 24) return t("recent24h");
+  return t("recent7d");
+}
+
+function polarToCartesian(cx: number, cy: number, radius: number, angleDeg: number) {
+  const angleRad = ((angleDeg - 90) * Math.PI) / 180;
+  return {
+    x: cx + radius * Math.cos(angleRad),
+    y: cy + radius * Math.sin(angleRad)
+  };
+}
+
+function createArcPath(cx: number, cy: number, radius: number, startAngle: number, endAngle: number) {
+  const start = polarToCartesian(cx, cy, radius, endAngle);
+  const end = polarToCartesian(cx, cy, radius, startAngle);
+  const largeArcFlag = endAngle - startAngle > 180 ? 1 : 0;
+  return `M ${cx} ${cy} L ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} 0 ${end.x} ${end.y} Z`;
+}
+
+function PieChart({
+  slices,
+  emptyText,
+  onShowTip,
+  onHideTip
+}: {
+  slices: ChartSlice[];
+  emptyText: string;
+  onShowTip: (event: ReactMouseEvent<Element>, text: string) => void;
+  onHideTip: () => void;
+}) {
+  if (!slices.length) {
+    return <p className="muted">{emptyText}</p>;
+  }
+
+  let startAngle = 0;
+
+  return (
+    <div className="pie-chart-wrap">
+      <svg viewBox="0 0 120 120" className="pie-chart" aria-hidden="true">
+        {slices.map((slice) => {
+          const angle = Math.max(0.5, slice.ratio * 360);
+          const endAngle = startAngle + angle;
+          const path = createArcPath(60, 60, 54, startAngle, endAngle);
+          startAngle = endAngle;
+          const tip = `${slice.name} · ${formatDuration(slice.sec)} · ${Math.round(slice.ratio * 100)}%`;
+          return (
+            <path
+              key={slice.name}
+              d={path}
+              fill={slice.color}
+              onMouseMove={(event) => onShowTip(event, tip)}
+              onMouseLeave={onHideTip}
+            />
+          );
+        })}
+        <circle cx="60" cy="60" r="26" fill="#111a27" />
+      </svg>
+      <div className="pie-legend">
+        {slices.map((slice) => (
+          <div
+            className="pie-legend-row"
+            key={slice.name}
+            onMouseMove={(event) =>
+              onShowTip(
+                event,
+                `${slice.name} · ${formatDuration(slice.sec)} · ${Math.round(slice.ratio * 100)}%`
+              )
+            }
+            onMouseLeave={onHideTip}
+          >
+            <span
+              className="pie-dot"
+              style={{ background: slice.color }}
+            />
+            <span className="pie-name">{slice.name}</span>
+            <b>{Math.round(slice.ratio * 100)}%</b>
+            <small>{formatDuration(slice.sec)}</small>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function StackedTrendChart({
+  days,
+  emptyText,
+  onShowTip,
+  onHideTip
+}: {
+  days: TrendDay[];
+  emptyText: string;
+  onShowTip: (event: ReactMouseEvent<Element>, text: string) => void;
+  onHideTip: () => void;
+}) {
+  const hasData = days.some((day) => day.totalSec > 0);
+  if (!hasData) {
+    return <p className="muted">{emptyText}</p>;
+  }
+
+  return (
+    <div className="trend-days">
+      {days.map((day) => (
+        <div className="trend-day-row" key={day.key}>
+          <div className="trend-day-meta">
+            <span>{day.label}</span>
+            <small>{formatDuration(day.totalSec)}</small>
+          </div>
+          <div className="trend-day-track">
+            {day.segments.length ? (
+              day.segments.map((segment) => (
+                <div
+                  key={`${day.key}-${segment.name}`}
+                  className="trend-day-fill"
+                  onMouseMove={(event) =>
+                    onShowTip(event, `${day.label} · ${segment.name} · ${formatDuration(segment.sec)}`)
+                  }
+                  onMouseLeave={onHideTip}
+                  style={{
+                    width: `${Math.max(2, Math.round(segment.ratio * 100))}%`,
+                    background: segment.color
+                  }}
+                />
+              ))
+            ) : (
+              <div className="trend-day-empty" />
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function App() {
   const [locale, setLocale] = useState<Locale>("zh");
   const [status, setStatus] = useState<RuntimeStatus | null>(null);
@@ -263,6 +465,8 @@ export default function App() {
   const [pageSize, setPageSize] = useState<number>(20);
   const [page, setPage] = useState<number>(1);
   const [viewMode, setViewMode] = useState<ViewMode>("dashboard");
+  const [chartGroup, setChartGroup] = useState<ChartGroup>("project");
+  const [hoverTip, setHoverTip] = useState<HoverTip | null>(null);
 
   const t = (key: string): string => I18N[locale][key] ?? key;
 
@@ -335,6 +539,7 @@ export default function App() {
 
     const byTag = new Map<string, number>();
     const byProject = new Map<string, number>();
+    const byApp = new Map<string, number>();
 
     for (const row of scoped) {
       const sec = Math.max(0, row.duration_seconds);
@@ -347,6 +552,9 @@ export default function App() {
 
       const tagKey = row.tag || t("uncategorizedTag");
       byTag.set(tagKey, (byTag.get(tagKey) ?? 0) + sec);
+
+      const appKey = row.app_name || t("unknown");
+      byApp.set(appKey, (byApp.get(appKey) ?? 0) + sec);
     }
 
     const topProjects = Array.from(byProject.entries())
@@ -355,6 +563,11 @@ export default function App() {
       .slice(0, 5);
 
     const topTags = Array.from(byTag.entries())
+      .map(([name, sec]) => ({ name, sec }))
+      .sort((a, b) => b.sec - a.sec)
+      .slice(0, 5);
+
+    const topApps = Array.from(byApp.entries())
       .map(([name, sec]) => ({ name, sec }))
       .sort((a, b) => b.sec - a.sec)
       .slice(0, 5);
@@ -419,6 +632,10 @@ export default function App() {
       uncategorizedSeconds,
       topProjects,
       topTags,
+      topApps,
+      projectSlices: buildChartSlices(byProject, locale === "zh" ? "其他项目" : "Other Projects"),
+      tagSlices: buildChartSlices(byTag, locale === "zh" ? "其他标签" : "Other Tags"),
+      appSlices: buildChartSlices(byApp, locale === "zh" ? "其他应用" : "Other Apps"),
       buckets,
       maxBucketSec
     };
@@ -499,6 +716,75 @@ export default function App() {
     };
   }, [entries, locale]);
 
+  const trendByGroup = useMemo(() => {
+    const now = new Date();
+    const dayCount = 7;
+    const dayKeys: TrendDay[] = [];
+    const dayMap = new Map<string, Map<string, number>>();
+    const totalsByGroup = new Map<string, number>();
+
+    for (let i = dayCount - 1; i >= 0; i -= 1) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      const key = localDayKey(d);
+      dayKeys.push({ key, label: key.slice(5), totalSec: 0, segments: [] });
+      dayMap.set(key, new Map());
+    }
+
+    for (const row of entries) {
+      const d = parseDate(row.started_at);
+      if (!d) continue;
+      const dayKey = localDayKey(d);
+      const bucket = dayMap.get(dayKey);
+      if (!bucket) continue;
+
+      const groupName =
+        chartGroup === "project"
+          ? row.project || row.app_name || t("unknown")
+          : row.app_name || t("unknown");
+      const sec = Math.max(0, row.duration_seconds);
+
+      bucket.set(groupName, (bucket.get(groupName) ?? 0) + sec);
+      totalsByGroup.set(groupName, (totalsByGroup.get(groupName) ?? 0) + sec);
+    }
+
+    const topGroups = Array.from(totalsByGroup.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name]) => name);
+
+    const colorMap = new Map<string, string>();
+    topGroups.forEach((name, index) => {
+      colorMap.set(name, CHART_COLORS[index % CHART_COLORS.length]);
+    });
+    colorMap.set(t("otherGroup"), CHART_COLORS[topGroups.length % CHART_COLORS.length]);
+
+    return dayKeys.map((day) => {
+      const bucket = dayMap.get(day.key) ?? new Map();
+      const totalSec = Array.from(bucket.values()).reduce((sum, sec) => sum + sec, 0);
+
+      const primary = topGroups
+        .map((name) => ({ name, sec: bucket.get(name) ?? 0 }))
+        .filter((item) => item.sec > 0);
+      const otherSec = Array.from(bucket.entries())
+        .filter(([name]) => !topGroups.includes(name))
+        .reduce((sum, [, sec]) => sum + sec, 0);
+
+      const combined = otherSec > 0 ? [...primary, { name: t("otherGroup"), sec: otherSec }] : primary;
+
+      return {
+        key: day.key,
+        label: day.label,
+        totalSec,
+        segments: combined.map((item) => ({
+          ...item,
+          ratio: totalSec ? item.sec / totalSec : 0,
+          color: colorMap.get(item.name) ?? CHART_COLORS[0]
+        }))
+      };
+    });
+  }, [entries, chartGroup, locale]);
+
   const timelineRows = useMemo(() => {
     const q = timelineQuery.trim().toLowerCase();
     if (!q) return entries;
@@ -530,6 +816,18 @@ export default function App() {
   }, [timelineRows, page, pageSize]);
 
   const active = status?.last_active ?? null;
+
+  function showHoverTip(event: ReactMouseEvent<Element>, text: string) {
+    setHoverTip({
+      text,
+      x: event.clientX + 14,
+      y: event.clientY + 14
+    });
+  }
+
+  function hideHoverTip() {
+    setHoverTip(null);
+  }
 
   return (
     <main className={`app ${viewMode === "overview" ? "app--overview" : ""}`}>
@@ -606,6 +904,12 @@ export default function App() {
           onClick={() => setViewMode("dashboard")}
         >
           {t("viewDashboard")}
+        </button>
+        <button
+          className={`view-tab ${viewMode === "charts" ? "active" : ""}`}
+          onClick={() => setViewMode("charts")}
+        >
+          {t("viewCharts")}
         </button>
         <button
           className={`view-tab ${viewMode === "rules" ? "active" : ""}`}
@@ -814,6 +1118,102 @@ export default function App() {
             ))}
             {!dashboard.topTags.length ? <p className="muted">{t("noTagData")}</p> : null}
           </div>
+        </div>
+      </section>
+      ) : null}
+
+      {viewMode === "charts" ? (
+      <section className="panel">
+        <div className="panel-head">
+          <div>
+            <h2>{t("charts")}</h2>
+            <p className="muted">{t("chartsRangeHint")}</p>
+          </div>
+          <label>
+            <span>{t("range")}</span>
+            <select
+              value={rangeHours}
+              onChange={(e) => setRangeHours(Number(e.target.value))}
+            >
+              <option value={6}>{t("recent6h")}</option>
+              <option value={24}>{t("recent24h")}</option>
+              <option value={168}>{t("recent7d")}</option>
+            </select>
+          </label>
+        </div>
+
+        <div className="kpi-grid">
+          <div className="kpi-card">
+            <span>{t("range")}</span>
+            <strong>{describeRange(rangeHours, t)}</strong>
+          </div>
+          <div className="kpi-card">
+            <span>{t("todayTotal")}</span>
+            <strong>{formatDuration(dashboard.totalSeconds)}</strong>
+          </div>
+          <div className="kpi-card">
+            <span>{t("topProjects")}</span>
+            <strong>{dashboard.topProjects[0]?.name ?? "-"}</strong>
+          </div>
+          <div className="kpi-card">
+            <span>{t("topApps")}</span>
+            <strong>{dashboard.topApps[0]?.name ?? "-"}</strong>
+          </div>
+        </div>
+
+        <div className="charts-grid">
+          <div className="mini-panel">
+            <h3>{t("topProjects")}</h3>
+            <PieChart
+              slices={dashboard.projectSlices}
+              emptyText={t("noProjectData")}
+              onShowTip={showHoverTip}
+              onHideTip={hideHoverTip}
+            />
+          </div>
+          <div className="mini-panel">
+            <h3>{t("topTags")}</h3>
+            <PieChart
+              slices={dashboard.tagSlices}
+              emptyText={t("noTagData")}
+              onShowTip={showHoverTip}
+              onHideTip={hideHoverTip}
+            />
+          </div>
+          <div className="mini-panel">
+            <h3>{t("topApps")}</h3>
+            <PieChart
+              slices={dashboard.appSlices}
+              emptyText={t("noAppData")}
+              onShowTip={showHoverTip}
+              onHideTip={hideHoverTip}
+            />
+          </div>
+        </div>
+
+        <div className="mini-panel trend-panel">
+          <div className="panel-head">
+            <div>
+              <h3>{t("dailyTrend")}</h3>
+              <p className="muted">{t("trendHint")}</p>
+            </div>
+            <label>
+              <span>{t("groupBy")}</span>
+              <select
+                value={chartGroup}
+                onChange={(e) => setChartGroup(e.target.value as ChartGroup)}
+              >
+                <option value="project">{t("groupByProject")}</option>
+                <option value="app">{t("groupByApp")}</option>
+              </select>
+            </label>
+          </div>
+          <StackedTrendChart
+            days={trendByGroup}
+            emptyText={t("noData")}
+            onShowTip={showHoverTip}
+            onHideTip={hideHoverTip}
+          />
         </div>
       </section>
       ) : null}
@@ -1043,6 +1443,12 @@ export default function App() {
           </>
         )}
       </section>
+      ) : null}
+
+      {hoverTip ? (
+        <div className="hover-tip" style={{ left: hoverTip.x, top: hoverTip.y }}>
+          {hoverTip.text}
+        </div>
       ) : null}
     </main>
   );

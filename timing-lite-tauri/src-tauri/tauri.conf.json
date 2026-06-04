@@ -13,8 +13,12 @@
     "windows": [
       {
         "title": "Timing Lite",
+        "center": true,
         "width": 1200,
         "height": 840,
+        "minWidth": 980,
+        "minHeight": 680,
+        "dragDropEnabled": false,
         "resizable": true
       }
     ],

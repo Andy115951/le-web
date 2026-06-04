@@ -89,3 +89,19 @@ Current limitations:
 
 - The app still relies on the Dock / reopen behavior; there is no dedicated tray or menu-bar icon yet.
 - If the process is force-killed, the current segment is only preserved up to the last successful capture tick.
+
+## 2026-06-01
+
+### Milestone: Desktop guardrails
+
+Completed:
+
+- Added single-instance startup behavior.
+  - Launching the app again now signals the existing instance to show the main window.
+  - Duplicate collector processes are prevented in normal app launches.
+- Added desktop window guardrails.
+  - Window now starts centered.
+  - Minimum window size is enforced to protect the layout.
+  - File drag-drop navigation is disabled to avoid accidental webview navigation.
+- Improved DMG packaging layout.
+  - The generated DMG now includes `Timing Lite.app` and an `Applications` shortcut for drag-to-install.
