@@ -34,7 +34,7 @@ A local-first desktop MVP inspired by timing-style activity tracking.
 - Desktop shell: Tauri 2
 - Backend: Rust + rusqlite
 
-## Run (dev)
+## Run (dev) —— 本地开发调试
 
 ```bash
 cd /Users/apple/Documents/code/other/le-web/timing-lite-tauri
@@ -42,9 +42,10 @@ npm install
 npm run tauri dev
 ```
 
-## Build (silent dmg)
+## Build (silent dmg) —— 打包：生成 dmg（推荐，安装包）
 
 This command avoids Finder popups from `bundle_dmg.sh` and generates a dmg silently:
+（这条命令会先编译出 .app 再静默生成 dmg，不会弹出 Finder 窗口）
 
 ```bash
 cd /Users/apple/Documents/code/other/le-web/timing-lite-tauri
@@ -56,6 +57,20 @@ Output:
 - App bundle: `src-tauri/target/release/bundle/macos/Timing Lite.app`
 - DMG: `src-tauri/target/release/bundle/dmg/Timing-Lite.dmg`
 - DMG contents: `Timing Lite.app` + `Applications` shortcut for drag-to-install
+
+## Build (app only, no dmg) —— 打包：只出 .app（不要 dmg）
+
+To build just the `.app` bundle without packaging a dmg:
+（只编译出 .app，不打包 dmg，调试/直接运行时用）
+
+```bash
+cd /Users/apple/Documents/code/other/le-web/timing-lite-tauri
+npm run tauri:build:app
+```
+
+Output:
+
+- App bundle: `src-tauri/target/release/bundle/macos/Timing Lite.app`
 
 ## macOS permission note
 
