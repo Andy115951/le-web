@@ -82,6 +82,11 @@ type HoverTip = {
   y: number;
 };
 
+type EntryWindow = {
+  startSec: number;
+  endSec: number;
+};
+
 type Dict = Record<string, string>;
 
 const LOCALE_KEY = "timing-lite-locale";
@@ -287,13 +292,66 @@ function localDayKey(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
-function localHourKey(d: Date): string {
-  return `${localDayKey(d)} ${String(d.getHours()).padStart(2, "0")}`;
-}
-
 function parseDate(v: string): Date | null {
   const d = new Date(v);
   return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function toEpochSecond(d: Date): number {
+  return Math.floor(d.getTime() / 1000);
+}
+
+function startOfLocalHour(d: Date): Date {
+  const next = new Date(d);
+  next.setMinutes(0, 0, 0);
+  return next;
+}
+
+function startOfLocalDay(d: Date): Date {
+  const next = new Date(d);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function getEntryWindow(row: ActivityEntry): EntryWindow | null {
+  const started = parseDate(row.started_at);
+  if (!started) return null;
+
+  const startSec = toEpochSecond(started);
+  const durationSec = Math.max(0, Math.floor(row.duration_seconds));
+  return {
+    startSec,
+    endSec: startSec + durationSec
+  };
+}
+
+function overlapSeconds(window: EntryWindow, startSec: number, endSec: number): number {
+  return Math.max(0, Math.min(window.endSec, endSec) - Math.max(window.startSec, startSec));
+}
+
+function allocateEntryToBuckets(
+  row: ActivityEntry,
+  bucketStartSec: number,
+  bucketSizeSec: number,
+  bucketCount: number,
+  onBucket: (bucketIndex: number, sec: number) => void
+) {
+  const window = getEntryWindow(row);
+  if (!window || window.endSec <= bucketStartSec) return;
+
+  const allEndSec = bucketStartSec + bucketSizeSec * bucketCount;
+  if (window.startSec >= allEndSec) return;
+
+  let index = Math.max(0, Math.floor((window.startSec - bucketStartSec) / bucketSizeSec));
+
+  while (index < bucketCount) {
+    const currentStart = bucketStartSec + index * bucketSizeSec;
+    const currentEnd = currentStart + bucketSizeSec;
+    const sec = overlapSeconds(window, currentStart, currentEnd);
+    if (sec > 0) onBucket(index, sec);
+    if (currentEnd >= window.endSec) break;
+    index += 1;
+  }
 }
 
 function buildChartSlices(map: Map<string, number>, fallbackLabel: string): ChartSlice[] {
@@ -527,11 +585,8 @@ export default function App() {
 
   const dashboard = useMemo(() => {
     const now = new Date();
-    const rangeStartMs = now.getTime() - rangeHours * 3600 * 1000;
-    const scoped = entries.filter((row) => {
-      const d = parseDate(row.started_at);
-      return d ? d.getTime() >= rangeStartMs : false;
-    });
+    const rangeEndSec = toEpochSecond(now);
+    const rangeStartSec = rangeEndSec - rangeHours * 3600;
 
     let totalSeconds = 0;
     let runningSeconds = 0;
@@ -541,8 +596,11 @@ export default function App() {
     const byProject = new Map<string, number>();
     const byApp = new Map<string, number>();
 
-    for (const row of scoped) {
-      const sec = Math.max(0, row.duration_seconds);
+    for (const row of entries) {
+      const window = getEntryWindow(row);
+      if (!window) continue;
+      const sec = overlapSeconds(window, rangeStartSec, rangeEndSec);
+      if (sec <= 0) continue;
       totalSeconds += sec;
       if (!row.ended_at) runningSeconds += sec;
       if (!row.project && !row.tag) uncategorizedSeconds += sec;
@@ -572,55 +630,39 @@ export default function App() {
       .sort((a, b) => b.sec - a.sec)
       .slice(0, 5);
 
-    const bucketMap = new Map<string, number>();
     const buckets: DashboardBucket[] = [];
 
     if (rangeHours <= 24) {
-      for (let i = rangeHours - 1; i >= 0; i -= 1) {
-        const d = new Date(now.getTime() - i * 3600 * 1000);
-        const key = localHourKey(d);
+      const firstHour = new Date(startOfLocalHour(now).getTime() - (rangeHours - 1) * 3600 * 1000);
+      const firstHourSec = toEpochSecond(firstHour);
+
+      for (let i = 0; i < rangeHours; i += 1) {
+        const d = new Date(firstHour.getTime() + i * 3600 * 1000);
         buckets.push({ label: `${String(d.getHours()).padStart(2, "0")}:00`, sec: 0 });
-        bucketMap.set(key, 0);
       }
 
-      for (const row of scoped) {
-        const d = parseDate(row.started_at);
-        if (!d) continue;
-        const key = localHourKey(d);
-        if (bucketMap.has(key)) {
-          bucketMap.set(key, (bucketMap.get(key) ?? 0) + Math.max(0, row.duration_seconds));
-        }
-      }
-
-      for (let i = 0; i < buckets.length; i += 1) {
-        const d = new Date(now.getTime() - (buckets.length - 1 - i) * 3600 * 1000);
-        const key = localHourKey(d);
-        buckets[i].sec = bucketMap.get(key) ?? 0;
+      for (const row of entries) {
+        allocateEntryToBuckets(row, firstHourSec, 3600, rangeHours, (index, sec) => {
+          buckets[index].sec += sec;
+        });
       }
     } else {
       const days = Math.ceil(rangeHours / 24);
-      for (let i = days - 1; i >= 0; i -= 1) {
-        const d = new Date(now);
-        d.setDate(now.getDate() - i);
+      const firstDay = new Date(startOfLocalDay(now));
+      firstDay.setDate(firstDay.getDate() - (days - 1));
+      const firstDaySec = toEpochSecond(firstDay);
+
+      for (let i = 0; i < days; i += 1) {
+        const d = new Date(firstDay);
+        d.setDate(firstDay.getDate() + i);
         const key = localDayKey(d);
         buckets.push({ label: key.slice(5), sec: 0 });
-        bucketMap.set(key, 0);
       }
 
-      for (const row of scoped) {
-        const d = parseDate(row.started_at);
-        if (!d) continue;
-        const key = localDayKey(d);
-        if (bucketMap.has(key)) {
-          bucketMap.set(key, (bucketMap.get(key) ?? 0) + Math.max(0, row.duration_seconds));
-        }
-      }
-
-      for (let i = 0; i < buckets.length; i += 1) {
-        const d = new Date(now);
-        d.setDate(now.getDate() - (buckets.length - 1 - i));
-        const key = localDayKey(d);
-        buckets[i].sec = bucketMap.get(key) ?? 0;
+      for (const row of entries) {
+        allocateEntryToBuckets(row, firstDaySec, 24 * 3600, days, (index, sec) => {
+          buckets[index].sec += sec;
+        });
       }
     }
 
@@ -643,11 +685,11 @@ export default function App() {
 
   const dayOverview = useMemo(() => {
     const now = new Date();
-    const todayKey = localDayKey(now);
-    const todayRows = entries.filter((row) => {
-      const d = parseDate(row.started_at);
-      return d ? localDayKey(d) === todayKey : false;
-    });
+    const todayStart = startOfLocalDay(now);
+    const tomorrowStart = new Date(todayStart);
+    tomorrowStart.setDate(todayStart.getDate() + 1);
+    const todayStartSec = toEpochSecond(todayStart);
+    const tomorrowStartSec = toEpochSecond(tomorrowStart);
 
     let totalSeconds = 0;
     let uncategorizedSeconds = 0;
@@ -658,8 +700,11 @@ export default function App() {
     const byApp = new Map<string, number>();
     const hourBuckets = Array.from({ length: 24 }, (_, h) => ({ hour: h, sec: 0 }));
 
-    for (const row of todayRows) {
-      const sec = Math.max(0, row.duration_seconds);
+    for (const row of entries) {
+      const window = getEntryWindow(row);
+      if (!window) continue;
+      const sec = overlapSeconds(window, todayStartSec, tomorrowStartSec);
+      if (sec <= 0) continue;
       totalSeconds += sec;
       if (!row.project && !row.tag) uncategorizedSeconds += sec;
       if (!row.ended_at) runningSeconds += sec;
@@ -671,12 +716,9 @@ export default function App() {
       byApp.set(app, (byApp.get(app) ?? 0) + sec);
       byProject.set(project, (byProject.get(project) ?? 0) + sec);
       byTag.set(tag, (byTag.get(tag) ?? 0) + sec);
-
-      const d = parseDate(row.started_at);
-      if (d) {
-        const h = d.getHours();
-        hourBuckets[h].sec += sec;
-      }
+      allocateEntryToBuckets(row, todayStartSec, 3600, 24, (index, bucketSec) => {
+        hourBuckets[index].sec += bucketSec;
+      });
     }
 
     const topProjects = Array.from(byProject.entries())
@@ -722,30 +764,32 @@ export default function App() {
     const dayKeys: TrendDay[] = [];
     const dayMap = new Map<string, Map<string, number>>();
     const totalsByGroup = new Map<string, number>();
+    const firstDay = new Date(startOfLocalDay(now));
+    firstDay.setDate(firstDay.getDate() - (dayCount - 1));
+    const firstDaySec = toEpochSecond(firstDay);
 
-    for (let i = dayCount - 1; i >= 0; i -= 1) {
-      const d = new Date(now);
-      d.setDate(now.getDate() - i);
+    for (let i = 0; i < dayCount; i += 1) {
+      const d = new Date(firstDay);
+      d.setDate(firstDay.getDate() + i);
       const key = localDayKey(d);
       dayKeys.push({ key, label: key.slice(5), totalSec: 0, segments: [] });
       dayMap.set(key, new Map());
     }
 
     for (const row of entries) {
-      const d = parseDate(row.started_at);
-      if (!d) continue;
-      const dayKey = localDayKey(d);
-      const bucket = dayMap.get(dayKey);
-      if (!bucket) continue;
-
       const groupName =
         chartGroup === "project"
           ? row.project || row.app_name || t("unknown")
           : row.app_name || t("unknown");
-      const sec = Math.max(0, row.duration_seconds);
 
-      bucket.set(groupName, (bucket.get(groupName) ?? 0) + sec);
-      totalsByGroup.set(groupName, (totalsByGroup.get(groupName) ?? 0) + sec);
+      allocateEntryToBuckets(row, firstDaySec, 24 * 3600, dayCount, (index, sec) => {
+        const dayKey = dayKeys[index]?.key;
+        if (!dayKey) return;
+        const bucket = dayMap.get(dayKey);
+        if (!bucket) return;
+        bucket.set(groupName, (bucket.get(groupName) ?? 0) + sec);
+        totalsByGroup.set(groupName, (totalsByGroup.get(groupName) ?? 0) + sec);
+      });
     }
 
     const topGroups = Array.from(totalsByGroup.entries())

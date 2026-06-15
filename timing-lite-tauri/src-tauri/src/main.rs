@@ -209,12 +209,27 @@ fn init_db() -> Result<(), String> {
   init_db_internal()
 }
 
-fn read_frontmost_window() -> Result<(String, String), String> {
+fn normalize_frontmost_app(app_name: &str, bundle_id: Option<&str>) -> String {
+  match bundle_id.unwrap_or_default() {
+    "com.microsoft.VSCode" => "Visual Studio Code".to_string(),
+    "com.microsoft.VSCodeInsiders" => "Visual Studio Code Insiders".to_string(),
+    "com.vscodium" => "VSCodium".to_string(),
+    "com.todesktop.230313mzl4w4u92" => "Cursor".to_string(),
+    _ => app_name.to_string(),
+  }
+}
+
+fn read_frontmost_window() -> Result<(String, String, Option<String>), String> {
   #[cfg(target_os = "macos")]
   {
     let script = r#"
       tell application "System Events"
         set frontApp to name of first application process whose frontmost is true
+        try
+          set frontBundle to bundle identifier of first application process whose frontmost is true
+        on error
+          set frontBundle to ""
+        end try
       end tell
       tell application "System Events"
         tell process frontApp
@@ -225,7 +240,7 @@ fn read_frontmost_window() -> Result<(String, String), String> {
           end try
         end tell
       end tell
-      return frontApp & "||" & winName
+      return frontApp & "||" & frontBundle & "||" & winName
     "#;
     let output = Command::new("osascript")
       .arg("-e")
@@ -239,13 +254,16 @@ fn read_frontmost_window() -> Result<(String, String), String> {
       ));
     }
     let value = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    let mut parts = value.splitn(2, "||");
+    let mut parts = value.splitn(3, "||");
     let app = parts.next().unwrap_or("").trim().to_string();
+    let bundle_id = parts.next().unwrap_or("").trim().to_string();
     let title = parts.next().unwrap_or("").trim().to_string();
     if app.is_empty() {
       return Err("front app is empty".to_string());
     }
-    Ok((app, title))
+    let normalized_app = normalize_frontmost_app(&app, (!bundle_id.is_empty()).then_some(bundle_id.as_str()));
+    let normalized_bundle = if bundle_id.is_empty() { None } else { Some(bundle_id) };
+    Ok((normalized_app, title, normalized_bundle))
   }
   #[cfg(not(target_os = "macos"))]
   {
@@ -539,7 +557,7 @@ fn capture_once(state: &SharedState) -> Result<CaptureResult, String> {
   let max_gap_seconds = tracking_gap_seconds(interval_ms);
   close_stale_open_entry(&conn, &now, max_gap_seconds)?;
 
-  let (app_name, window_title) = match read_frontmost_window() {
+  let (app_name, window_title, _bundle_id) = match read_frontmost_window() {
     Ok(data) => data,
     Err(e) => {
       let mut st = state.lock().map_err(|_| "runtime state poisoned".to_string())?;
