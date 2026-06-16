@@ -21,6 +21,13 @@ struct ActivityEntry {
   id: i64,
   app_name: String,
   window_title: String,
+  bundle_id: Option<String>,
+  activity_type: Option<String>,
+  entity_name: Option<String>,
+  detail: Option<String>,
+  workspace: Option<String>,
+  file_name: Option<String>,
+  domain: Option<String>,
   project: Option<String>,
   tag: Option<String>,
   source: String,
@@ -29,10 +36,28 @@ struct ActivityEntry {
   duration_seconds: i64,
 }
 
+#[derive(Clone, Serialize, Default)]
+struct StructuredContext {
+  bundle_id: Option<String>,
+  activity_type: Option<String>,
+  entity_name: Option<String>,
+  detail: Option<String>,
+  workspace: Option<String>,
+  file_name: Option<String>,
+  domain: Option<String>,
+}
+
 #[derive(Clone, Serialize)]
 struct ActiveWindow {
   app_name: String,
   window_title: String,
+  bundle_id: Option<String>,
+  activity_type: Option<String>,
+  entity_name: Option<String>,
+  detail: Option<String>,
+  workspace: Option<String>,
+  file_name: Option<String>,
+  domain: Option<String>,
   captured_at: String,
 }
 
@@ -191,6 +216,48 @@ fn init_db_internal() -> Result<(), String> {
     "last_seen_at",
     "alter table activity_entries add column last_seen_at text null",
   )?;
+  ensure_column(
+    &conn,
+    "activity_entries",
+    "bundle_id",
+    "alter table activity_entries add column bundle_id text null",
+  )?;
+  ensure_column(
+    &conn,
+    "activity_entries",
+    "activity_type",
+    "alter table activity_entries add column activity_type text null",
+  )?;
+  ensure_column(
+    &conn,
+    "activity_entries",
+    "entity_name",
+    "alter table activity_entries add column entity_name text null",
+  )?;
+  ensure_column(
+    &conn,
+    "activity_entries",
+    "detail",
+    "alter table activity_entries add column detail text null",
+  )?;
+  ensure_column(
+    &conn,
+    "activity_entries",
+    "workspace",
+    "alter table activity_entries add column workspace text null",
+  )?;
+  ensure_column(
+    &conn,
+    "activity_entries",
+    "file_name",
+    "alter table activity_entries add column file_name text null",
+  )?;
+  ensure_column(
+    &conn,
+    "activity_entries",
+    "domain",
+    "alter table activity_entries add column domain text null",
+  )?;
 
   conn
     .execute(
@@ -200,6 +267,8 @@ fn init_db_internal() -> Result<(), String> {
       [],
     )
     .map_err(|e| format!("backfill last_seen_at failed: {e}"))?;
+
+  backfill_structured_context(&conn)?;
 
   Ok(())
 }
@@ -219,24 +288,426 @@ fn normalize_frontmost_app(app_name: &str, bundle_id: Option<&str>) -> String {
   }
 }
 
+fn normalize_optional_text(value: &str) -> Option<String> {
+  let trimmed = value.trim();
+  if trimmed.is_empty() {
+    None
+  } else {
+    Some(trimmed.to_string())
+  }
+}
+
+fn first_non_empty(values: &[Option<String>]) -> Option<String> {
+  values.iter().find_map(|value| value.clone())
+}
+
+fn split_title_parts(title: &str) -> Vec<String> {
+  let mut normalized = title.to_string();
+  for sep in [" — ", " – ", " | ", " · ", " • ", " —", " –", " |", " ·", " •"] {
+    normalized = normalized.replace(sep, "||");
+  }
+  normalized
+    .split("||")
+    .map(str::trim)
+    .filter(|part| !part.is_empty())
+    .map(ToOwned::to_owned)
+    .collect()
+}
+
+fn strip_known_suffix(mut parts: Vec<String>, app_name: &str) -> Vec<String> {
+  let app_lower = app_name.trim().to_lowercase();
+  while let Some(last) = parts.last() {
+    let lower = last.trim().to_lowercase();
+    let is_known_suffix = lower == app_lower
+      || matches!(
+        lower.as_str(),
+        "google chrome"
+          | "chrome"
+          | "arc"
+          | "safari"
+          | "brave browser"
+          | "microsoft edge"
+          | "firefox"
+          | "visual studio code"
+          | "visual studio code insiders"
+          | "cursor"
+          | "vscodium"
+          | "iterm2"
+          | "terminal"
+      );
+    if is_known_suffix {
+      parts.pop();
+    } else {
+      break;
+    }
+  }
+  parts
+}
+
+fn infer_known_domain(title_lower: &str) -> Option<String> {
+  if let Some(domain) = extract_domain_from_text(title_lower) {
+    return Some(domain);
+  }
+
+  [
+    ("github", "github.com"),
+    ("figma", "figma.com"),
+    ("vercel", "vercel.com"),
+    ("supabase", "supabase.com"),
+    ("notion", "notion.so"),
+    ("slack", "slack.com"),
+    ("docs.google", "docs.google.com"),
+    ("google docs", "docs.google.com"),
+    ("openai", "openai.com"),
+    ("deepseek", "deepseek.com"),
+    ("x.com", "x.com"),
+    ("twitter", "x.com"),
+    ("youtube", "youtube.com"),
+  ]
+  .into_iter()
+  .find_map(|(needle, domain)| title_lower.contains(needle).then(|| domain.to_string()))
+}
+
+fn extract_domain_from_text(text: &str) -> Option<String> {
+  for prefix in ["https://", "http://"] {
+    if let Some(start) = text.find(prefix) {
+      let rest = &text[start + prefix.len()..];
+      let host = rest
+        .split(['/', '?', '#', ' '])
+        .next()
+        .unwrap_or("")
+        .trim()
+        .trim_start_matches("www.");
+      if !host.is_empty() {
+        return Some(host.to_string());
+      }
+    }
+  }
+  None
+}
+
+fn finalize_context(app_name: &str, mut context: StructuredContext) -> StructuredContext {
+  if context.entity_name.is_none() {
+    context.entity_name = Some(app_name.to_string());
+  }
+  context
+}
+
+fn looks_like_editor(app_name: &str, bundle_id: Option<&str>) -> bool {
+  matches!(
+    bundle_id.unwrap_or_default(),
+    "com.microsoft.VSCode"
+      | "com.microsoft.VSCodeInsiders"
+      | "com.vscodium"
+      | "com.todesktop.230313mzl4w4u92"
+  ) || matches!(
+    app_name,
+    "Visual Studio Code" | "Visual Studio Code Insiders" | "VSCodium" | "Cursor"
+  )
+}
+
+fn looks_like_browser(app_name: &str, bundle_id: Option<&str>) -> bool {
+  matches!(
+    bundle_id.unwrap_or_default(),
+    "com.google.Chrome"
+      | "company.thebrowser.Browser"
+      | "com.apple.Safari"
+      | "com.brave.Browser"
+      | "com.microsoft.edgemac"
+      | "org.mozilla.firefox"
+  ) || matches!(
+    app_name,
+    "Google Chrome" | "Arc" | "Safari" | "Brave Browser" | "Microsoft Edge" | "Firefox"
+  )
+}
+
+fn build_editor_context(app_name: &str, bundle_id: Option<&str>, window_title: &str) -> StructuredContext {
+  let parts = strip_known_suffix(split_title_parts(window_title), app_name);
+  let file_name = parts.first().and_then(|value| normalize_optional_text(value));
+  let workspace = parts.get(1).and_then(|value| normalize_optional_text(value));
+  let entity_name = first_non_empty(&[workspace.clone(), file_name.clone(), Some(app_name.to_string())]);
+
+  finalize_context(
+    app_name,
+    StructuredContext {
+      bundle_id: bundle_id.and_then(normalize_optional_text),
+      activity_type: Some("coding".to_string()),
+      entity_name,
+      detail: file_name.clone(),
+      workspace,
+      file_name,
+      domain: None,
+    },
+  )
+}
+
+fn build_browser_context(app_name: &str, bundle_id: Option<&str>, window_title: &str) -> StructuredContext {
+  let title_lower = window_title.to_lowercase();
+  let parts = strip_known_suffix(split_title_parts(window_title), app_name);
+  let domain = infer_known_domain(&title_lower);
+  let site_name = parts
+    .last()
+    .and_then(|last| {
+      let lower = last.to_lowercase();
+      matches!(
+        lower.as_str(),
+        "github"
+          | "figma"
+          | "vercel"
+          | "supabase"
+          | "notion"
+          | "slack"
+          | "google docs"
+          | "docs"
+          | "openai"
+          | "deepseek"
+          | "youtube"
+      )
+      .then(|| last.clone())
+    });
+  let activity_type = if matches!(
+    domain.as_deref(),
+    Some("docs.google.com" | "notion.so" | "openai.com")
+  ) {
+    Some("docs".to_string())
+  } else {
+    Some("browser".to_string())
+  };
+
+  let entity_name = if site_name.is_some() && parts.len() >= 2 {
+    normalize_optional_text(parts[parts.len() - 2].as_str())
+  } else {
+    parts.first().and_then(|value| normalize_optional_text(value))
+  };
+
+  let detail = parts.first().and_then(|value| normalize_optional_text(value));
+
+  finalize_context(
+    app_name,
+    StructuredContext {
+      bundle_id: bundle_id.and_then(normalize_optional_text),
+      activity_type,
+      entity_name,
+      detail,
+      workspace: None,
+      file_name: None,
+      domain,
+    },
+  )
+}
+
+fn build_terminal_context(app_name: &str, bundle_id: Option<&str>, window_title: &str) -> StructuredContext {
+  let workspace = window_title
+    .split_whitespace()
+    .find(|part| part.starts_with('/') && part.len() > 1)
+    .and_then(|path| path.rsplit('/').next())
+    .and_then(normalize_optional_text);
+
+  finalize_context(
+    app_name,
+    StructuredContext {
+      bundle_id: bundle_id.and_then(normalize_optional_text),
+      activity_type: Some("terminal".to_string()),
+      entity_name: workspace.clone(),
+      detail: normalize_optional_text(window_title),
+      workspace,
+      file_name: None,
+      domain: None,
+    },
+  )
+}
+
+fn build_chat_context(app_name: &str, bundle_id: Option<&str>, window_title: &str, activity_type: &str) -> StructuredContext {
+  let parts = split_title_parts(window_title);
+  finalize_context(
+    app_name,
+    StructuredContext {
+      bundle_id: bundle_id.and_then(normalize_optional_text),
+      activity_type: Some(activity_type.to_string()),
+      entity_name: parts.first().and_then(|value| normalize_optional_text(value)),
+      detail: normalize_optional_text(window_title),
+      workspace: None,
+      file_name: None,
+      domain: None,
+    },
+  )
+}
+
+fn extract_structured_context(app_name: &str, bundle_id: Option<&str>, window_title: &str) -> StructuredContext {
+  if looks_like_editor(app_name, bundle_id) {
+    return build_editor_context(app_name, bundle_id, window_title);
+  }
+
+  if looks_like_browser(app_name, bundle_id) {
+    return build_browser_context(app_name, bundle_id, window_title);
+  }
+
+  match app_name {
+    "Terminal" | "iTerm2" => build_terminal_context(app_name, bundle_id, window_title),
+    "Slack" | "Telegram" | "Discord" | "Messages" | "WeChat" | "企业微信" | "微信" => {
+      build_chat_context(app_name, bundle_id, window_title, "chat")
+    }
+    "Zoom" | "Tencent Meeting" | "飞书" | "Feishu" => {
+      build_chat_context(app_name, bundle_id, window_title, "meeting")
+    }
+    "Figma" => finalize_context(app_name, StructuredContext {
+      bundle_id: bundle_id.and_then(normalize_optional_text),
+      activity_type: Some("design".to_string()),
+      entity_name: split_title_parts(window_title)
+        .first()
+        .and_then(|value| normalize_optional_text(value)),
+      detail: normalize_optional_text(window_title),
+      workspace: None,
+      file_name: None,
+      domain: Some("figma.com".to_string()),
+    }),
+    "Finder" => finalize_context(app_name, StructuredContext {
+      bundle_id: bundle_id.and_then(normalize_optional_text),
+      activity_type: Some("files".to_string()),
+      entity_name: split_title_parts(window_title)
+        .first()
+        .and_then(|value| normalize_optional_text(value)),
+      detail: normalize_optional_text(window_title),
+      workspace: None,
+      file_name: None,
+      domain: None,
+    }),
+    "Preview" | "Notion" | "Notes" => finalize_context(app_name, StructuredContext {
+      bundle_id: bundle_id.and_then(normalize_optional_text),
+      activity_type: Some("docs".to_string()),
+      entity_name: split_title_parts(window_title)
+        .first()
+        .and_then(|value| normalize_optional_text(value)),
+      detail: normalize_optional_text(window_title),
+      workspace: None,
+      file_name: None,
+      domain: (app_name == "Notion").then(|| "notion.so".to_string()),
+    }),
+    _ => finalize_context(app_name, StructuredContext {
+      bundle_id: bundle_id.and_then(normalize_optional_text),
+      activity_type: None,
+      entity_name: split_title_parts(window_title)
+        .first()
+        .and_then(|value| normalize_optional_text(value)),
+      detail: normalize_optional_text(window_title),
+      workspace: None,
+      file_name: None,
+      domain: infer_known_domain(&window_title.to_lowercase()),
+    }),
+  }
+}
+
+fn read_browser_tab_summary(bundle_id: &str) -> Option<String> {
+  let script = match bundle_id {
+    "com.google.Chrome" | "company.thebrowser.Browser" | "com.brave.Browser" | "com.microsoft.edgemac" => {
+      format!(
+        "tell application id \"{bundle_id}\" to try
+           return (title of active tab of front window) & \" | \" & (URL of active tab of front window)
+         on error
+           return \"\"
+         end try"
+      )
+    }
+    "com.apple.Safari" => {
+      "tell application id \"com.apple.Safari\" to try
+         return (name of front document) & \" | \" & (URL of front document)
+       on error
+         return \"\"
+       end try"
+        .to_string()
+    }
+    _ => return None,
+  };
+
+  let output = Command::new("osascript").arg("-e").arg(script).output().ok()?;
+  if !output.status.success() {
+    return None;
+  }
+  normalize_optional_text(String::from_utf8_lossy(&output.stdout).trim())
+}
+
+fn backfill_structured_context(conn: &Connection) -> Result<(), String> {
+  let mut stmt = conn
+    .prepare(
+      "select id, app_name, window_title, bundle_id
+       from activity_entries
+       where activity_type is null
+          or entity_name is null
+          or detail is null
+          or workspace is null
+          or file_name is null
+          or domain is null",
+    )
+    .map_err(|e| format!("prepare context backfill failed: {e}"))?;
+
+  let rows = stmt
+    .query_map([], |row| {
+      Ok((
+        row.get::<_, i64>(0)?,
+        row.get::<_, String>(1)?,
+        row.get::<_, String>(2)?,
+        row.get::<_, Option<String>>(3)?,
+      ))
+    })
+    .map_err(|e| format!("query context backfill failed: {e}"))?;
+
+  let mut pending = Vec::new();
+  for row in rows {
+    pending.push(row.map_err(|e| format!("decode context backfill row failed: {e}"))?);
+  }
+  drop(stmt);
+
+  for (id, app_name, window_title, bundle_id) in pending {
+    let context = extract_structured_context(&app_name, bundle_id.as_deref(), &window_title);
+    conn
+      .execute(
+        "update activity_entries
+         set bundle_id = coalesce(bundle_id, ?1),
+             activity_type = coalesce(activity_type, ?2),
+             entity_name = coalesce(entity_name, ?3),
+             detail = coalesce(detail, ?4),
+             workspace = coalesce(workspace, ?5),
+             file_name = coalesce(file_name, ?6),
+             domain = coalesce(domain, ?7)
+         where id = ?8",
+        params![
+          context.bundle_id,
+          context.activity_type,
+          context.entity_name,
+          context.detail,
+          context.workspace,
+          context.file_name,
+          context.domain,
+          id
+        ],
+      )
+      .map_err(|e| format!("update context backfill failed: {e}"))?;
+  }
+
+  Ok(())
+}
+
 fn read_frontmost_window() -> Result<(String, String, Option<String>), String> {
   #[cfg(target_os = "macos")]
   {
     let script = r#"
       tell application "System Events"
-        set frontApp to name of first application process whose frontmost is true
+        set frontProc to first application process whose frontmost is true
+        set frontApp to name of frontProc
         try
-          set frontBundle to bundle identifier of first application process whose frontmost is true
+          set frontBundle to bundle identifier of frontProc
         on error
           set frontBundle to ""
         end try
-      end tell
-      tell application "System Events"
-        tell process frontApp
+        tell frontProc
           try
-            set winName to name of front window
+            set winName to value of attribute "AXTitle" of front window
           on error
-            set winName to ""
+            try
+              set winName to name of front window
+            on error
+              set winName to ""
+            end try
           end try
         end tell
       end tell
@@ -263,7 +734,15 @@ fn read_frontmost_window() -> Result<(String, String, Option<String>), String> {
     }
     let normalized_app = normalize_frontmost_app(&app, (!bundle_id.is_empty()).then_some(bundle_id.as_str()));
     let normalized_bundle = if bundle_id.is_empty() { None } else { Some(bundle_id) };
-    Ok((normalized_app, title, normalized_bundle))
+    let resolved_title = if title.is_empty() {
+      normalized_bundle
+        .as_deref()
+        .and_then(read_browser_tab_summary)
+        .unwrap_or(title)
+    } else {
+      title
+    };
+    Ok((normalized_app, resolved_title, normalized_bundle))
   }
   #[cfg(not(target_os = "macos"))]
   {
@@ -557,7 +1036,7 @@ fn capture_once(state: &SharedState) -> Result<CaptureResult, String> {
   let max_gap_seconds = tracking_gap_seconds(interval_ms);
   close_stale_open_entry(&conn, &now, max_gap_seconds)?;
 
-  let (app_name, window_title, _bundle_id) = match read_frontmost_window() {
+  let (app_name, window_title, bundle_id) = match read_frontmost_window() {
     Ok(data) => data,
     Err(e) => {
       let mut st = state.lock().map_err(|_| "runtime state poisoned".to_string())?;
@@ -569,11 +1048,12 @@ fn capture_once(state: &SharedState) -> Result<CaptureResult, String> {
     }
   };
 
+  let context = extract_structured_context(&app_name, bundle_id.as_deref(), &window_title);
   let (project, tag, source) = classify(&app_name, &window_title)?;
 
   let mut stmt = conn
     .prepare(
-      "select id, app_name, window_title, project, tag, duration_seconds, coalesce(last_seen_at, started_at)
+      "select id, app_name, window_title, bundle_id, activity_type, entity_name, detail, workspace, file_name, domain, project, tag, duration_seconds, coalesce(last_seen_at, started_at)
        from activity_entries
        where ended_at is null
        order by id desc limit 1",
@@ -585,23 +1065,85 @@ fn capture_once(state: &SharedState) -> Result<CaptureResult, String> {
       let id: i64 = row.get(0)?;
       let app: String = row.get(1)?;
       let title: String = row.get(2)?;
-      let p: Option<String> = row.get(3)?;
-      let t: Option<String> = row.get(4)?;
-      let duration_seconds: i64 = row.get(5)?;
-      let last_seen_at: String = row.get(6)?;
-      Ok((id, app, title, p, t, duration_seconds, last_seen_at))
+      let open_bundle_id: Option<String> = row.get(3)?;
+      let open_activity_type: Option<String> = row.get(4)?;
+      let open_entity_name: Option<String> = row.get(5)?;
+      let open_detail: Option<String> = row.get(6)?;
+      let open_workspace: Option<String> = row.get(7)?;
+      let open_file_name: Option<String> = row.get(8)?;
+      let open_domain: Option<String> = row.get(9)?;
+      let p: Option<String> = row.get(10)?;
+      let t: Option<String> = row.get(11)?;
+      let duration_seconds: i64 = row.get(12)?;
+      let last_seen_at: String = row.get(13)?;
+      Ok((
+        id,
+        app,
+        title,
+        open_bundle_id,
+        open_activity_type,
+        open_entity_name,
+        open_detail,
+        open_workspace,
+        open_file_name,
+        open_domain,
+        p,
+        t,
+        duration_seconds,
+        last_seen_at,
+      ))
     })
     .ok();
 
   match open_entry {
-    Some((id, open_app, open_title, open_project, open_tag, open_duration, last_seen_at)) => {
-      if open_app != app_name || open_title != window_title || open_project != project || open_tag != tag {
+    Some((
+      id,
+      open_app,
+      open_title,
+      open_bundle_id,
+      open_activity_type,
+      open_entity_name,
+      open_detail,
+      open_workspace,
+      open_file_name,
+      open_domain,
+      open_project,
+      open_tag,
+      open_duration,
+      last_seen_at,
+    )) => {
+      if open_app != app_name
+        || open_title != window_title
+        || open_bundle_id != context.bundle_id.clone()
+        || open_activity_type != context.activity_type.clone()
+        || open_entity_name != context.entity_name.clone()
+        || open_detail != context.detail.clone()
+        || open_workspace != context.workspace.clone()
+        || open_file_name != context.file_name.clone()
+        || open_domain != context.domain.clone()
+        || open_project != project
+        || open_tag != tag
+      {
         close_last_open_entry(&conn, &now, max_gap_seconds)?;
         conn
           .execute(
-            "insert into activity_entries (app_name, window_title, project, tag, source, started_at, ended_at, duration_seconds, last_seen_at)
-             values (?1, ?2, ?3, ?4, ?5, ?6, null, 0, ?6)",
-            params![app_name, window_title, project, tag, source, now],
+            "insert into activity_entries (app_name, window_title, bundle_id, activity_type, entity_name, detail, workspace, file_name, domain, project, tag, source, started_at, ended_at, duration_seconds, last_seen_at)
+             values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, null, 0, ?13)",
+            params![
+              app_name.clone(),
+              window_title.clone(),
+              context.bundle_id.clone(),
+              context.activity_type.clone(),
+              context.entity_name.clone(),
+              context.detail.clone(),
+              context.workspace.clone(),
+              context.file_name.clone(),
+              context.domain.clone(),
+              project.clone(),
+              tag.clone(),
+              source.clone(),
+              now.clone()
+            ],
           )
           .map_err(|e| format!("insert new entry failed: {e}"))?;
       } else {
@@ -619,9 +1161,23 @@ fn capture_once(state: &SharedState) -> Result<CaptureResult, String> {
     None => {
       conn
         .execute(
-          "insert into activity_entries (app_name, window_title, project, tag, source, started_at, ended_at, duration_seconds, last_seen_at)
-           values (?1, ?2, ?3, ?4, ?5, ?6, null, 0, ?6)",
-          params![app_name, window_title, project, tag, source, now],
+          "insert into activity_entries (app_name, window_title, bundle_id, activity_type, entity_name, detail, workspace, file_name, domain, project, tag, source, started_at, ended_at, duration_seconds, last_seen_at)
+           values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, null, 0, ?13)",
+          params![
+            app_name.clone(),
+            window_title.clone(),
+            context.bundle_id.clone(),
+            context.activity_type.clone(),
+            context.entity_name.clone(),
+            context.detail.clone(),
+            context.workspace.clone(),
+            context.file_name.clone(),
+            context.domain.clone(),
+            project.clone(),
+            tag.clone(),
+            source.clone(),
+            now.clone()
+          ],
         )
         .map_err(|e| format!("insert first entry failed: {e}"))?;
     }
@@ -630,6 +1186,13 @@ fn capture_once(state: &SharedState) -> Result<CaptureResult, String> {
   let active = ActiveWindow {
     app_name,
     window_title,
+    bundle_id: context.bundle_id,
+    activity_type: context.activity_type,
+    entity_name: context.entity_name,
+    detail: context.detail,
+    workspace: context.workspace,
+    file_name: context.file_name,
+    domain: context.domain,
     captured_at: now,
   };
 
@@ -686,6 +1249,13 @@ fn list_entries(limit: Option<i64>, state: State<'_, SharedState>) -> Result<Vec
          id,
          app_name,
          window_title,
+         bundle_id,
+         activity_type,
+         entity_name,
+         detail,
+         workspace,
+         file_name,
+         domain,
          project,
          tag,
          source,
@@ -708,12 +1278,19 @@ fn list_entries(limit: Option<i64>, state: State<'_, SharedState>) -> Result<Vec
         id: row.get(0)?,
         app_name: row.get(1)?,
         window_title: row.get(2)?,
-        project: row.get(3)?,
-        tag: row.get(4)?,
-        source: row.get(5)?,
-        started_at: row.get(6)?,
-        ended_at: row.get(7)?,
-        duration_seconds: row.get(8)?,
+        bundle_id: row.get(3)?,
+        activity_type: row.get(4)?,
+        entity_name: row.get(5)?,
+        detail: row.get(6)?,
+        workspace: row.get(7)?,
+        file_name: row.get(8)?,
+        domain: row.get(9)?,
+        project: row.get(10)?,
+        tag: row.get(11)?,
+        source: row.get(12)?,
+        started_at: row.get(13)?,
+        ended_at: row.get(14)?,
+        duration_seconds: row.get(15)?,
       })
     })
     .map_err(|e| format!("query list failed: {e}"))?;

@@ -7,6 +7,13 @@ type ActivityEntry = {
   id: number;
   app_name: string;
   window_title: string;
+  bundle_id: string | null;
+  activity_type: string | null;
+  entity_name: string | null;
+  detail: string | null;
+  workspace: string | null;
+  file_name: string | null;
+  domain: string | null;
   project: string | null;
   tag: string | null;
   source: string;
@@ -18,6 +25,13 @@ type ActivityEntry = {
 type ActiveWindow = {
   app_name: string;
   window_title: string;
+  bundle_id: string | null;
+  activity_type: string | null;
+  entity_name: string | null;
+  detail: string | null;
+  workspace: string | null;
+  file_name: string | null;
+  domain: string | null;
   captured_at: string;
 };
 
@@ -90,6 +104,7 @@ type EntryWindow = {
 type Dict = Record<string, string>;
 
 const LOCALE_KEY = "timing-lite-locale";
+const DETAIL_MODE_KEY = "timing-lite-detail-mode";
 
 const I18N: Record<Locale, Dict> = {
   zh: {
@@ -103,6 +118,7 @@ const I18N: Record<Locale, Dict> = {
     viewRules: "规则管理",
     viewTimeline: "活动列表",
     language: "语言",
+    detailMode: "详细显示",
     tracking: "采集开关",
     interval: "采集间隔",
     captureNow: "立即采集",
@@ -155,9 +171,16 @@ const I18N: Record<Locale, Dict> = {
     delete: "删除",
     noRules: "还没有规则",
     timeline: "活动列表",
-    listSearch: "列表搜索（应用/窗口/项目/标签）",
+    listSearch: "列表搜索（应用/上下文/窗口/项目/标签）",
     app: "应用",
+    activityType: "类型",
+    context: "上下文",
     window: "窗口",
+    originalWindow: "原始窗口标题",
+    detailLabel: "细节",
+    workspaceLabel: "工作区",
+    fileLabel: "文件",
+    domainLabel: "站点",
     source: "来源",
     start: "开始",
     end: "结束",
@@ -173,7 +196,16 @@ const I18N: Record<Locale, Dict> = {
     focusMinutes: "专注分钟",
     unknown: "未知",
     uncategorizedTag: "未分类",
-    defaultSource: "默认"
+    defaultSource: "默认",
+    typeCoding: "编码",
+    typeBrowser: "浏览",
+    typeDocs: "文档",
+    typeTerminal: "终端",
+    typeChat: "沟通",
+    typeMeeting: "会议",
+    typeDesign: "设计",
+    typeFiles: "文件",
+    noContext: "暂无结构化上下文"
   },
   en: {
     title: "Timing Lite",
@@ -186,6 +218,7 @@ const I18N: Record<Locale, Dict> = {
     viewRules: "Rules",
     viewTimeline: "Timeline",
     language: "Language",
+    detailMode: "Detailed View",
     tracking: "Tracking",
     interval: "Interval",
     captureNow: "Capture now",
@@ -238,9 +271,16 @@ const I18N: Record<Locale, Dict> = {
     delete: "Delete",
     noRules: "No rules yet",
     timeline: "Timeline",
-    listSearch: "Search (app/window/project/tag)",
+    listSearch: "Search (app/context/window/project/tag)",
     app: "App",
+    activityType: "Type",
+    context: "Context",
     window: "Window",
+    originalWindow: "Original Window Title",
+    detailLabel: "Detail",
+    workspaceLabel: "Workspace",
+    fileLabel: "File",
+    domainLabel: "Site",
     source: "Source",
     start: "Start",
     end: "End",
@@ -256,7 +296,16 @@ const I18N: Record<Locale, Dict> = {
     focusMinutes: "Focus Minutes",
     unknown: "Unknown",
     uncategorizedTag: "Uncategorized",
-    defaultSource: "default"
+    defaultSource: "default",
+    typeCoding: "Coding",
+    typeBrowser: "Browsing",
+    typeDocs: "Docs",
+    typeTerminal: "Terminal",
+    typeChat: "Chat",
+    typeMeeting: "Meeting",
+    typeDesign: "Design",
+    typeFiles: "Files",
+    noContext: "No structured context yet"
   }
 };
 
@@ -277,6 +326,48 @@ function formatDuration(totalSeconds: number): string {
   const m = Math.floor((sec % 3600) / 60);
   const s = sec % 60;
   return [h, m, s].map((v) => String(v).padStart(2, "0")).join(":");
+}
+
+function localizedActivityType(type: string | null, t: (key: string) => string): string {
+  switch (type) {
+    case "coding":
+      return t("typeCoding");
+    case "browser":
+      return t("typeBrowser");
+    case "docs":
+      return t("typeDocs");
+    case "terminal":
+      return t("typeTerminal");
+    case "chat":
+      return t("typeChat");
+    case "meeting":
+      return t("typeMeeting");
+    case "design":
+      return t("typeDesign");
+    case "files":
+      return t("typeFiles");
+    default:
+      return "-";
+  }
+}
+
+function buildContextPrimary(row: Pick<ActivityEntry, "entity_name" | "detail" | "window_title">): string {
+  return row.entity_name || row.detail || row.window_title || "";
+}
+
+function buildContextMeta(
+  row: Pick<ActivityEntry, "detail" | "workspace" | "file_name" | "domain" | "window_title">,
+  t: (key: string) => string
+): string[] {
+  const items = [
+    row.detail ? `${t("detailLabel")}: ${row.detail}` : "",
+    row.workspace ? `${t("workspaceLabel")}: ${row.workspace}` : "",
+    row.file_name ? `${t("fileLabel")}: ${row.file_name}` : "",
+    row.domain ? `${t("domainLabel")}: ${row.domain}` : "",
+    row.window_title ? `${t("originalWindow")}: ${row.window_title}` : ""
+  ].filter(Boolean);
+
+  return Array.from(new Set(items));
 }
 
 function asDateText(v: string): string {
@@ -512,6 +603,7 @@ function StackedTrendChart({
 
 export default function App() {
   const [locale, setLocale] = useState<Locale>("zh");
+  const [detailMode, setDetailMode] = useState(false);
   const [status, setStatus] = useState<RuntimeStatus | null>(null);
   const [entries, setEntries] = useState<ActivityEntry[]>([]);
   const [rules, setRules] = useState<RuleRow[]>([]);
@@ -553,11 +645,20 @@ export default function App() {
     if (cached === "zh" || cached === "en") {
       setLocale(cached);
     }
+
+    const detailCached = localStorage.getItem(DETAIL_MODE_KEY);
+    if (detailCached === "true") {
+      setDetailMode(true);
+    }
   }, []);
 
   useEffect(() => {
     localStorage.setItem(LOCALE_KEY, locale);
   }, [locale]);
+
+  useEffect(() => {
+    localStorage.setItem(DETAIL_MODE_KEY, String(detailMode));
+  }, [detailMode]);
 
   useEffect(() => {
     let canceled = false;
@@ -835,6 +936,12 @@ export default function App() {
     return entries.filter((row) => {
       const hay = [
         row.app_name,
+        row.activity_type || "",
+        row.entity_name || "",
+        row.detail || "",
+        row.workspace || "",
+        row.file_name || "",
+        row.domain || "",
         row.window_title,
         row.project || "",
         row.tag || "",
@@ -891,6 +998,14 @@ export default function App() {
               <option value="zh">中文</option>
               <option value="en">English</option>
             </select>
+          </label>
+          <label>
+            <span>{t("detailMode")}</span>
+            <input
+              type="checkbox"
+              checked={detailMode}
+              onChange={(e) => setDetailMode(e.target.checked)}
+            />
           </label>
           <label>
             <span>{t("tracking")}</span>
@@ -982,7 +1097,18 @@ export default function App() {
             {active ? (
               <div className="current">
                 <strong>{active.app_name}</strong>
-                <span>{active.window_title || "(No title)"}</span>
+                <span>{buildContextPrimary(active) || active.window_title || "(No title)"}</span>
+                {detailMode ? (
+                  <small>
+                    {[
+                      localizedActivityType(active.activity_type, t),
+                      active.workspace,
+                      active.domain
+                    ]
+                      .filter((item) => item && item !== "-")
+                      .join(" · ")}
+                  </small>
+                ) : null}
                 <small>{asDateText(active.captured_at)}</small>
               </div>
             ) : (
@@ -1422,8 +1548,9 @@ export default function App() {
             <table>
               <thead>
                 <tr>
+                  <th>{t("activityType")}</th>
+                  <th>{t("context")}</th>
                   <th>{t("app")}</th>
-                  <th>{t("window")}</th>
                   <th>{t("project")}</th>
                   <th>{t("tag")}</th>
                   <th>{t("source")}</th>
@@ -1433,21 +1560,46 @@ export default function App() {
                 </tr>
               </thead>
               <tbody>
-                {pageRows.map((row) => (
-                  <tr key={row.id}>
-                    <td>{row.app_name}</td>
-                    <td title={row.window_title}>{row.window_title || "-"}</td>
-                    <td>{row.project || "-"}</td>
-                    <td>{row.tag || "-"}</td>
-                    <td>{row.source || t("defaultSource")}</td>
-                    <td>{asDateText(row.started_at)}</td>
-                    <td>{row.ended_at ? asDateText(row.ended_at) : t("running")}</td>
-                    <td>{formatDuration(row.duration_seconds)}</td>
-                  </tr>
-                ))}
+                {pageRows.map((row) => {
+                  const contextPrimary = buildContextPrimary(row);
+                  const contextMeta = buildContextMeta(row, t);
+                  return (
+                    <tr key={row.id}>
+                      <td>
+                        <span className="activity-pill">
+                          {localizedActivityType(row.activity_type, t)}
+                        </span>
+                      </td>
+                      <td className="context-cell">
+                        <div className="context-primary">
+                          {contextPrimary || t("noContext")}
+                        </div>
+                        {detailMode && contextMeta.length ? (
+                          <div className="context-meta">
+                            {contextMeta.map((item) => (
+                              <span key={item}>{item}</span>
+                            ))}
+                          </div>
+                        ) : null}
+                      </td>
+                      <td>
+                        <div className="app-meta">
+                          <strong>{row.app_name}</strong>
+                          {detailMode && row.bundle_id ? <small>{row.bundle_id}</small> : null}
+                        </div>
+                      </td>
+                      <td>{row.project || "-"}</td>
+                      <td>{row.tag || "-"}</td>
+                      <td>{row.source || t("defaultSource")}</td>
+                      <td>{asDateText(row.started_at)}</td>
+                      <td>{row.ended_at ? asDateText(row.ended_at) : t("running")}</td>
+                      <td>{formatDuration(row.duration_seconds)}</td>
+                    </tr>
+                  );
+                })}
                 {!pageRows.length ? (
                   <tr>
-                    <td colSpan={8} className="muted">
+                    <td colSpan={9} className="muted">
                       {t("noData")}
                     </td>
                   </tr>
