@@ -63,12 +63,29 @@ type RuleForm = {
   priority: number;
 };
 
+type RuleSuggestions = {
+  app_names: string[];
+};
+
+type DailySummary = {
+  day_key: string;
+  total_seconds: number;
+  uncategorized_seconds: number;
+  running_seconds: number;
+  top_app: string | null;
+  top_project: string | null;
+  top_tag: string | null;
+  entry_count: number;
+  coverage: number;
+  focus_minutes: number;
+};
+
 type DashboardBucket = {
   label: string;
   sec: number;
 };
 
-type ViewMode = "overview" | "dashboard" | "charts" | "rules" | "timeline";
+type ViewMode = "overview" | "dashboard" | "daily" | "charts" | "rules" | "timeline";
 type ChartGroup = "project" | "app";
 
 type ChartSlice = {
@@ -105,20 +122,23 @@ type Dict = Record<string, string>;
 
 const LOCALE_KEY = "timing-lite-locale";
 const DETAIL_MODE_KEY = "timing-lite-detail-mode";
+const HIDE_EMPTY_BUCKETS_KEY = "timing-lite-hide-empty-buckets";
 
 const I18N: Record<Locale, Dict> = {
   zh: {
     title: "Timing Lite",
     subtitle: "后台记录 + 自动分类规则",
-    backgroundHint: "关闭窗口会隐藏到后台继续记录；休眠和关机时段不会再被误计入。",
+    backgroundHint: "关闭窗口会隐藏到后台继续记录；锁屏、休眠和关机时段不会再被误计入。",
     view: "视图",
     viewOverview: "概览",
     viewDashboard: "统计看板",
+    viewDaily: "每日",
     viewCharts: "图表分析",
     viewRules: "规则管理",
     viewTimeline: "活动列表",
     language: "语言",
     detailMode: "详细显示",
+    hideEmptyBuckets: "隐藏 0 小时时段",
     tracking: "采集开关",
     interval: "采集间隔",
     captureNow: "立即采集",
@@ -135,7 +155,17 @@ const I18N: Record<Locale, Dict> = {
     recent6h: "最近 6 小时",
     recent24h: "最近 1 天",
     recent7d: "最近 1 周",
+    recent14d: "最近 2 周",
+    recent30d: "最近 1 个月",
     trend: "趋势",
+    dailyBoard: "每日看板",
+    dailyBoardHint: "按天回看最近 7 / 14 / 30 天的使用情况",
+    selectDayHint: "点击左侧日期卡片查看当天总结",
+    dailySummary: "每日总结",
+    selectedDayUsage: "当天使用情况",
+    dailyHighlights: "高频活动",
+    entriesCaptured: "记录片段",
+    calendarEmpty: "这几天还没有可展示的记录",
     charts: "图表分析",
     chartsRangeHint: "用饼图快速看时间分布",
     dailyTrend: "最近 7 天趋势",
@@ -151,15 +181,18 @@ const I18N: Record<Locale, Dict> = {
     topApps: "应用排行",
     noAppData: "暂无应用数据",
     topProjectApp: "项目 / 应用排行（全量）",
+    topContexts: "主要活动",
     rules: "规则管理",
     refreshRules: "刷新规则",
     ruleName: "规则名",
     appContains: "应用名包含（可选）",
+    appSuggestHint: "可直接点历史应用名填入",
     titleContains: "窗口标题包含（可选）",
     project: "项目",
     tag: "标签",
     priority: "优先级",
     addRule: "新增规则",
+    rulePatternRequired: "至少填写应用名包含或窗口标题包含其中一个",
     pattern: "匹配",
     projectTag: "项目 / 标签",
     status: "状态",
@@ -194,6 +227,10 @@ const I18N: Record<Locale, Dict> = {
     total: "总计",
     records: "条",
     focusMinutes: "专注分钟",
+    dayFocusMinutes: "专注分钟",
+    topProjectLabel: "主要项目",
+    topAppLabel: "主要应用",
+    topTagLabel: "主要标签",
     unknown: "未知",
     uncategorizedTag: "未分类",
     defaultSource: "默认",
@@ -205,20 +242,25 @@ const I18N: Record<Locale, Dict> = {
     typeMeeting: "会议",
     typeDesign: "设计",
     typeFiles: "文件",
-    noContext: "暂无结构化上下文"
+    typeAi: "AI",
+    noContext: "暂无结构化上下文",
+    summarySentenceIdle: "这一天暂时没有记录到明显的使用活动。",
+    summarySentenceActive: "这一天共记录 {duration}，主要在 {project} 上，最常用应用是 {app}。"
   },
   en: {
     title: "Timing Lite",
     subtitle: "Background tracking + auto classify rules",
-    backgroundHint: "Closing the window now keeps tracking in the background, and sleep/shutdown gaps are ignored.",
+    backgroundHint: "Closing the window now keeps tracking in the background, and locked, sleep, or shutdown time is ignored.",
     view: "View",
     viewOverview: "Overview",
     viewDashboard: "Dashboard",
+    viewDaily: "Daily",
     viewCharts: "Charts",
     viewRules: "Rules",
     viewTimeline: "Timeline",
     language: "Language",
     detailMode: "Detailed View",
+    hideEmptyBuckets: "Hide Zero-Hour Buckets",
     tracking: "Tracking",
     interval: "Interval",
     captureNow: "Capture now",
@@ -235,7 +277,17 @@ const I18N: Record<Locale, Dict> = {
     recent6h: "Last 6 Hours",
     recent24h: "Last 1 Day",
     recent7d: "Last 1 Week",
+    recent14d: "Last 2 Weeks",
+    recent30d: "Last 1 Month",
     trend: "Trend",
+    dailyBoard: "Daily Board",
+    dailyBoardHint: "Review usage by day for the last 7, 14, or 30 days",
+    selectDayHint: "Click a day card on the left to inspect that day",
+    dailySummary: "Daily Summary",
+    selectedDayUsage: "Day Usage",
+    dailyHighlights: "Top Activities",
+    entriesCaptured: "Captured Segments",
+    calendarEmpty: "No recent daily activity to show",
     charts: "Charts",
     chartsRangeHint: "Use pie charts to see where time goes",
     dailyTrend: "Last 7 Days Trend",
@@ -251,15 +303,18 @@ const I18N: Record<Locale, Dict> = {
     topApps: "Top Apps",
     noAppData: "No app data yet",
     topProjectApp: "Top Project / App (All Data)",
+    topContexts: "Top Activities",
     rules: "Rules",
     refreshRules: "Refresh Rules",
     ruleName: "Rule name",
     appContains: "App contains (optional)",
+    appSuggestHint: "Click a historical app name to fill it",
     titleContains: "Window contains (optional)",
     project: "Project",
     tag: "Tag",
     priority: "Priority",
     addRule: "Add Rule",
+    rulePatternRequired: "Fill in at least app contains or window contains",
     pattern: "Pattern",
     projectTag: "Project / Tag",
     status: "Status",
@@ -294,6 +349,10 @@ const I18N: Record<Locale, Dict> = {
     total: "Total",
     records: "records",
     focusMinutes: "Focus Minutes",
+    dayFocusMinutes: "Focus Minutes",
+    topProjectLabel: "Top Project",
+    topAppLabel: "Top App",
+    topTagLabel: "Top Tag",
     unknown: "Unknown",
     uncategorizedTag: "Uncategorized",
     defaultSource: "default",
@@ -305,7 +364,10 @@ const I18N: Record<Locale, Dict> = {
     typeMeeting: "Meeting",
     typeDesign: "Design",
     typeFiles: "Files",
-    noContext: "No structured context yet"
+    typeAi: "AI",
+    noContext: "No structured context yet",
+    summarySentenceIdle: "No meaningful activity was captured on this day.",
+    summarySentenceActive: "{duration} was captured on this day, mostly on {project}, with {app} used the most."
   }
 };
 
@@ -346,6 +408,8 @@ function localizedActivityType(type: string | null, t: (key: string) => string):
       return t("typeDesign");
     case "files":
       return t("typeFiles");
+    case "ai":
+      return t("typeAi");
     default:
       return "-";
   }
@@ -469,6 +533,33 @@ function describeRange(hours: number, t: (key: string) => string): string {
   if (hours === 6) return t("recent6h");
   if (hours === 24) return t("recent24h");
   return t("recent7d");
+}
+
+function describeDayWindow(days: number, t: (key: string) => string): string {
+  if (days === 7) return t("recent7d");
+  if (days === 14) return t("recent14d");
+  return t("recent30d");
+}
+
+function formatDayLabel(dayKey: string, locale: Locale): string {
+  const d = new Date(`${dayKey}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return dayKey.slice(5);
+  return new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : "en-US", {
+    month: "short",
+    day: "numeric"
+  }).format(d);
+}
+
+function formatWeekdayLabel(dayKey: string, locale: Locale): string {
+  const d = new Date(`${dayKey}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return dayKey;
+  return new Intl.DateTimeFormat(locale === "zh" ? "zh-CN" : "en-US", {
+    weekday: "short"
+  }).format(d);
+}
+
+function interpolate(template: string, values: Record<string, string | number>): string {
+  return template.replace(/\{(\w+)\}/g, (_, key) => String(values[key] ?? ""));
 }
 
 function polarToCartesian(cx: number, cy: number, radius: number, angleDeg: number) {
@@ -604,9 +695,15 @@ function StackedTrendChart({
 export default function App() {
   const [locale, setLocale] = useState<Locale>("zh");
   const [detailMode, setDetailMode] = useState(false);
+  const [hideEmptyBuckets, setHideEmptyBuckets] = useState(true);
   const [status, setStatus] = useState<RuntimeStatus | null>(null);
   const [entries, setEntries] = useState<ActivityEntry[]>([]);
   const [rules, setRules] = useState<RuleRow[]>([]);
+  const [ruleSuggestions, setRuleSuggestions] = useState<RuleSuggestions>({ app_names: [] });
+  const [dailySummaries, setDailySummaries] = useState<DailySummary[]>([]);
+  const [dailyWindowDays, setDailyWindowDays] = useState<number>(14);
+  const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
+  const [selectedDayEntries, setSelectedDayEntries] = useState<ActivityEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [warning, setWarning] = useState<string | null>(null);
   const [ruleForm, setRuleForm] = useState<RuleForm>(DEFAULT_RULE_FORM);
@@ -630,6 +727,21 @@ export default function App() {
     setRules(rows);
   }
 
+  async function refreshRuleSuggestions() {
+    const next = await invoke<RuleSuggestions>("list_rule_suggestions", { limit: 60 });
+    setRuleSuggestions(next);
+  }
+
+  async function refreshDailySummaries(nextDays = dailyWindowDays) {
+    const rows = await invoke<DailySummary[]>("list_daily_summaries", { days: nextDays });
+    setDailySummaries(rows);
+  }
+
+  async function refreshSelectedDay(dayKey: string) {
+    const rows = await invoke<ActivityEntry[]>("list_entries_for_day", { dayKey });
+    setSelectedDayEntries(rows);
+  }
+
   async function refreshStatus() {
     const s = await invoke<RuntimeStatus>("get_runtime_status");
     setStatus(s);
@@ -637,7 +749,13 @@ export default function App() {
   }
 
   async function refreshAll() {
-    await Promise.all([refreshStatus(), refreshEntries(), refreshRules()]);
+    await Promise.all([
+      refreshStatus(),
+      refreshEntries(),
+      refreshRules(),
+      refreshRuleSuggestions(),
+      refreshDailySummaries()
+    ]);
   }
 
   useEffect(() => {
@@ -650,6 +768,13 @@ export default function App() {
     if (detailCached === "true") {
       setDetailMode(true);
     }
+
+    const hideEmptyCached = localStorage.getItem(HIDE_EMPTY_BUCKETS_KEY);
+    if (hideEmptyCached === null || hideEmptyCached === "true") {
+      setHideEmptyBuckets(true);
+    } else {
+      setHideEmptyBuckets(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -659,6 +784,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(DETAIL_MODE_KEY, String(detailMode));
   }, [detailMode]);
+
+  useEffect(() => {
+    localStorage.setItem(HIDE_EMPTY_BUCKETS_KEY, String(hideEmptyBuckets));
+  }, [hideEmptyBuckets]);
 
   useEffect(() => {
     let canceled = false;
@@ -683,6 +812,32 @@ export default function App() {
       window.clearInterval(poll);
     };
   }, []);
+
+  useEffect(() => {
+    if (!dailySummaries.length) {
+      setSelectedDayEntries([]);
+      return;
+    }
+    if (!selectedDayKey || !dailySummaries.some((row) => row.day_key === selectedDayKey)) {
+      setSelectedDayKey(dailySummaries[dailySummaries.length - 1].day_key);
+    }
+  }, [dailySummaries, selectedDayKey]);
+
+  useEffect(() => {
+    if (!selectedDayKey) return;
+    refreshSelectedDay(selectedDayKey).catch((err) => setWarning(String(err)));
+  }, [selectedDayKey]);
+
+  useEffect(() => {
+    const poll = window.setInterval(() => {
+      if (viewMode !== "daily") return;
+      refreshDailySummaries().catch((err) => setWarning(String(err)));
+      if (selectedDayKey) {
+        refreshSelectedDay(selectedDayKey).catch((err) => setWarning(String(err)));
+      }
+    }, 6000);
+    return () => window.clearInterval(poll);
+  }, [viewMode, selectedDayKey, dailyWindowDays]);
 
   const dashboard = useMemo(() => {
     const now = new Date();
@@ -859,6 +1014,113 @@ export default function App() {
     };
   }, [entries, locale]);
 
+  const selectedDaySummary = useMemo(
+    () => dailySummaries.find((row) => row.day_key === selectedDayKey) ?? null,
+    [dailySummaries, selectedDayKey]
+  );
+
+  const selectedDayDetail = useMemo(() => {
+    if (!selectedDayKey) return null;
+    const dayStart = new Date(`${selectedDayKey}T00:00:00`);
+    if (Number.isNaN(dayStart.getTime())) return null;
+    const nextDay = new Date(dayStart);
+    nextDay.setDate(dayStart.getDate() + 1);
+    const dayStartSec = toEpochSecond(dayStart);
+    const nextDaySec = toEpochSecond(nextDay);
+
+    let totalSeconds = 0;
+    let uncategorizedSeconds = 0;
+    let runningSeconds = 0;
+
+    const byProject = new Map<string, number>();
+    const byTag = new Map<string, number>();
+    const byApp = new Map<string, number>();
+    const hourBuckets = Array.from({ length: 24 }, (_, h) => ({ hour: h, sec: 0 }));
+
+    for (const row of selectedDayEntries) {
+      const window = getEntryWindow(row);
+      if (!window) continue;
+      const sec = overlapSeconds(window, dayStartSec, nextDaySec);
+      if (sec <= 0) continue;
+
+      totalSeconds += sec;
+      if (!row.project && !row.tag) uncategorizedSeconds += sec;
+      if (!row.ended_at) runningSeconds += sec;
+
+      const app = row.app_name || t("unknown");
+      const project = row.project || app;
+      const tag = row.tag || t("uncategorizedTag");
+
+      byApp.set(app, (byApp.get(app) ?? 0) + sec);
+      byProject.set(project, (byProject.get(project) ?? 0) + sec);
+      byTag.set(tag, (byTag.get(tag) ?? 0) + sec);
+      allocateEntryToBuckets(row, dayStartSec, 3600, 24, (index, bucketSec) => {
+        hourBuckets[index].sec += bucketSec;
+      });
+    }
+
+    const topProjects = Array.from(byProject.entries())
+      .map(([name, sec]) => ({ name, sec }))
+      .sort((a, b) => b.sec - a.sec)
+      .slice(0, 5);
+    const topTags = Array.from(byTag.entries())
+      .map(([name, sec]) => ({ name, sec }))
+      .sort((a, b) => b.sec - a.sec)
+      .slice(0, 5);
+    const topApps = Array.from(byApp.entries())
+      .map(([name, sec]) => ({ name, sec }))
+      .sort((a, b) => b.sec - a.sec)
+      .slice(0, 5);
+
+    const topContexts = selectedDayEntries
+      .map((row) => {
+        const window = getEntryWindow(row);
+        const sec = window ? overlapSeconds(window, dayStartSec, nextDaySec) : 0;
+        return {
+          id: row.id,
+          appName: row.app_name,
+          contextPrimary: buildContextPrimary(row) || t("noContext"),
+          startedAt: row.started_at,
+          sec
+        };
+      })
+      .filter((item) => item.sec > 0)
+      .sort((a, b) => b.sec - a.sec)
+      .slice(0, 8);
+
+    const coverage = totalSeconds
+      ? Math.max(
+          0,
+          Math.round(((totalSeconds - uncategorizedSeconds) / Math.max(1, totalSeconds)) * 100)
+        )
+      : 0;
+
+    return {
+      totalSeconds,
+      uncategorizedSeconds,
+      runningSeconds,
+      topProjects,
+      topTags,
+      topApps,
+      topContexts,
+      hourBuckets,
+      maxBucket: Math.max(1, ...hourBuckets.map((x) => x.sec)),
+      coverage,
+      focusMinutes: Math.round(totalSeconds / 60)
+    };
+  }, [selectedDayEntries, selectedDayKey, locale]);
+
+  const selectedDayNarrative = useMemo(() => {
+    if (!selectedDaySummary || !selectedDayDetail?.totalSeconds) {
+      return t("summarySentenceIdle");
+    }
+    return interpolate(t("summarySentenceActive"), {
+      duration: formatDuration(selectedDayDetail.totalSeconds),
+      project: selectedDaySummary.top_project || t("unknown"),
+      app: selectedDaySummary.top_app || t("unknown")
+    });
+  }, [selectedDaySummary, selectedDayDetail, locale]);
+
   const trendByGroup = useMemo(() => {
     const now = new Date();
     const dayCount = 7;
@@ -955,6 +1217,21 @@ export default function App() {
 
   const totalPages = Math.max(1, Math.ceil(timelineRows.length / pageSize));
 
+  const visibleDashboardBuckets = useMemo(() => {
+    if (!hideEmptyBuckets) return dashboard.buckets;
+    const filtered = dashboard.buckets.filter((bucket) => bucket.sec > 0);
+    return filtered.length ? filtered : dashboard.buckets;
+  }, [dashboard.buckets, hideEmptyBuckets]);
+
+  const filteredAppSuggestions = useMemo(() => {
+    const query = ruleForm.app_pattern.trim().toLowerCase();
+    const appNames = ruleSuggestions.app_names;
+    const matches = query
+      ? appNames.filter((name) => name.toLowerCase().includes(query))
+      : appNames;
+    return matches.slice(0, 8);
+  }, [ruleForm.app_pattern, ruleSuggestions.app_names]);
+
   useEffect(() => {
     if (page > totalPages) {
       setPage(totalPages);
@@ -1042,6 +1319,10 @@ export default function App() {
             onClick={async () => {
               await invoke("capture_active_window");
               await Promise.all([refreshStatus(), refreshEntries()]);
+              await refreshDailySummaries();
+              if (selectedDayKey) {
+                await refreshSelectedDay(selectedDayKey);
+              }
             }}
           >
             {t("captureNow")}
@@ -1063,6 +1344,12 @@ export default function App() {
           onClick={() => setViewMode("dashboard")}
         >
           {t("viewDashboard")}
+        </button>
+        <button
+          className={`view-tab ${viewMode === "daily" ? "active" : ""}`}
+          onClick={() => setViewMode("daily")}
+        >
+          {t("viewDaily")}
         </button>
         <button
           className={`view-tab ${viewMode === "charts" ? "active" : ""}`}
@@ -1201,17 +1488,27 @@ export default function App() {
       <section className="panel">
         <div className="panel-head">
           <h2>{t("statsDashboard")}</h2>
-          <label>
-            <span>{t("range")}</span>
-            <select
-              value={rangeHours}
-              onChange={(e) => setRangeHours(Number(e.target.value))}
-            >
-              <option value={6}>{t("recent6h")}</option>
-              <option value={24}>{t("recent24h")}</option>
-              <option value={168}>{t("recent7d")}</option>
-            </select>
-          </label>
+          <div className="controls">
+            <label>
+              <span>{t("hideEmptyBuckets")}</span>
+              <input
+                type="checkbox"
+                checked={hideEmptyBuckets}
+                onChange={(e) => setHideEmptyBuckets(e.target.checked)}
+              />
+            </label>
+            <label>
+              <span>{t("range")}</span>
+              <select
+                value={rangeHours}
+                onChange={(e) => setRangeHours(Number(e.target.value))}
+              >
+                <option value={6}>{t("recent6h")}</option>
+                <option value={24}>{t("recent24h")}</option>
+                <option value={168}>{t("recent7d")}</option>
+              </select>
+            </label>
+          </div>
         </div>
 
         <div className="kpi-grid">
@@ -1248,7 +1545,7 @@ export default function App() {
           <div className="mini-panel">
             <h3>{t("trend")}</h3>
             <div className="bars">
-              {dashboard.buckets.map((d) => (
+              {visibleDashboardBuckets.map((d) => (
                 <div className="bar-row" key={d.label}>
                   <span>{d.label}</span>
                   <div className="bar-track">
@@ -1287,6 +1584,191 @@ export default function App() {
               </div>
             ))}
             {!dashboard.topTags.length ? <p className="muted">{t("noTagData")}</p> : null}
+          </div>
+        </div>
+      </section>
+      ) : null}
+
+      {viewMode === "daily" ? (
+      <section className="panel">
+        <div className="panel-head">
+          <div>
+            <h2>{t("dailyBoard")}</h2>
+            <p className="muted">{t("dailyBoardHint")}</p>
+          </div>
+          <div className="controls">
+            <label>
+              <span>{t("range")}</span>
+              <select
+                value={dailyWindowDays}
+                onChange={async (e) => {
+                  const nextDays = Number(e.target.value);
+                  setDailyWindowDays(nextDays);
+                  await refreshDailySummaries(nextDays);
+                }}
+              >
+                <option value={7}>{t("recent7d")}</option>
+                <option value={14}>{t("recent14d")}</option>
+                <option value={30}>{t("recent30d")}</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div className="daily-layout">
+          <div className="daily-calendar-panel">
+            <div className="daily-calendar-head">
+              <strong>{describeDayWindow(dailyWindowDays, t)}</strong>
+              <span className="muted">{t("selectDayHint")}</span>
+            </div>
+            {dailySummaries.some((item) => item.total_seconds > 0) ? (
+              <div className="daily-calendar-grid">
+                {dailySummaries.map((item) => {
+                  const isActive = item.day_key === selectedDayKey;
+                  const intensity = Math.min(1, item.total_seconds / Math.max(1, 8 * 3600));
+                  return (
+                    <button
+                      type="button"
+                      key={item.day_key}
+                      className={`day-card ${isActive ? "active" : ""}`}
+                      onClick={() => setSelectedDayKey(item.day_key)}
+                      style={{
+                        borderColor: isActive ? "#5b9cff" : undefined,
+                        background: `linear-gradient(180deg, rgba(17, 26, 39, 0.98), rgba(17, 26, 39, ${0.82 + intensity * 0.12}))`
+                      }}
+                    >
+                      <div className="day-card-top">
+                        <span>{formatDayLabel(item.day_key, locale)}</span>
+                        <small>{formatWeekdayLabel(item.day_key, locale)}</small>
+                      </div>
+                      <strong>{formatDuration(item.total_seconds)}</strong>
+                      <small>{item.top_project || item.top_app || t("unknown")}</small>
+                      <div className="day-card-meta">
+                        <span>{item.coverage}%</span>
+                        <span>{item.entry_count} {t("records")}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="muted">{t("calendarEmpty")}</p>
+            )}
+          </div>
+
+          <div className="daily-detail-panel">
+            <div className="panel-head">
+              <div>
+                <h3>{selectedDayKey ? formatDayLabel(selectedDayKey, locale) : t("dailySummary")}</h3>
+                <p className="muted">{selectedDayNarrative}</p>
+              </div>
+            </div>
+
+            {selectedDaySummary && selectedDayDetail ? (
+              <>
+                <div className="kpi-grid compact daily-kpis">
+                  <div className="kpi-card">
+                    <span>{t("todayTotal")}</span>
+                    <strong>{formatDuration(selectedDayDetail.totalSeconds)}</strong>
+                  </div>
+                  <div className="kpi-card">
+                    <span>{t("dayFocusMinutes")}</span>
+                    <strong>{selectedDayDetail.focusMinutes}</strong>
+                  </div>
+                  <div className="kpi-card">
+                    <span>{t("ruleCoverage")}</span>
+                    <strong>{selectedDaySummary.coverage}%</strong>
+                  </div>
+                  <div className="kpi-card">
+                    <span>{t("entriesCaptured")}</span>
+                    <strong>{selectedDaySummary.entry_count}</strong>
+                  </div>
+                </div>
+
+                <div className="daily-summary-grid">
+                  <div className="mini-panel">
+                    <h3>{t("selectedDayUsage")}</h3>
+                    <div className="mini-row">
+                      <span>{t("topProjectLabel")}</span>
+                      <b>{selectedDaySummary.top_project || "-"}</b>
+                    </div>
+                    <div className="mini-row">
+                      <span>{t("topAppLabel")}</span>
+                      <b>{selectedDaySummary.top_app || "-"}</b>
+                    </div>
+                    <div className="mini-row">
+                      <span>{t("topTagLabel")}</span>
+                      <b>
+                        {selectedDaySummary.total_seconds
+                          ? selectedDaySummary.top_tag || t("uncategorizedTag")
+                          : "-"}
+                      </b>
+                    </div>
+                  </div>
+
+                  <div className="mini-panel">
+                    <h3>24h</h3>
+                    <div className="hour-bars hour-bars--compact">
+                      {selectedDayDetail.hourBuckets.map((item) => (
+                        <div className="hour-col" key={item.hour}>
+                          <div className="hour-track">
+                            <div
+                              className="hour-fill"
+                              style={{
+                                height: `${Math.max(
+                                  4,
+                                  Math.round((item.sec / selectedDayDetail.maxBucket) * 100)
+                                )}%`
+                              }}
+                            />
+                          </div>
+                          <span>{String(item.hour).padStart(2, "0")}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="daily-summary-grid">
+                  <div className="mini-panel">
+                    <h3>{t("topProjects")}</h3>
+                    {selectedDayDetail.topProjects.map((item) => (
+                      <div className="mini-row" key={item.name}>
+                        <span>{item.name}</span>
+                        <b>{formatDuration(item.sec)}</b>
+                      </div>
+                    ))}
+                    {!selectedDayDetail.topProjects.length ? (
+                      <p className="muted">{t("noProjectData")}</p>
+                    ) : null}
+                  </div>
+
+                  <div className="mini-panel">
+                    <h3>{t("topApps")}</h3>
+                    {selectedDayDetail.topApps.map((item) => (
+                      <div className="mini-row" key={item.name}>
+                        <span>{item.name}</span>
+                        <b>{formatDuration(item.sec)}</b>
+                      </div>
+                    ))}
+                    {!selectedDayDetail.topApps.length ? <p className="muted">{t("noAppData")}</p> : null}
+                  </div>
+                </div>
+
+                <div className="mini-panel">
+                  <h3>{t("dailyHighlights")}</h3>
+                  {selectedDayDetail.topContexts.map((item) => (
+                    <div className="mini-row" key={item.id}>
+                      <span>{item.appName} · {item.contextPrimary}</span>
+                      <b>{formatDuration(item.sec)}</b>
+                    </div>
+                  ))}
+                  {!selectedDayDetail.topContexts.length ? <p className="muted">{t("noData")}</p> : null}
+                </div>
+              </>
+            ) : (
+              <p className="muted">{t("selectDayHint")}</p>
+            )}
           </div>
         </div>
       </section>
@@ -1409,6 +1891,7 @@ export default function App() {
             onChange={(e) => setRuleForm((s) => ({ ...s, name: e.target.value }))}
           />
           <input
+            list="rule-app-suggestions"
             placeholder={t("appContains")}
             value={ruleForm.app_pattern}
             onChange={(e) => setRuleForm((s) => ({ ...s, app_pattern: e.target.value }))}
@@ -1438,22 +1921,56 @@ export default function App() {
           />
         </div>
 
+        <datalist id="rule-app-suggestions">
+          {ruleSuggestions.app_names.map((name) => (
+            <option key={name} value={name} />
+          ))}
+        </datalist>
+
+        {filteredAppSuggestions.length ? (
+          <div className="rule-suggestion-wrap">
+            <span className="muted">{t("appSuggestHint")}</span>
+            <div className="rule-suggestion-row">
+              {filteredAppSuggestions.map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  className="suggest-chip"
+                  onClick={() => setRuleForm((s) => ({ ...s, app_pattern: name }))}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         <div className="rule-actions">
           <button
             className="btn"
             onClick={async () => {
-              const next = await invoke<RuleRow[]>("add_rule", {
-                input: {
-                  name: ruleForm.name,
-                  app_pattern: ruleForm.app_pattern,
-                  title_pattern: ruleForm.title_pattern,
-                  project: ruleForm.project || null,
-                  tag: ruleForm.tag || null,
-                  priority: ruleForm.priority
-                }
-              });
-              setRules(next);
-              setRuleForm(DEFAULT_RULE_FORM);
+              if (!ruleForm.app_pattern.trim() && !ruleForm.title_pattern.trim()) {
+                setWarning(t("rulePatternRequired"));
+                return;
+              }
+              try {
+                const next = await invoke<RuleRow[]>("add_rule", {
+                  input: {
+                    name: ruleForm.name,
+                    app_pattern: ruleForm.app_pattern,
+                    title_pattern: ruleForm.title_pattern,
+                    project: ruleForm.project || null,
+                    tag: ruleForm.tag || null,
+                    priority: ruleForm.priority
+                  }
+                });
+                setRules(next);
+                setRuleForm(DEFAULT_RULE_FORM);
+                setWarning(null);
+                await refreshEntries();
+              } catch (err) {
+                setWarning(String(err));
+              }
             }}
           >
             {t("addRule")}
@@ -1490,11 +2007,17 @@ export default function App() {
                     <button
                       className="btn"
                       onClick={async () => {
-                        const next = await invoke<RuleRow[]>("set_rule_enabled", {
-                          ruleId: rule.id,
-                          enabled: !rule.enabled
-                        });
-                        setRules(next);
+                        try {
+                          const next = await invoke<RuleRow[]>("set_rule_enabled", {
+                            ruleId: rule.id,
+                            enabled: !rule.enabled
+                          });
+                          setRules(next);
+                          setWarning(null);
+                          await refreshEntries();
+                        } catch (err) {
+                          setWarning(String(err));
+                        }
                       }}
                     >
                       {rule.enabled ? t("disable") : t("enable")}
@@ -1502,10 +2025,16 @@ export default function App() {
                     <button
                       className="btn btn-danger"
                       onClick={async () => {
-                        const next = await invoke<RuleRow[]>("delete_rule", {
-                          ruleId: rule.id
-                        });
-                        setRules(next);
+                        try {
+                          const next = await invoke<RuleRow[]>("delete_rule", {
+                            ruleId: rule.id
+                          });
+                          setRules(next);
+                          setWarning(null);
+                          await refreshEntries();
+                        } catch (err) {
+                          setWarning(String(err));
+                        }
                       }}
                     >
                       {t("delete")}

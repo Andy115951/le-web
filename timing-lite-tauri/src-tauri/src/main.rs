@@ -1,8 +1,19 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use chrono::{DateTime, Utc};
-use rusqlite::{params, Connection};
+use chrono::{DateTime, Local, NaiveDate, TimeZone, Utc};
+#[cfg(target_os = "macos")]
+use core_foundation_sys::base::{kCFAllocatorDefault, CFRelease, CFTypeRef};
+#[cfg(target_os = "macos")]
+use core_foundation_sys::dictionary::{CFDictionaryGetValueIfPresent, CFDictionaryRef};
+#[cfg(target_os = "macos")]
+use core_foundation_sys::number::{CFBooleanGetValue, CFBooleanRef};
+#[cfg(target_os = "macos")]
+use core_foundation_sys::string::{CFStringCreateWithCString, CFStringRef, kCFStringEncodingUTF8};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
+#[cfg(target_os = "macos")]
+use std::ffi::{c_void, CString};
+use std::collections::HashMap;
 use std::fs;
 use std::io::Write;
 use std::net::{TcpListener, TcpStream};
@@ -88,6 +99,25 @@ struct RuleRow {
   created_at: String,
 }
 
+#[derive(Clone, Serialize)]
+struct RuleSuggestions {
+  app_names: Vec<String>,
+}
+
+#[derive(Clone, Serialize)]
+struct DailySummary {
+  day_key: String,
+  total_seconds: i64,
+  uncategorized_seconds: i64,
+  running_seconds: i64,
+  top_app: Option<String>,
+  top_project: Option<String>,
+  top_tag: Option<String>,
+  entry_count: i64,
+  coverage: i64,
+  focus_minutes: i64,
+}
+
 #[derive(Deserialize)]
 struct NewRuleInput {
   name: String,
@@ -113,6 +143,14 @@ const MENU_SHOW: &str = "tray_show";
 const MENU_TOGGLE_TRACKING: &str = "tray_toggle_tracking";
 const MENU_QUIT: &str = "tray_quit";
 const SINGLE_INSTANCE_ADDR: &str = "127.0.0.1:45873";
+const RAW_RETENTION_DAYS: i64 = 30;
+const META_RETENTION_LAST_RUN_DAY: &str = "retention_last_run_day";
+
+#[cfg(target_os = "macos")]
+#[link(name = "CoreGraphics", kind = "framework")]
+unsafe extern "C" {
+  fn CGSessionCopyCurrentDictionary() -> CFDictionaryRef;
+}
 
 fn db_dir() -> Result<PathBuf, String> {
   let home = std::env::var("HOME").map_err(|e| format!("HOME not found: {e}"))?;
@@ -163,7 +201,7 @@ fn ensure_column(conn: &Connection, table: &str, column: &str, ddl: &str) -> Res
 }
 
 fn init_db_internal() -> Result<(), String> {
-  let conn = open_db()?;
+  let mut conn = open_db()?;
   conn
     .execute_batch(
       r#"
@@ -188,6 +226,31 @@ fn init_db_internal() -> Result<(), String> {
         priority integer not null default 100,
         created_at text not null
       );
+
+      create table if not exists activity_archive_daily (
+        id integer primary key autoincrement,
+        archive_day text not null,
+        app_name text not null,
+        activity_type text null,
+        entity_name text null,
+        domain text null,
+        project text null,
+        tag text null,
+        source text not null default 'default',
+        total_duration_seconds integer not null default 0,
+        segment_count integer not null default 0,
+        first_started_at text null,
+        last_ended_at text null,
+        archived_at text not null
+      );
+
+      create table if not exists app_meta (
+        key text primary key,
+        value text not null
+      );
+
+      create index if not exists idx_activity_entries_started_at on activity_entries(started_at);
+      create index if not exists idx_archive_daily_day on activity_archive_daily(archive_day);
     "#,
     )
     .map_err(|e| format!("create tables failed: {e}"))?;
@@ -269,6 +332,7 @@ fn init_db_internal() -> Result<(), String> {
     .map_err(|e| format!("backfill last_seen_at failed: {e}"))?;
 
   backfill_structured_context(&conn)?;
+  run_retention_maintenance(&mut conn)?;
 
   Ok(())
 }
@@ -276,6 +340,116 @@ fn init_db_internal() -> Result<(), String> {
 #[tauri::command]
 fn init_db() -> Result<(), String> {
   init_db_internal()
+}
+
+fn resolve_local_midnight(date: NaiveDate) -> Result<DateTime<Local>, String> {
+  let naive = date
+    .and_hms_opt(0, 0, 0)
+    .ok_or_else(|| format!("invalid local midnight for {date}"))?;
+  Local
+    .from_local_datetime(&naive)
+    .single()
+    .or_else(|| Local.from_local_datetime(&naive).earliest())
+    .ok_or_else(|| format!("resolve local midnight failed for {date}"))
+}
+
+fn local_day_bounds_utc(day_key: &str) -> Result<(i64, i64), String> {
+  let day = NaiveDate::parse_from_str(day_key, "%Y-%m-%d")
+    .map_err(|e| format!("parse day key failed: {e}"))?;
+  let start_local = resolve_local_midnight(day)?;
+  let next_day = day
+    .succ_opt()
+    .ok_or_else(|| "next day overflow".to_string())?;
+  let end_local = resolve_local_midnight(next_day)?;
+  Ok((
+    start_local.with_timezone(&Utc).timestamp(),
+    end_local.with_timezone(&Utc).timestamp(),
+  ))
+}
+
+fn entry_window_seconds(row: &ActivityEntry) -> Result<(i64, i64), String> {
+  let started = parse_rfc3339_utc(&row.started_at)?;
+  let start_sec = started.timestamp();
+  let end_sec = start_sec + row.duration_seconds.max(0);
+  Ok((start_sec, end_sec))
+}
+
+fn overlap_seconds(window_start_sec: i64, window_end_sec: i64, start_sec: i64, end_sec: i64) -> i64 {
+  (window_end_sec.min(end_sec) - window_start_sec.max(start_sec)).max(0)
+}
+
+fn top_map_name(map: &HashMap<String, i64>) -> Option<String> {
+  map.iter()
+    .max_by(|a, b| a.1.cmp(b.1).then_with(|| b.0.cmp(a.0)))
+    .map(|(name, _)| name.clone())
+}
+
+fn load_entries_overlapping_range(
+  conn: &Connection,
+  range_start_sec: i64,
+  range_end_sec: i64,
+  max_gap_seconds: i64,
+) -> Result<Vec<ActivityEntry>, String> {
+  let effective_tail = "case
+      when ended_at is null then min(?3, max(0, strftime('%s','now') - strftime('%s', coalesce(last_seen_at, started_at))))
+      else 0
+    end";
+  let sql = format!(
+    "select
+       id,
+       app_name,
+       window_title,
+       bundle_id,
+       activity_type,
+       entity_name,
+       detail,
+       workspace,
+       file_name,
+       domain,
+       project,
+       tag,
+       source,
+       started_at,
+       ended_at,
+       duration_seconds + {effective_tail} as effective_duration
+     from activity_entries
+     where strftime('%s', started_at) < ?2
+       and (strftime('%s', started_at) + duration_seconds + {effective_tail}) > ?1
+     order by started_at desc"
+  );
+
+  let mut stmt = conn
+    .prepare(&sql)
+    .map_err(|e| format!("prepare overlapping entries failed: {e}"))?;
+
+  let rows = stmt
+    .query_map(params![range_start_sec, range_end_sec, max_gap_seconds], |row| {
+      Ok(ActivityEntry {
+        id: row.get(0)?,
+        app_name: row.get(1)?,
+        window_title: row.get(2)?,
+        bundle_id: row.get(3)?,
+        activity_type: row.get(4)?,
+        entity_name: row.get(5)?,
+        detail: row.get(6)?,
+        workspace: row.get(7)?,
+        file_name: row.get(8)?,
+        domain: row.get(9)?,
+        project: row.get(10)?,
+        tag: row.get(11)?,
+        source: row.get(12)?,
+        started_at: row.get(13)?,
+        ended_at: row.get(14)?,
+        duration_seconds: row.get(15)?,
+      })
+    })
+    .map_err(|e| format!("query overlapping entries failed: {e}"))?;
+
+  let mut out = Vec::new();
+  for row in rows {
+    out.push(row.map_err(|e| format!("decode overlapping entry failed: {e}"))?);
+  }
+  Ok(out)
 }
 
 fn normalize_frontmost_app(app_name: &str, bundle_id: Option<&str>) -> String {
@@ -393,6 +567,57 @@ fn finalize_context(app_name: &str, mut context: StructuredContext) -> Structure
   context
 }
 
+fn should_ignore_app(app_name: &str, bundle_id: Option<&str>) -> bool {
+  matches!(
+    bundle_id.unwrap_or_default(),
+    "com.apple.notificationcenterui" | "com.apple.dock"
+  ) || matches!(
+    app_name,
+    "Timing Lite" | "timing_lite_tauri" | "Window Server" | "Notification Center" | "Dock"
+  )
+}
+
+fn is_session_locked() -> Result<bool, String> {
+  #[cfg(target_os = "macos")]
+  unsafe {
+    let session = CGSessionCopyCurrentDictionary();
+    if session.is_null() {
+      return Ok(false);
+    }
+
+    let key_name = CString::new("kCGSSessionOnConsoleKey")
+      .map_err(|e| format!("build lock-state key failed: {e}"))?;
+    let key: CFStringRef =
+      CFStringCreateWithCString(kCFAllocatorDefault, key_name.as_ptr(), kCFStringEncodingUTF8);
+
+    if key.is_null() {
+      CFRelease(session as CFTypeRef);
+      return Ok(false);
+    }
+
+    let mut value: *const c_void = std::ptr::null();
+    let present = CFDictionaryGetValueIfPresent(
+      session,
+      key as *const c_void,
+      &mut value as *mut *const c_void,
+    );
+
+    let locked = present != 0
+      && !value.is_null()
+      && !CFBooleanGetValue(value as CFBooleanRef);
+
+    CFRelease(key as CFTypeRef);
+    CFRelease(session as CFTypeRef);
+
+    Ok(locked)
+  }
+
+  #[cfg(not(target_os = "macos"))]
+  {
+    Ok(false)
+  }
+}
+
 fn looks_like_editor(app_name: &str, bundle_id: Option<&str>) -> bool {
   matches!(
     bundle_id.unwrap_or_default(),
@@ -477,10 +702,16 @@ fn build_browser_context(app_name: &str, bundle_id: Option<&str>, window_title: 
   let entity_name = if site_name.is_some() && parts.len() >= 2 {
     normalize_optional_text(parts[parts.len() - 2].as_str())
   } else {
-    parts.first().and_then(|value| normalize_optional_text(value))
+    parts
+      .first()
+      .and_then(|value| normalize_optional_text(value))
+      .or_else(|| domain.clone())
   };
 
-  let detail = parts.first().and_then(|value| normalize_optional_text(value));
+  let detail = parts
+    .first()
+    .and_then(|value| normalize_optional_text(value))
+    .or_else(|| normalize_optional_text(window_title));
 
   finalize_context(
     app_name,
@@ -583,6 +814,18 @@ fn extract_structured_context(app_name: &str, bundle_id: Option<&str>, window_ti
       file_name: None,
       domain: (app_name == "Notion").then(|| "notion.so".to_string()),
     }),
+    "Codex" | "Claude" | "Chatbox" | "ChatGPT" => finalize_context(app_name, StructuredContext {
+      bundle_id: bundle_id.and_then(normalize_optional_text),
+      activity_type: Some("ai".to_string()),
+      entity_name: split_title_parts(window_title)
+        .first()
+        .and_then(|value| normalize_optional_text(value))
+        .or_else(|| Some(app_name.to_string())),
+      detail: normalize_optional_text(window_title),
+      workspace: None,
+      file_name: None,
+      domain: None,
+    }),
     _ => finalize_context(app_name, StructuredContext {
       bundle_id: bundle_id.and_then(normalize_optional_text),
       activity_type: None,
@@ -683,6 +926,110 @@ fn backfill_structured_context(conn: &Connection) -> Result<(), String> {
       )
       .map_err(|e| format!("update context backfill failed: {e}"))?;
   }
+
+  Ok(())
+}
+
+fn get_app_meta(conn: &Connection, key: &str) -> Result<Option<String>, String> {
+  conn
+    .query_row("select value from app_meta where key = ?1", params![key], |row| row.get(0))
+    .optional()
+    .map_err(|e| format!("query app_meta {key} failed: {e}"))
+}
+
+fn set_app_meta(conn: &Connection, key: &str, value: &str) -> Result<(), String> {
+  conn
+    .execute(
+      "insert into app_meta (key, value) values (?1, ?2)
+       on conflict(key) do update set value = excluded.value",
+      params![key, value],
+    )
+    .map_err(|e| format!("update app_meta {key} failed: {e}"))?;
+  Ok(())
+}
+
+fn run_retention_maintenance(conn: &mut Connection) -> Result<(), String> {
+  let today_key = Utc::now().format("%Y-%m-%d").to_string();
+  if get_app_meta(conn, META_RETENTION_LAST_RUN_DAY)?.as_deref() == Some(today_key.as_str()) {
+    return Ok(());
+  }
+
+  let cutoff = (Utc::now() - chrono::Duration::days(RAW_RETENTION_DAYS)).to_rfc3339();
+  let archived_at = Utc::now().to_rfc3339();
+
+  let tx = conn
+    .transaction()
+    .map_err(|e| format!("start retention transaction failed: {e}"))?;
+
+  let old_count: i64 = tx
+    .query_row(
+      "select count(*) from activity_entries
+       where ended_at is not null and started_at < ?1",
+      params![cutoff],
+      |row| row.get(0),
+    )
+    .map_err(|e| format!("count retention rows failed: {e}"))?;
+
+  if old_count > 0 {
+    tx
+      .execute(
+        "insert into activity_archive_daily (
+           archive_day,
+           app_name,
+           activity_type,
+           entity_name,
+           domain,
+           project,
+           tag,
+           source,
+           total_duration_seconds,
+           segment_count,
+           first_started_at,
+           last_ended_at,
+           archived_at
+         )
+         select
+           substr(started_at, 1, 10) as archive_day,
+           app_name,
+           activity_type,
+           coalesce(entity_name, app_name) as entity_name,
+           domain,
+           project,
+           tag,
+           source,
+           sum(duration_seconds) as total_duration_seconds,
+           count(*) as segment_count,
+           min(started_at) as first_started_at,
+           max(coalesce(ended_at, last_seen_at, started_at)) as last_ended_at,
+           ?2 as archived_at
+         from activity_entries
+         where ended_at is not null and started_at < ?1
+         group by
+           substr(started_at, 1, 10),
+           app_name,
+           activity_type,
+           coalesce(entity_name, app_name),
+           domain,
+           project,
+           tag,
+           source",
+        params![cutoff, archived_at],
+      )
+      .map_err(|e| format!("archive retention rows failed: {e}"))?;
+
+    tx
+      .execute(
+        "delete from activity_entries
+         where ended_at is not null and started_at < ?1",
+        params![cutoff],
+      )
+      .map_err(|e| format!("delete retained raw rows failed: {e}"))?;
+  }
+
+  set_app_meta(&tx, META_RETENTION_LAST_RUN_DAY, &today_key)?;
+  tx
+    .commit()
+    .map_err(|e| format!("commit retention transaction failed: {e}"))?;
 
   Ok(())
 }
@@ -981,6 +1328,23 @@ fn rule_matches(rule: &RuleRow, app_name: &str, title: &str) -> bool {
   app_ok && title_ok
 }
 
+fn classify_with_rules(
+  rules: &[RuleRow],
+  app_name: &str,
+  window_title: &str,
+) -> (Option<String>, Option<String>, String) {
+  for rule in rules.iter().filter(|r| r.enabled) {
+    if rule_matches(rule, app_name, window_title) {
+      return (
+        rule.project.clone(),
+        rule.tag.clone(),
+        format!("rule:{}", rule.name),
+      );
+    }
+  }
+  (None, None, "default".to_string())
+}
+
 fn list_rules_internal() -> Result<Vec<RuleRow>, String> {
   let conn = open_db()?;
   let mut stmt = conn
@@ -1017,12 +1381,44 @@ fn list_rules_internal() -> Result<Vec<RuleRow>, String> {
 
 fn classify(app_name: &str, window_title: &str) -> Result<(Option<String>, Option<String>, String), String> {
   let rules = list_rules_internal()?;
-  for rule in rules.into_iter().filter(|r| r.enabled) {
-    if rule_matches(&rule, app_name, window_title) {
-      return Ok((rule.project, rule.tag, format!("rule:{}", rule.name)));
-    }
+  Ok(classify_with_rules(&rules, app_name, window_title))
+}
+
+fn reapply_rules_internal(conn: &Connection) -> Result<(), String> {
+  let rules = list_rules_internal()?;
+  let mut stmt = conn
+    .prepare("select id, app_name, window_title from activity_entries")
+    .map_err(|e| format!("prepare reapply rules failed: {e}"))?;
+
+  let rows = stmt
+    .query_map([], |row| {
+      Ok((
+        row.get::<_, i64>(0)?,
+        row.get::<_, String>(1)?,
+        row.get::<_, String>(2)?,
+      ))
+    })
+    .map_err(|e| format!("query reapply rules failed: {e}"))?;
+
+  let mut pending = Vec::new();
+  for row in rows {
+    pending.push(row.map_err(|e| format!("decode reapply rules row failed: {e}"))?);
   }
-  Ok((None, None, "default".to_string()))
+  drop(stmt);
+
+  for (id, app_name, window_title) in pending {
+    let (project, tag, source) = classify_with_rules(&rules, &app_name, &window_title);
+    conn
+      .execute(
+        "update activity_entries
+         set project = ?1, tag = ?2, source = ?3
+         where id = ?4",
+        params![project, tag, source, id],
+      )
+      .map_err(|e| format!("update reapply rules row failed: {e}"))?;
+  }
+
+  Ok(())
 }
 
 fn capture_once(state: &SharedState) -> Result<CaptureResult, String> {
@@ -1036,6 +1432,17 @@ fn capture_once(state: &SharedState) -> Result<CaptureResult, String> {
   let max_gap_seconds = tracking_gap_seconds(interval_ms);
   close_stale_open_entry(&conn, &now, max_gap_seconds)?;
 
+  if is_session_locked()? {
+    close_last_open_entry(&conn, &now, max_gap_seconds)?;
+    let mut st = state.lock().map_err(|_| "runtime state poisoned".to_string())?;
+    st.last_active = None;
+    st.last_warning = None;
+    return Ok(CaptureResult {
+      active: None,
+      warning: None,
+    });
+  }
+
   let (app_name, window_title, bundle_id) = match read_frontmost_window() {
     Ok(data) => data,
     Err(e) => {
@@ -1047,6 +1454,17 @@ fn capture_once(state: &SharedState) -> Result<CaptureResult, String> {
       });
     }
   };
+
+  if should_ignore_app(&app_name, bundle_id.as_deref()) {
+    close_last_open_entry(&conn, &now, max_gap_seconds)?;
+    let mut st = state.lock().map_err(|_| "runtime state poisoned".to_string())?;
+    st.last_active = None;
+    st.last_warning = None;
+    return Ok(CaptureResult {
+      active: None,
+      warning: None,
+    });
+  }
 
   let context = extract_structured_context(&app_name, bundle_id.as_deref(), &window_title);
   let (project, tag, source) = classify(&app_name, &window_title)?;
@@ -1303,6 +1721,136 @@ fn list_entries(limit: Option<i64>, state: State<'_, SharedState>) -> Result<Vec
 }
 
 #[tauri::command]
+fn list_entries_for_day(day_key: String, state: State<'_, SharedState>) -> Result<Vec<ActivityEntry>, String> {
+  init_db_internal()?;
+  let conn = open_db()?;
+  let interval_ms = {
+    let st = state.lock().map_err(|_| "runtime state poisoned".to_string())?;
+    st.interval_ms
+  };
+  let max_gap_seconds = tracking_gap_seconds(interval_ms);
+  let (range_start_sec, range_end_sec) = local_day_bounds_utc(&day_key)?;
+  load_entries_overlapping_range(&conn, range_start_sec, range_end_sec, max_gap_seconds)
+}
+
+#[tauri::command]
+fn list_daily_summaries(days: Option<i64>, state: State<'_, SharedState>) -> Result<Vec<DailySummary>, String> {
+  init_db_internal()?;
+  let conn = open_db()?;
+  let interval_ms = {
+    let st = state.lock().map_err(|_| "runtime state poisoned".to_string())?;
+    st.interval_ms
+  };
+  let max_gap_seconds = tracking_gap_seconds(interval_ms);
+  let day_count = days.unwrap_or(14).clamp(7, 30);
+  let today_local = Local::now().date_naive();
+  let start_day = today_local - chrono::Duration::days(day_count - 1);
+
+  let start_local = resolve_local_midnight(start_day)?;
+  let end_local = resolve_local_midnight(
+    today_local
+      .succ_opt()
+      .ok_or_else(|| "next day overflow".to_string())?,
+  )?;
+  let range_start_sec = start_local.with_timezone(&Utc).timestamp();
+  let range_end_sec = end_local.with_timezone(&Utc).timestamp();
+  let rows = load_entries_overlapping_range(&conn, range_start_sec, range_end_sec, max_gap_seconds)?;
+
+  struct DayAccumulator {
+    day_key: String,
+    start_sec: i64,
+    end_sec: i64,
+    total_seconds: i64,
+    uncategorized_seconds: i64,
+    running_seconds: i64,
+    entry_count: i64,
+    apps: HashMap<String, i64>,
+    projects: HashMap<String, i64>,
+    tags: HashMap<String, i64>,
+  }
+
+  let mut daily = Vec::new();
+  for offset in 0..day_count {
+    let day = start_day + chrono::Duration::days(offset);
+    let next_day = day
+      .succ_opt()
+      .ok_or_else(|| "next day overflow".to_string())?;
+    let local_start = resolve_local_midnight(day)?;
+    let local_end = resolve_local_midnight(next_day)?;
+    daily.push(DayAccumulator {
+      day_key: day.format("%Y-%m-%d").to_string(),
+      start_sec: local_start.with_timezone(&Utc).timestamp(),
+      end_sec: local_end.with_timezone(&Utc).timestamp(),
+      total_seconds: 0,
+      uncategorized_seconds: 0,
+      running_seconds: 0,
+      entry_count: 0,
+      apps: HashMap::new(),
+      projects: HashMap::new(),
+      tags: HashMap::new(),
+    });
+  }
+
+  for row in &rows {
+    let (window_start_sec, window_end_sec) = entry_window_seconds(row)?;
+    for bucket in &mut daily {
+      let sec = overlap_seconds(window_start_sec, window_end_sec, bucket.start_sec, bucket.end_sec);
+      if sec <= 0 {
+        continue;
+      }
+
+      bucket.total_seconds += sec;
+      if row.ended_at.is_none() {
+        bucket.running_seconds += sec;
+      }
+      if row.project.is_none() && row.tag.is_none() {
+        bucket.uncategorized_seconds += sec;
+      }
+      bucket.entry_count += 1;
+
+      let app_key = row.app_name.clone();
+      *bucket.apps.entry(app_key).or_insert(0) += sec;
+
+      let project_key = row
+        .project
+        .clone()
+        .unwrap_or_else(|| row.app_name.clone());
+      *bucket.projects.entry(project_key).or_insert(0) += sec;
+
+      let tag_key = row.tag.clone().unwrap_or_default();
+      *bucket.tags.entry(tag_key).or_insert(0) += sec;
+    }
+  }
+
+  Ok(
+    daily
+      .into_iter()
+      .map(|bucket| {
+        let coverage = if bucket.total_seconds > 0 {
+          (((bucket.total_seconds - bucket.uncategorized_seconds) * 100) / bucket.total_seconds)
+            .clamp(0, 100)
+        } else {
+          0
+        };
+        let top_tag = top_map_name(&bucket.tags).and_then(|tag| if tag.is_empty() { None } else { Some(tag) });
+        DailySummary {
+          day_key: bucket.day_key,
+          total_seconds: bucket.total_seconds,
+          uncategorized_seconds: bucket.uncategorized_seconds,
+          running_seconds: bucket.running_seconds,
+          top_app: top_map_name(&bucket.apps),
+          top_project: top_map_name(&bucket.projects),
+          top_tag,
+          entry_count: bucket.entry_count,
+          coverage,
+          focus_minutes: bucket.total_seconds / 60,
+        }
+      })
+      .collect(),
+  )
+}
+
+#[tauri::command]
 fn get_runtime_status(state: State<'_, SharedState>) -> Result<RuntimeStatus, String> {
   let st = state.lock().map_err(|_| "runtime state poisoned".to_string())?;
   Ok(RuntimeStatus {
@@ -1344,6 +1892,34 @@ fn list_rules() -> Result<Vec<RuleRow>, String> {
 }
 
 #[tauri::command]
+fn list_rule_suggestions(limit: Option<i64>) -> Result<RuleSuggestions, String> {
+  init_db_internal()?;
+  let conn = open_db()?;
+  let max = limit.unwrap_or(40).clamp(1, 200);
+  let mut stmt = conn
+    .prepare(
+      "select app_name
+       from activity_entries
+       where trim(app_name) <> ''
+       group by app_name
+       order by count(*) desc, app_name asc
+       limit ?1",
+    )
+    .map_err(|e| format!("prepare list rule suggestions failed: {e}"))?;
+
+  let rows = stmt
+    .query_map(params![max], |row| row.get::<_, String>(0))
+    .map_err(|e| format!("query list rule suggestions failed: {e}"))?;
+
+  let mut app_names = Vec::new();
+  for row in rows {
+    app_names.push(row.map_err(|e| format!("decode rule suggestion row failed: {e}"))?);
+  }
+
+  Ok(RuleSuggestions { app_names })
+}
+
+#[tauri::command]
 fn add_rule(input: NewRuleInput) -> Result<Vec<RuleRow>, String> {
   init_db_internal()?;
   let conn = open_db()?;
@@ -1351,6 +1927,9 @@ fn add_rule(input: NewRuleInput) -> Result<Vec<RuleRow>, String> {
   let name = input.name.trim();
   if name.is_empty() {
     return Err("rule name cannot be empty".to_string());
+  }
+  if input.app_pattern.trim().is_empty() && input.title_pattern.trim().is_empty() {
+    return Err("app pattern or title pattern is required".to_string());
   }
 
   conn
@@ -1375,6 +1954,7 @@ fn add_rule(input: NewRuleInput) -> Result<Vec<RuleRow>, String> {
     )
     .map_err(|e| format!("insert rule failed: {e}"))?;
 
+  reapply_rules_internal(&conn)?;
   list_rules_internal()
 }
 
@@ -1388,6 +1968,7 @@ fn set_rule_enabled(rule_id: i64, enabled: bool) -> Result<Vec<RuleRow>, String>
       params![if enabled { 1 } else { 0 }, rule_id],
     )
     .map_err(|e| format!("update rule enabled failed: {e}"))?;
+  reapply_rules_internal(&conn)?;
   list_rules_internal()
 }
 
@@ -1398,6 +1979,7 @@ fn delete_rule(rule_id: i64) -> Result<Vec<RuleRow>, String> {
   conn
     .execute("delete from rules where id = ?1", params![rule_id])
     .map_err(|e| format!("delete rule failed: {e}"))?;
+  reapply_rules_internal(&conn)?;
   list_rules_internal()
 }
 
@@ -1459,10 +2041,13 @@ fn main() {
       init_db,
       capture_active_window,
       list_entries,
+      list_entries_for_day,
+      list_daily_summaries,
       get_runtime_status,
       set_tracking_enabled,
       set_capture_interval,
       list_rules,
+      list_rule_suggestions,
       add_rule,
       set_rule_enabled,
       delete_rule
