@@ -1,0 +1,160 @@
+/* Transparent root: tauri window itself is transparent + alwaysOnTop.
+   We only paint the pet + bubble; the rest of the window stays click-through-feeling. */
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: transparent;
+  /* Pixel art crispness for any future <img> sprites. */
+  image-rendering: pixelated;
+  user-select: none;
+  cursor: default;
+  font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+#root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* ---------------- Pet body ---------------- */
+
+.pet {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 96px;
+  height: 96px;
+  transform: translate(0, -50%);
+  cursor: grab;
+  /* Subtle bobbing while idle/walking. */
+  animation: bob 1.4s ease-in-out infinite;
+}
+
+.pet[data-dragging="true"] {
+  cursor: grabbing;
+  animation: none;
+  transform: translate(0, -50%) scale(1.08);
+}
+
+.pet[data-facing="left"] .pet-body {
+  transform: scaleX(-1);
+}
+
+@keyframes bob {
+  0%, 100% { transform: translate(0, -50%); }
+  50%      { transform: translate(0, calc(-50% - 4px)); }
+}
+
+.pet-body {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-origin: center;
+  transition: transform 120ms ease;
+}
+
+/* The "pixel" blob - made of a few absolutely-positioned squares so it feels chunky.
+   Sized in multiples of 6px so it looks crisp at 96x96. */
+
+.pixel {
+  position: absolute;
+  background: #5cd66d;
+  box-shadow: inset 0 -6px 0 rgba(0, 0, 0, 0.18);
+}
+
+/* Body */
+.p-body  { left: 12px; top: 24px; width: 72px; height: 60px; border-radius: 10px; }
+/* Belly highlight */
+.p-belly { left: 30px; top: 48px; width: 36px; height: 26px; background: #8be79b; border-radius: 8px; box-shadow: none; }
+/* Feet */
+.p-foot-l { left: 22px; top: 80px; width: 18px; height: 10px; border-radius: 4px; }
+.p-foot-r { left: 56px; top: 80px; width: 18px; height: 10px; border-radius: 4px; }
+/* Eyes */
+.p-eye-l { left: 28px; top: 36px; width: 12px; height: 14px; background: #fff; border-radius: 3px; box-shadow: none; }
+.p-eye-r { left: 56px; top: 36px; width: 12px; height: 14px; background: #fff; border-radius: 3px; box-shadow: none; }
+.p-pup-l, .p-pup-r {
+  background: #1a2a1a;
+  width: 6px; height: 8px; border-radius: 2px;
+  box-shadow: none;
+  transition: transform 200ms ease;
+}
+.p-pup-l { left: 30px; top: 39px; }
+.p-pup-r { left: 58px; top: 39px; }
+
+/* Blink: hide pupils briefly, scale eyelid down. */
+.pet[data-blink="true"] .p-eye-l,
+.pet[data-blink="true"] .p-eye-r {
+  height: 2px;
+  top: 42px;
+}
+.pet[data-blink="true"] .p-pup-l,
+.pet[data-blink="true"] .p-pup-r {
+  opacity: 0;
+}
+
+/* Mouth */
+.p-mouth {
+  left: 40px;
+  top: 60px;
+  width: 16px;
+  height: 6px;
+  background: #1a2a1a;
+  border-radius: 0 0 8px 8px;
+  box-shadow: none;
+}
+
+/* Surprised face when grabbed */
+.pet[data-dragging="true"] .p-mouth {
+  width: 12px;
+  height: 12px;
+  left: 42px;
+  top: 58px;
+  border-radius: 50%;
+}
+.pet[data-dragging="true"] .p-pup-l,
+.pet[data-dragging="true"] .p-pup-r {
+  transform: scale(1.3);
+}
+
+/* ---------------- Speech bubble ---------------- */
+
+.bubble {
+  position: absolute;
+  max-width: 200px;
+  padding: 8px 12px;
+  background: #fff;
+  color: #222;
+  font-size: 13px;
+  line-height: 1.4;
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(6px) scale(0.92);
+  transition: opacity 180ms ease, transform 180ms ease;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.bubble[data-visible="true"] {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  left: 24px;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  transform: rotate(45deg);
+  box-shadow: 4px 4px 6px rgba(0, 0, 0, 0.06);
+}
