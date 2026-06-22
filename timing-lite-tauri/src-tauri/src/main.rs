@@ -418,8 +418,8 @@ fn load_entries_overlapping_range(
        ended_at,
        duration_seconds + {effective_tail} as effective_duration
      from activity_entries
-     where strftime('%s', started_at) < ?2
-       and (strftime('%s', started_at) + duration_seconds + {effective_tail}) > ?1
+     where cast(strftime('%s', started_at) as integer) < ?2
+       and (cast(strftime('%s', started_at) as integer) + duration_seconds + {effective_tail}) > ?1
      order by started_at desc"
   );
 
