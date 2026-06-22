@@ -42,6 +42,25 @@ npm install
 npm run tauri dev
 ```
 
+## Dev database —— 开发库与正式库隔离
+
+开发版（`npm run tauri dev`，debug 构建）和正式版（打包产物，release 构建）使用各自独立的数据库目录，
+互不影响。这样开发时改 schema / 删数据 / 测试都不会污染你积累的真实历史记录：
+
+- 开发版：`~/.timing-lite-dev/timing-lite.db`
+- 正式版：`~/.timing-lite/timing-lite.db`
+
+开发库默认是空的。需要真实数据看效果时，把正式库快照一份过去（独立副本，随便改不影响正式数据）：
+
+```bash
+cd /Users/apple/Documents/code/other/le-web/timing-lite-tauri
+npm run dev:seed          # 把正式库快照到开发库
+npm run dev:seed:fresh    # 清空开发库（测空状态 / schema 迁移时用）
+```
+
+> 注意：开发版和正式版的进程仍共用单实例端口 `45873`，同一时间只能跑一个。
+> 本地开发前先退出已安装的正式版：`pkill -f timing_lite_tauri`。
+
 ## Build (silent dmg) —— 打包：生成 dmg（推荐，安装包）
 
 This command avoids Finder popups from `bundle_dmg.sh` and generates a dmg silently:

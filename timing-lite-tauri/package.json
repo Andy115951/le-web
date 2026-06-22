@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:build:app": "tauri build --bundles app",
-    "build:dmg:silent": "npm run tauri:build:app && ./scripts/build-dmg-silent.sh"
+    "build:dmg:silent": "npm run tauri:build:app && ./scripts/build-dmg-silent.sh",
+    "dev:seed": "./scripts/seed-dev-db.sh",
+    "dev:seed:fresh": "./scripts/seed-dev-db.sh --fresh"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.1.0",

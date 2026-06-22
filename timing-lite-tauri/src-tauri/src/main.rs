@@ -155,6 +155,11 @@ unsafe extern "C" {
 fn db_dir() -> Result<PathBuf, String> {
   let home = std::env::var("HOME").map_err(|e| format!("HOME not found: {e}"))?;
   let mut p = PathBuf::from(home);
+  // 开发版(debug，即 `npm run tauri dev`)与正式版(release，打包产物)使用
+  // 各自独立的数据库目录，避免开发时改 schema / 删数据污染真实历史记录。
+  #[cfg(debug_assertions)]
+  p.push(".timing-lite-dev");
+  #[cfg(not(debug_assertions))]
   p.push(".timing-lite");
   fs::create_dir_all(&p).map_err(|e| format!("create db dir failed: {e}"))?;
   Ok(p)
