@@ -174,6 +174,18 @@ fn db_path() -> Result<PathBuf, String> {
 fn open_db() -> Result<Connection, String> {
   let path = db_path()?;
   let conn = Connection::open(path).map_err(|e| format!("open db failed: {e}"))?;
+  // 后台采集器每隔几秒写一次，UI 又会并发读取。默认的回滚日志(delete)模式下
+  // 读写会互锁、立刻报 "database is locked"。开启 WAL 让读写可并发，并设置
+  // busy_timeout 在短暂争用时等待而不是直接失败。
+  conn
+    .busy_timeout(Duration::from_secs(5))
+    .map_err(|e| format!("set busy_timeout failed: {e}"))?;
+  conn
+    .query_row("PRAGMA journal_mode=WAL", [], |row| row.get::<_, String>(0))
+    .map_err(|e| format!("enable WAL failed: {e}"))?;
+  conn
+    .pragma_update(None, "synchronous", "NORMAL")
+    .map_err(|e| format!("set synchronous failed: {e}"))?;
   Ok(conn)
 }
 
