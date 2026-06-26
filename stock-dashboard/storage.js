@@ -22,10 +22,16 @@ const DEFAULT_PREFERENCES = {
   autoRefreshSec: 0,
   pageSize: 10,
   currentPage: 1,
-  strategyRulesText: "8:20,12:30,18:50"
+  strategyRulesText: "8:20,12:30,18:50",
+  notifyOnTarget: false,
+  dropAlertEnabled: false,
+  dropAlertThreshold: 3,
+  dropAlertVoice: true,
+  dropAlertSound: true,
+  dropAlertNotify: false
 };
 
-const ALLOWED_SORT_KEYS = new Set(["symbol", "displayName", "price", "changePercent", "drawdownPercent"]);
+const ALLOWED_SORT_KEYS = new Set(["symbol", "displayName", "price", "changePercent", "drawdownPercent", "targetDistance"]);
 const ALLOWED_PERFORMANCE_FILTERS = new Set(["all", "up", "down", "flat"]);
 const ALLOWED_PAGE_SIZES = new Set([10, 20, 50]);
 const ALLOWED_AUTO_REFRESH = new Set([0, 30, 60, 300]);
@@ -49,11 +55,13 @@ function normalizeUsPeaks(usPeaks) {
 
 function normalizeItem(item) {
   const symbol = String(item.symbol || "").trim().toUpperCase();
+  const targetPrice = Number(item.targetPrice);
   return {
     symbol,
     displayName: String(item.displayName || symbol).trim() || symbol,
     group: String(item.group || "未分组").trim() || "未分组",
     note: String(item.note || "").trim(),
+    targetPrice: Number.isFinite(targetPrice) && targetPrice > 0 ? Number(targetPrice.toFixed(3)) : null,
     createdAt: typeof item.createdAt === "string" ? item.createdAt : new Date().toISOString()
   };
 }
@@ -68,6 +76,7 @@ function normalizePreferences(preferences) {
   const autoRefreshSec = Number(preferences?.autoRefreshSec);
   const pageSize = Number(preferences?.pageSize);
   const currentPage = Number(preferences?.currentPage);
+  const dropAlertThreshold = Number(preferences?.dropAlertThreshold);
 
   return {
     selectedGroup: typeof preferences?.selectedGroup === "string" ? preferences.selectedGroup : DEFAULT_PREFERENCES.selectedGroup,
@@ -80,7 +89,15 @@ function normalizePreferences(preferences) {
     currentPage: Number.isInteger(currentPage) && currentPage > 0 ? currentPage : DEFAULT_PREFERENCES.currentPage,
     strategyRulesText: typeof preferences?.strategyRulesText === "string"
       ? preferences.strategyRulesText.trim().slice(0, 120)
-      : DEFAULT_PREFERENCES.strategyRulesText
+      : DEFAULT_PREFERENCES.strategyRulesText,
+    notifyOnTarget: preferences?.notifyOnTarget === true,
+    dropAlertEnabled: preferences?.dropAlertEnabled === true,
+    dropAlertThreshold: Number.isFinite(dropAlertThreshold) && dropAlertThreshold > 0
+      ? Math.min(50, Math.max(0.1, Number(dropAlertThreshold.toFixed(2))))
+      : DEFAULT_PREFERENCES.dropAlertThreshold,
+    dropAlertVoice: preferences?.dropAlertVoice !== false,
+    dropAlertSound: preferences?.dropAlertSound !== false,
+    dropAlertNotify: preferences?.dropAlertNotify === true
   };
 }
 

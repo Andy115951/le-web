@@ -284,6 +284,41 @@ select:focus {
   min-width: 0;
 }
 
+.broadcast-card {
+  padding: 18px;
+  margin-bottom: 16px;
+}
+
+.broadcast-form {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 16px;
+}
+
+.broadcast-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  min-height: 44px;
+}
+
+.broadcast-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--brand);
+  cursor: pointer;
+}
+
+.broadcast-threshold {
+  width: 150px;
+}
+
 .signal-summary {
   margin-top: 12px;
   font-weight: 700;
@@ -354,7 +389,7 @@ select:focus {
 .stock-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 1220px;
+  min-width: 1340px;
 }
 
 .stock-table th,
@@ -412,8 +447,55 @@ select:focus {
 .range-cell,
 .drawdown-cell,
 .advice-cell,
+.target-cell,
 .note-cell {
   white-space: nowrap;
+}
+
+.target-input {
+  width: 96px;
+  min-height: 34px;
+  padding: 0 8px;
+  border-radius: 8px;
+}
+
+.target-distance {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: var(--sub);
+}
+
+.target-distance.positive {
+  color: var(--ok);
+}
+
+.target-distance.negative {
+  color: var(--danger);
+}
+
+tr.target-hit {
+  background: rgba(79, 140, 255, 0.12);
+}
+
+tr.target-hit td:first-child {
+  box-shadow: inset 3px 0 0 var(--brand);
+}
+
+.mobile-card.target-hit {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 1px var(--brand);
+}
+
+.mobile-target {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mobile-target .target-input {
+  width: 110px;
 }
 
 .positive {
@@ -568,7 +650,7 @@ select:focus {
   }
 
   .stock-table {
-    min-width: 1220px;
+    min-width: 1340px;
   }
 }
 

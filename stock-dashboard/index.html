@@ -12,7 +12,7 @@
       <div>
         <p class="eyebrow">Custom Watchlist</p>
         <h1 class="title">股票自选看板</h1>
-        <p class="subtitle">支持美股/A股代码、分组筛选、涨跌排序、备注和迷你走势图。</p>
+        <p class="subtitle">支持美股/A股/港股代码，全市场峰值回撤跟踪、目标价到价提醒、分组筛选与迷你走势图。</p>
       </div>
       <div class="top-actions">
         <div class="status-wrap">
@@ -105,6 +105,7 @@
             <option value="price">最新价</option>
             <option value="changePercent">涨跌幅</option>
             <option value="drawdownPercent">较峰值回撤</option>
+            <option value="targetDistance">距目标价</option>
           </select>
         </div>
         <div class="toolbar-item direction-item">
@@ -124,6 +125,7 @@
           </select>
         </div>
         <div class="toolbar-item action-item">
+          <button type="button" class="btn btn-ghost" id="notifyToggleBtn">到价提醒：关</button>
           <button type="button" class="btn btn-ghost" id="clearFiltersBtn">清空筛选</button>
         </div>
       </div>
@@ -164,6 +166,26 @@
       <div class="signal-list" id="signalList"></div>
     </section>
 
+    <section class="card broadcast-card">
+      <div class="strategy-head">
+        <h2>下跌提醒播报</h2>
+        <p class="muted" id="broadcastHint">当日跌幅达到阈值时自动语音播报。开启自动刷新后可持续盯盘。</p>
+      </div>
+      <div class="broadcast-form">
+        <label class="broadcast-toggle"><input type="checkbox" id="dropAlertEnabled" /> 开启播报</label>
+        <div class="field broadcast-threshold">
+          <label for="dropThresholdInput">跌幅阈值（%）</label>
+          <input id="dropThresholdInput" type="number" min="0.1" step="0.1" inputmode="decimal" />
+        </div>
+        <label class="broadcast-toggle"><input type="checkbox" id="dropAlertVoice" /> 语音</label>
+        <label class="broadcast-toggle"><input type="checkbox" id="dropAlertSound" /> 提示音</label>
+        <label class="broadcast-toggle"><input type="checkbox" id="dropAlertNotify" /> 桌面通知</label>
+        <button type="button" class="btn btn-ghost" id="testBroadcastBtn">试听</button>
+      </div>
+      <div class="signal-summary" id="dropSummary">当前无下跌触发</div>
+      <div class="signal-list" id="dropList"></div>
+    </section>
+
     <section class="card list-card">
       <div class="list-head">
         <div>
@@ -190,6 +212,7 @@
               <th>最新价</th>
               <th>涨跌额</th>
               <th>涨跌幅</th>
+              <th>目标价</th>
               <th>昨收 / 今开</th>
               <th>日内区间</th>
               <th>较峰值回撤</th>
@@ -230,6 +253,10 @@
       <td class="price-cell"></td>
       <td class="change-cell"></td>
       <td class="percent-cell"></td>
+      <td class="target-cell">
+        <input type="number" class="target-input" step="0.01" min="0" inputmode="decimal" placeholder="设目标" />
+        <span class="target-distance"></span>
+      </td>
       <td class="prev-open-cell"></td>
       <td class="range-cell"></td>
       <td class="drawdown-cell"></td>

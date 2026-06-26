@@ -36,6 +36,7 @@ const els = {
   sortDirection: document.getElementById("sortDirection"),
   autoRefreshSelect: document.getElementById("autoRefreshSelect"),
   clearFiltersBtn: document.getElementById("clearFiltersBtn"),
+  notifyToggleBtn: document.getElementById("notifyToggleBtn"),
   pageSizeSelect: document.getElementById("pageSizeSelect"),
   prevPageBtn: document.getElementById("prevPageBtn"),
   nextPageBtn: document.getElementById("nextPageBtn"),
@@ -57,7 +58,16 @@ const els = {
   saveStrategyBtn: document.getElementById("saveStrategyBtn"),
   strategyHint: document.getElementById("strategyHint"),
   signalSummary: document.getElementById("signalSummary"),
-  signalList: document.getElementById("signalList")
+  signalList: document.getElementById("signalList"),
+  broadcastHint: document.getElementById("broadcastHint"),
+  dropAlertEnabled: document.getElementById("dropAlertEnabled"),
+  dropThresholdInput: document.getElementById("dropThresholdInput"),
+  dropAlertVoice: document.getElementById("dropAlertVoice"),
+  dropAlertSound: document.getElementById("dropAlertSound"),
+  dropAlertNotify: document.getElementById("dropAlertNotify"),
+  testBroadcastBtn: document.getElementById("testBroadcastBtn"),
+  dropSummary: document.getElementById("dropSummary"),
+  dropList: document.getElementById("dropList")
 };
 
 const state = {
@@ -71,10 +81,14 @@ const state = {
     autoRefreshSec: 0,
     pageSize: 10,
     currentPage: 1,
-    strategyRulesText: "8:20,12:30,18:50"
+    strategyRulesText: "8:20,12:30,18:50",
+    notifyOnTarget: false
   },
   quotes: {},
   usPeaks: {},
+  targetHits: new Set(),
+  dropAlerted: new Set(),
+  audioCtx: null,
   loading: false,
   autoRefreshTimer: null,
   lastSuccessAt: null,
@@ -240,6 +254,77 @@ function bindEvents() {
     render();
   });
 
+  els.notifyToggleBtn.addEventListener("click", async function () {
+    const enabling = !state.preferences.notifyOnTarget;
+    if (enabling) {
+      if (typeof Notification === "undefined") {
+        els.notifyToggleBtn.textContent = "到价提醒：不支持";
+        return;
+      }
+      if (Notification.permission !== "granted") {
+        const permission = await Notification.requestPermission();
+        if (permission !== "granted") {
+          els.notifyToggleBtn.textContent = "到价提醒：需授权";
+          return;
+        }
+      }
+    }
+    state.preferences.notifyOnTarget = enabling;
+    persist();
+    syncControls();
+    render();
+  });
+
+  els.dropAlertEnabled.addEventListener("change", function () {
+    state.preferences.dropAlertEnabled = els.dropAlertEnabled.checked;
+    if (els.dropAlertEnabled.checked) {
+      primeAudio();
+    } else {
+      state.dropAlerted.clear();
+    }
+    persist();
+    render();
+  });
+
+  els.dropThresholdInput.addEventListener("change", function () {
+    const value = Number(els.dropThresholdInput.value);
+    if (Number.isFinite(value) && value > 0) {
+      state.preferences.dropAlertThreshold = Math.min(50, Math.max(0.1, Number(value.toFixed(2))));
+    }
+    state.dropAlerted.clear();
+    persist();
+    syncControls();
+    render();
+  });
+
+  els.dropAlertVoice.addEventListener("change", function () {
+    state.preferences.dropAlertVoice = els.dropAlertVoice.checked;
+    primeAudio();
+    persist();
+  });
+
+  els.dropAlertSound.addEventListener("change", function () {
+    state.preferences.dropAlertSound = els.dropAlertSound.checked;
+    primeAudio();
+    persist();
+  });
+
+  els.dropAlertNotify.addEventListener("change", async function () {
+    if (els.dropAlertNotify.checked && typeof Notification !== "undefined" && Notification.permission === "default") {
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        els.dropAlertNotify.checked = false;
+      }
+    }
+    state.preferences.dropAlertNotify = els.dropAlertNotify.checked;
+    persist();
+  });
+
+  els.testBroadcastBtn.addEventListener("click", function () {
+    primeAudio();
+    broadcastDrops([{ symbol: "TEST", name: "示例股票", changePercent: -3.21 }], { test: true });
+  });
+
   els.clearFiltersBtn.addEventListener("click", function () {
     state.preferences.selectedGroup = "all";
     state.preferences.performanceFilter = "all";
@@ -280,8 +365,26 @@ function bindEvents() {
     await refreshQuotes();
   }
 
+  function handleTargetChange(event) {
+    const input = event.target.closest("input.target-input[data-symbol]");
+    if (!input) return;
+    const symbol = String(input.getAttribute("data-symbol") || "").trim().toUpperCase();
+    const raw = String(input.value || "").trim();
+    const value = Number(raw);
+    const targetPrice = raw !== "" && Number.isFinite(value) && value > 0 ? value : null;
+
+    state.items = state.items.map(function (item) {
+      return item.symbol === symbol ? { ...item, targetPrice } : item;
+    });
+    state.targetHits.delete(symbol);
+    persist();
+    render();
+  }
+
   els.stockTableBody.addEventListener("click", handleDeleteClick);
   els.mobileList.addEventListener("click", handleDeleteClick);
+  els.stockTableBody.addEventListener("change", handleTargetChange);
+  els.mobileList.addEventListener("change", handleTargetChange);
 }
 
 function syncControls() {
@@ -293,6 +396,12 @@ function syncControls() {
   els.autoRefreshSelect.value = String(state.preferences.autoRefreshSec);
   els.pageSizeSelect.value = String(state.preferences.pageSize);
   els.strategyRulesInput.value = state.preferences.strategyRulesText;
+  els.notifyToggleBtn.textContent = "到价提醒：" + (state.preferences.notifyOnTarget ? "开" : "关");
+  els.dropAlertEnabled.checked = !!state.preferences.dropAlertEnabled;
+  els.dropThresholdInput.value = String(state.preferences.dropAlertThreshold);
+  els.dropAlertVoice.checked = !!state.preferences.dropAlertVoice;
+  els.dropAlertSound.checked = !!state.preferences.dropAlertSound;
+  els.dropAlertNotify.checked = !!state.preferences.dropAlertNotify;
 }
 
 function syncCloudConfigInputs(config) {
@@ -506,7 +615,7 @@ async function refreshQuotesInternal(options) {
     state.quotes = await fetchQuotes(state.items.map(function (item) {
       return item.symbol;
     }));
-    syncUsPeaksWithQuotes();
+    syncPeaksWithQuotes();
     persist();
     state.lastSuccessAt = new Date();
     updateLastUpdated(state.lastSuccessAt);
@@ -570,6 +679,7 @@ function render() {
     }, quote);
     fillDrawdownCell(drawdownCell, item, quote);
     fillAdviceCell(adviceCell, item, quote);
+    fillTargetCell(row, row.querySelector(".target-cell"), item, quote);
 
     els.stockTableBody.appendChild(fragment);
     els.mobileList.appendChild(createMobileCard(item, quote));
@@ -578,6 +688,8 @@ function render() {
   updatePagination(pagination, rows.length);
   renderListHint(rows.length);
   renderStrategyPanel(strategySignals);
+  checkTargetNotifications();
+  checkDropAlerts();
 }
 
 function fillQuoteCells(cells, quote) {
@@ -602,13 +714,13 @@ function fillQuoteCells(cells, quote) {
 }
 
 function fillDrawdownCell(cell, item, quote) {
-  const drawdown = getUsDrawdownPercent(item, quote);
+  const drawdown = getDrawdownPercent(item, quote);
   cell.classList.remove("positive", "negative", "neutral");
 
   if (drawdown === null) {
     cell.textContent = "--";
     cell.classList.add("neutral");
-    cell.title = isUsSymbol(item.symbol) ? "等待更多价格数据后开始计算" : "仅对美股跟踪峰值回撤";
+    cell.title = "等待更多价格数据后开始计算";
     return;
   }
 
@@ -632,6 +744,76 @@ function fillAdviceCell(cell, item, quote) {
   cell.classList.add("negative");
 }
 
+function getTargetInfo(item, quote) {
+  const target = Number(item?.targetPrice);
+  const price = Number(quote?.price);
+  if (!Number.isFinite(target) || target <= 0 || !Number.isFinite(price) || price <= 0) {
+    return null;
+  }
+
+  const ref = Number(quote?.previousClose);
+  const baseline = Number.isFinite(ref) && ref > 0 ? ref : price;
+  const direction = target >= baseline ? "up" : "down";
+  const hit = direction === "up" ? price >= target : price <= target;
+  const distancePercent = Number((((target - price) / price) * 100).toFixed(2));
+  return { target, price, direction, hit, distancePercent };
+}
+
+function fillTargetCell(row, cell, item, quote) {
+  if (!cell) return;
+  const input = cell.querySelector(".target-input");
+  const distanceNode = cell.querySelector(".target-distance");
+
+  input.setAttribute("data-symbol", item.symbol);
+  input.value = item.targetPrice === null || item.targetPrice === undefined ? "" : String(item.targetPrice);
+
+  distanceNode.classList.remove("positive", "negative", "neutral");
+  if (row) row.classList.remove("target-hit");
+
+  const info = getTargetInfo(item, quote);
+  if (!info) {
+    distanceNode.textContent = item.targetPrice ? "等待行情" : "";
+    distanceNode.classList.add("neutral");
+    return;
+  }
+
+  if (info.hit) {
+    distanceNode.textContent = info.direction === "up" ? "✓ 已突破" : "✓ 已跌破";
+    distanceNode.classList.add(info.direction === "up" ? "positive" : "negative");
+    if (row) row.classList.add("target-hit");
+    return;
+  }
+
+  distanceNode.textContent = "距 " + formatSigned(info.distancePercent) + "%";
+  distanceNode.classList.add("neutral");
+}
+
+function checkTargetNotifications() {
+  const canNotify = state.preferences.notifyOnTarget
+    && typeof Notification !== "undefined"
+    && Notification.permission === "granted";
+
+  for (const item of state.items) {
+    const quote = state.quotes[item.symbol];
+    const info = getTargetInfo(item, quote);
+
+    if (!info || !info.hit) {
+      state.targetHits.delete(item.symbol);
+      continue;
+    }
+
+    if (state.targetHits.has(item.symbol)) continue;
+    state.targetHits.add(item.symbol);
+
+    if (canNotify) {
+      const name = quote && quote.name ? quote.name : item.displayName;
+      new Notification("到价提醒 · " + item.symbol, {
+        body: name + " 现价 " + formatNumber(info.price) + "，已" + (info.direction === "up" ? "突破" : "跌破") + "目标 " + formatNumber(info.target)
+      });
+    }
+  }
+}
+
 function createMobileCard(item, quote) {
   const card = document.createElement("article");
   card.className = "mobile-card";
@@ -641,7 +823,7 @@ function createMobileCard(item, quote) {
   const changeText = quote && quote.change !== null ? formatSigned(quote.change) : "--";
   const priceText = quote && quote.price !== null ? formatNumber(quote.price) : "--";
   const displayName = quote && quote.name ? quote.name : item.displayName;
-  const drawdown = getUsDrawdownPercent(item, quote);
+  const drawdown = getDrawdownPercent(item, quote);
   const drawdownText = drawdown === null ? "--" : formatUnsignedPercent(drawdown);
   const drawdownTone = drawdown === null || drawdown === 0 ? "neutral" : "negative";
   const strategySignal = getStrategySignal(item, quote);
@@ -649,6 +831,23 @@ function createMobileCard(item, quote) {
     ? "建议：回撤≥" + strategySignal.drawdown + "%，卖出 " + strategySignal.sellPercent + "%"
     : "建议：继续观察";
   const strategyTone = strategySignal ? "negative" : "neutral";
+  const targetInfo = getTargetInfo(item, quote);
+  const targetValue = item.targetPrice === null || item.targetPrice === undefined ? "" : String(item.targetPrice);
+  let targetText;
+  let targetTone;
+  if (!targetInfo) {
+    targetText = item.targetPrice ? "等待行情" : "未设置";
+    targetTone = "neutral";
+  } else if (targetInfo.hit) {
+    targetText = targetInfo.direction === "up" ? "✓ 已突破" : "✓ 已跌破";
+    targetTone = targetInfo.direction === "up" ? "positive" : "negative";
+  } else {
+    targetText = "距 " + formatSigned(targetInfo.distancePercent) + "%";
+    targetTone = "neutral";
+  }
+  if (targetInfo && targetInfo.hit) {
+    card.classList.add("target-hit");
+  }
 
   card.innerHTML = [
     '<div class="mobile-card-top">',
@@ -665,6 +864,7 @@ function createMobileCard(item, quote) {
     '</div>',
     '<p class="mobile-drawdown"><span class="muted">较峰值回撤</span> <strong class="' + drawdownTone + '">' + drawdownText + '</strong></p>',
     '<p class="mobile-drawdown"><span class="muted">止盈建议</span> <strong class="' + strategyTone + '">' + strategyText + '</strong></p>',
+    '<p class="mobile-drawdown mobile-target"><span class="muted">目标价</span> <input type="number" class="target-input" data-symbol="' + escapeHtml(item.symbol) + '" value="' + escapeHtml(targetValue) + '" step="0.01" min="0" inputmode="decimal" placeholder="设目标" /> <strong class="' + targetTone + '">' + targetText + '</strong></p>',
     '<div class="mobile-chart"></div>',
     '<p class="mobile-note">' + escapeHtml(item.note || "暂无备注") + '</p>',
     '<button type="button" class="btn btn-ghost remove-btn" data-symbol="' + escapeHtml(item.symbol) + '">删除</button>'
@@ -736,7 +936,11 @@ function getSortValue(item, sortKey) {
   const quote = state.quotes[item.symbol];
   if (sortKey === "price") return quote && typeof quote.price === "number" ? quote.price : null;
   if (sortKey === "changePercent") return quote && typeof quote.changePercent === "number" ? quote.changePercent : null;
-  if (sortKey === "drawdownPercent") return getUsDrawdownPercent(item, quote);
+  if (sortKey === "drawdownPercent") return getDrawdownPercent(item, quote);
+  if (sortKey === "targetDistance") {
+    const info = getTargetInfo(item, quote);
+    return info ? Math.abs(info.distancePercent) : null;
+  }
   if (sortKey === "displayName") return item.displayName.toUpperCase();
   return item.symbol;
 }
@@ -787,7 +991,7 @@ function renderListHint(filteredCount) {
   const freshnessText = state.lastSuccessAt
     ? "上次成功刷新：" + formatRelativeTime(state.lastSuccessAt)
     : "还没有成功刷新记录";
-  els.listHint.textContent = "共 " + total + " 只，筛选后 " + filteredCount + " 只。已跟踪美股峰值 " + usTrackedCount + " 只。 " + autoRefreshText + "。 " + freshnessText + "。";
+  els.listHint.textContent = "共 " + total + " 只，筛选后 " + filteredCount + " 只。已跟踪峰值 " + usTrackedCount + " 只。 " + autoRefreshText + "。 " + freshnessText + "。";
 }
 
 function parseStrategyRules(text) {
@@ -818,7 +1022,7 @@ function parseStrategyRules(text) {
 }
 
 function getStrategySignal(item, quote) {
-  const drawdown = getUsDrawdownPercent(item, quote);
+  const drawdown = getDrawdownPercent(item, quote);
   if (drawdown === null) return null;
 
   const rules = parseStrategyRules(state.preferences.strategyRulesText);
@@ -839,7 +1043,7 @@ function buildStrategySignals(rows) {
     const quote = state.quotes[item.symbol];
     const signal = getStrategySignal(item, quote);
     if (!signal) continue;
-    const drawdown = getUsDrawdownPercent(item, quote);
+    const drawdown = getDrawdownPercent(item, quote);
     signals.push({
       symbol: item.symbol,
       displayName: item.displayName,
@@ -878,6 +1082,151 @@ function renderStrategyPanel(signals) {
       "</article>"
     ].join("");
   }).join("");
+}
+
+function checkDropAlerts() {
+  const threshold = Math.abs(Number(state.preferences.dropAlertThreshold) || 0);
+  const triggers = [];
+
+  for (const item of state.items) {
+    const quote = state.quotes[item.symbol];
+    const changePercent = quote && typeof quote.changePercent === "number" ? quote.changePercent : null;
+    if (changePercent === null) continue;
+    if (changePercent <= -threshold) {
+      triggers.push({
+        symbol: item.symbol,
+        name: quote.name || item.displayName,
+        changePercent
+      });
+    }
+  }
+
+  triggers.sort(function (left, right) {
+    return left.changePercent - right.changePercent;
+  });
+  renderDropPanel(triggers, threshold);
+
+  if (!state.preferences.dropAlertEnabled) {
+    state.dropAlerted.clear();
+    return;
+  }
+
+  const currentSymbols = new Set(triggers.map(function (entry) {
+    return entry.symbol;
+  }));
+  for (const symbol of Array.from(state.dropAlerted)) {
+    if (!currentSymbols.has(symbol)) {
+      state.dropAlerted.delete(symbol);
+    }
+  }
+
+  const fresh = triggers.filter(function (entry) {
+    return !state.dropAlerted.has(entry.symbol);
+  });
+  if (!fresh.length) return;
+
+  fresh.forEach(function (entry) {
+    state.dropAlerted.add(entry.symbol);
+  });
+  broadcastDrops(fresh);
+}
+
+function renderDropPanel(triggers, threshold) {
+  els.broadcastHint.textContent = state.preferences.dropAlertEnabled
+    ? "已开启：当日跌幅达到 " + threshold + "% 时" + describeBroadcastChannels() + "。开启自动刷新后可持续盯盘。"
+    : "已关闭。开启后当日跌幅达到阈值会自动提醒。";
+
+  if (!triggers.length) {
+    els.dropSummary.textContent = "当前无下跌触发";
+    els.dropList.innerHTML = "";
+    return;
+  }
+
+  els.dropSummary.textContent = "当前触发 " + triggers.length + " 只（跌幅≥" + threshold + "%）";
+  els.dropList.innerHTML = triggers.map(function (entry) {
+    return [
+      '<article class="signal-item">',
+      '<strong>' + escapeHtml(entry.symbol) + " / " + escapeHtml(entry.name) + "</strong>",
+      '<span class="negative">当日 ' + formatSigned(entry.changePercent) + "%</span>",
+      "</article>"
+    ].join("");
+  }).join("");
+}
+
+function describeBroadcastChannels() {
+  const channels = [];
+  if (state.preferences.dropAlertVoice) channels.push("语音");
+  if (state.preferences.dropAlertSound) channels.push("提示音");
+  if (state.preferences.dropAlertNotify) channels.push("桌面通知");
+  return channels.length ? "通过 " + channels.join(" / ") + " 提醒" : "提醒（未选播报方式）";
+}
+
+function broadcastDrops(items, options) {
+  if (state.preferences.dropAlertSound) {
+    playBeep();
+  }
+
+  if (state.preferences.dropAlertVoice) {
+    const text = "下跌提醒：" + items.map(function (entry) {
+      return (entry.name || entry.symbol) + " 下跌 " + Math.abs(entry.changePercent).toFixed(2) + "%";
+    }).join("，");
+    speak(text);
+  }
+
+  if (!options?.test && state.preferences.dropAlertNotify && typeof Notification !== "undefined" && Notification.permission === "granted") {
+    const body = items.map(function (entry) {
+      return entry.symbol + " " + formatSigned(entry.changePercent) + "%";
+    }).join("\n");
+    new Notification("下跌提醒", { body });
+  }
+}
+
+function primeAudio() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (Ctx) {
+      if (!state.audioCtx) state.audioCtx = new Ctx();
+      if (state.audioCtx.state === "suspended") state.audioCtx.resume();
+    }
+  } catch (_) {}
+
+  if (typeof speechSynthesis !== "undefined") {
+    try {
+      speechSynthesis.resume();
+    } catch (_) {}
+  }
+}
+
+function playBeep() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    if (!state.audioCtx) state.audioCtx = new Ctx();
+    const ctx = state.audioCtx;
+    if (ctx.state === "suspended") ctx.resume();
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = "sine";
+    osc.frequency.value = 660;
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.22, ctx.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.36);
+  } catch (_) {}
+}
+
+function speak(text) {
+  if (typeof speechSynthesis === "undefined" || typeof SpeechSynthesisUtterance === "undefined") return;
+  try {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "zh-CN";
+    utterance.rate = 1;
+    speechSynthesis.speak(utterance);
+  } catch (_) {}
 }
 
 function setStatus(type, text) {
@@ -965,17 +1314,13 @@ function formatRelativeTime(date) {
   return diffHour + " 小时前";
 }
 
-function isUsSymbol(symbol) {
-  return /^[A-Z][A-Z0-9.-]{0,9}$/.test(String(symbol || "").trim().toUpperCase());
-}
-
-function syncUsPeaksWithQuotes() {
-  const activeUsSymbols = new Set();
+function syncPeaksWithQuotes() {
+  const activeSymbols = new Set();
 
   for (const item of state.items) {
     const symbol = item.symbol;
-    if (!isUsSymbol(symbol)) continue;
-    activeUsSymbols.add(symbol);
+    if (!symbol) continue;
+    activeSymbols.add(symbol);
     const quote = state.quotes[symbol];
     const price = Number(quote?.price);
     if (!Number.isFinite(price) || price <= 0) continue;
@@ -990,14 +1335,13 @@ function syncUsPeaksWithQuotes() {
   }
 
   for (const symbol of Object.keys(state.usPeaks)) {
-    if (!activeUsSymbols.has(symbol)) {
+    if (!activeSymbols.has(symbol)) {
       delete state.usPeaks[symbol];
     }
   }
 }
 
-function getUsDrawdownPercent(item, quote) {
-  if (!isUsSymbol(item.symbol)) return null;
+function getDrawdownPercent(item, quote) {
   const currentPrice = Number(quote?.price);
   const peak = state.usPeaks[item.symbol];
   const peakPrice = Number(peak?.peakPrice);

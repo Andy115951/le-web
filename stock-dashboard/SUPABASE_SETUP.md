@@ -67,4 +67,4 @@ with check (auth.uid() = user_id);
 
 - `items`: 自选列表
 - `preferences`: 筛选/排序/分页/自动刷新偏好
-- `us_peaks`: 美股峰值记录（用于计算回撤）
+- `us_peaks`: 全市场峰值记录（用于计算较峰值回撤，字段名为历史遗留）
