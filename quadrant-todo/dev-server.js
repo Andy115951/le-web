@@ -14,6 +14,8 @@ const meHandler = require("./api/auth/me");
 const registerHandler = require("./api/auth/register");
 const tasksHandler = require("./api/tasks/index");
 const taskByIdHandler = require("./api/tasks/[id]");
+const goalsHandler = require("./api/goals/index");
+const goalByIdHandler = require("./api/goals/[id]");
 
 loadEnvFiles();
 
@@ -28,6 +30,15 @@ const routes = [
     method: null,
     pattern: /^\/api\/tasks\/([^/]+)$/,
     handler: taskByIdHandler,
+    getQuery(match) {
+      return { id: decodeURIComponent(match[1]) };
+    }
+  },
+  { method: null, pattern: /^\/api\/goals$/, handler: goalsHandler },
+  {
+    method: null,
+    pattern: /^\/api\/goals\/([^/]+)$/,
+    handler: goalByIdHandler,
     getQuery(match) {
       return { id: decodeURIComponent(match[1]) };
     }

@@ -11,14 +11,36 @@ const STATUSES = {
   archived: "已归档"
 };
 
+const AREAS = {
+  finance: "金融",
+  health: "健康",
+  reading: "阅读",
+  learning: "学习",
+  work: "工作",
+  life: "生活",
+  other: "其他"
+};
+
+const GOAL_STATUSES = {
+  active: "进行中",
+  done: "已完成",
+  paused: "已搁置"
+};
+
 const state = {
   env: { appName: "Quadrant Todo", publicRegistration: true },
   user: null,
+  view: "board",
   tasks: [],
+  goals: [],
   pendingTaskIds: new Set(),
+  pendingGoalIds: new Set(),
   authMode: "login",
   activeTaskId: null,
   sheetDraft: null,
+  activeGoalId: null,
+  goalSheetDraft: null,
+  focusComposer: null,
   message: "",
   messageType: "info",
   busy: false
@@ -84,6 +106,39 @@ function groupTasks() {
     });
   });
   return groups;
+}
+
+function getGoalCounts() {
+  const total = state.goals.length;
+  const active = state.goals.filter((goal) => goal.status === "active").length;
+  const done = state.goals.filter((goal) => goal.status === "done").length;
+  return { total, active, done };
+}
+
+function groupGoals() {
+  const groups = {};
+  Object.keys(AREAS).forEach((area) => {
+    groups[area] = [];
+  });
+  state.goals.forEach((goal) => {
+    (groups[goal.area] || groups.other).push(goal);
+  });
+  Object.values(groups).forEach((list) => {
+    list.sort((a, b) => {
+      if (a.sort_order !== b.sort_order) {
+        return a.sort_order - b.sort_order;
+      }
+      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+    });
+  });
+  return groups;
+}
+
+function formatDate(value) {
+  if (!value) {
+    return "";
+  }
+  return new Date(value).toLocaleDateString("zh-CN");
 }
 
 function renderBanner() {
@@ -206,6 +261,9 @@ function renderBoard() {
           <div class="task-list">
             ${groups[key].length ? groups[key].map(renderTaskCard).join("") : '<div class="empty">这里还没有任务，先放一件最想推进的事进来。</div>'}
           </div>
+          <form class="inline-add" data-quad-add="${key}">
+            <input class="inline-add-input" id="composer-input-${key}" name="title" maxlength="120" autocomplete="off" placeholder="+ 添加任务，回车保存" />
+          </form>
         </section>
       `).join("")}
     </section>
@@ -279,8 +337,255 @@ function renderTaskSheet() {
   `;
 }
 
-function renderAppView() {
+function renderGoalCard(goal) {
+  const isPending = state.pendingGoalIds.has(goal.id);
+  const progress = Math.max(0, Math.min(100, goal.progress || 0));
+  const targetText = goal.target_date ? `目标日期 ${formatDate(goal.target_date)}` : "未设目标日期";
+  return `
+    <article class="goal-card ${goal.status} ${isPending ? "goal-card-pending" : ""}">
+      <div class="card-head">
+        <h4>${escapeHtml(goal.title)}</h4>
+        <span class="stat-badge goal-status-${goal.status}">${escapeHtml(GOAL_STATUSES[goal.status])}</span>
+      </div>
+      <p class="task-desc">${goal.description ? escapeHtml(goal.description) : "暂无备注"}</p>
+      <div class="progress">
+        <div class="progress-bar" style="width: ${progress}%"></div>
+      </div>
+      <div class="goal-progress-row">
+        <span class="muted">${progress}%</span>
+        <div class="row-inline">
+          <button class="mini-btn" data-goal-progress="${goal.id}" data-delta="-10" ${isPending || progress <= 0 ? "disabled" : ""}>-10</button>
+          <button class="mini-btn" data-goal-progress="${goal.id}" data-delta="10" ${isPending || progress >= 100 ? "disabled" : ""}>+10</button>
+        </div>
+      </div>
+      <div class="task-meta">
+        <span class="muted">${escapeHtml(targetText)}</span>
+      </div>
+      <div class="task-actions">
+        <button class="mini-btn" data-open-goal="${goal.id}">编辑</button>
+      </div>
+    </article>
+  `;
+}
+
+function renderGoalsView() {
+  const groups = groupGoals();
+  const activeAreas = Object.keys(AREAS).filter((area) => groups[area].length);
+  return `
+    <section class="goal-board">
+      ${
+        activeAreas.length
+          ? activeAreas
+              .map(
+                (area) => `
+        <section class="goal-area">
+          <div class="quad-head">
+            <h3 class="quad-title"><span class="area-badge area-${area}">${AREAS[area]}</span></h3>
+            <span class="status-chip">${groups[area].length} 项</span>
+          </div>
+          <div class="goal-list">
+            ${groups[area].map(renderGoalCard).join("")}
+          </div>
+          <form class="inline-add" data-area-add="${area}">
+            <input class="inline-add-input" id="goal-composer-input-${area}" name="title" maxlength="120" autocomplete="off" placeholder="+ 添加目标，回车保存" />
+          </form>
+        </section>
+      `
+              )
+              .join("")
+          : '<div class="empty">还没有长期目标。在左侧添加一个，比如“读完《xx》”或“系统学完金融基础”。</div>'
+      }
+    </section>
+  `;
+}
+
+function renderGoalSheet() {
+  const goal = state.goals.find((item) => item.id === state.activeGoalId);
+  if (!goal) {
+    return "";
+  }
+
+  const draft =
+    state.goalSheetDraft || {
+      title: goal.title,
+      description: goal.description || "",
+      area: goal.area,
+      status: goal.status,
+      progress: goal.progress || 0,
+      targetDate: goal.target_date || ""
+    };
+
+  return `
+    <div class="overlay" data-close-goal-sheet="true">
+      <div class="sheet">
+        <div class="sheet-head">
+          <div>
+            <h3>编辑目标</h3>
+            <p class="muted">调整领域、状态、进度与目标日期。</p>
+          </div>
+          <button class="ghost-btn" data-close-goal-sheet="true">关闭</button>
+        </div>
+        <form id="goal-edit-form" data-goal-id="${goal.id}">
+          <div class="field">
+            <label for="goal-edit-title">标题</label>
+            <input id="goal-edit-title" name="title" maxlength="120" value="${escapeHtml(draft.title)}" required />
+          </div>
+          <div class="field">
+            <label for="goal-edit-description">备注</label>
+            <textarea id="goal-edit-description" name="description" maxlength="2000">${escapeHtml(draft.description || "")}</textarea>
+          </div>
+          <div class="field">
+            <label>所属领域</label>
+            <div class="selector-group">
+              ${Object.entries(AREAS)
+                .map(
+                  ([key, label]) => `
+                <button type="button" class="selector ${draft.area === key ? "active" : ""}" data-pick-area="${key}">
+                  ${label}
+                </button>
+              `
+                )
+                .join("")}
+            </div>
+            <input type="hidden" name="area" value="${draft.area}" />
+          </div>
+          <div class="field">
+            <label>状态</label>
+            <div class="selector-group">
+              ${Object.entries(GOAL_STATUSES)
+                .map(
+                  ([key, label]) => `
+                <button type="button" class="selector ${draft.status === key ? "active" : ""}" data-pick-goal-status="${key}">
+                  ${label}
+                </button>
+              `
+                )
+                .join("")}
+            </div>
+            <input type="hidden" name="status" value="${draft.status}" />
+          </div>
+          <div class="field">
+            <label for="goal-edit-progress">进度：${draft.progress || 0}%</label>
+            <input id="goal-edit-progress" name="progress" type="range" min="0" max="100" step="5" value="${draft.progress || 0}" />
+          </div>
+          <div class="field">
+            <label for="goal-edit-target">目标日期（可选）</label>
+            <input id="goal-edit-target" name="targetDate" type="date" value="${escapeHtml(draft.targetDate || "")}" />
+          </div>
+          <div class="footer-actions">
+            <button class="danger-btn" type="button" data-delete-goal="${goal.id}">删除目标</button>
+            <div class="row-inline">
+              <button class="ghost-btn" type="button" data-close-goal-sheet="true">取消</button>
+              <button class="button" type="submit">保存变更</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+}
+
+function renderTabs() {
+  const tabs = [
+    { key: "board", label: "四象限" },
+    { key: "goals", label: "目标" }
+  ];
+  return `
+    <div class="tabs">
+      ${tabs
+        .map(
+          (tab) => `
+        <button class="tab ${state.view === tab.key ? "active" : ""}" data-view="${tab.key}">${tab.label}</button>
+      `
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function renderBoardSide() {
   const counts = getCounts();
+  return `
+    <aside class="panel">
+      <div class="field">
+        <h3>今日概览</h3>
+        <p class="muted">让你快速判断今天更像是“推进”还是“救火”。</p>
+      </div>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <span class="muted">全部任务</span>
+          <strong>${counts.total}</strong>
+        </div>
+        <div class="summary-card">
+          <span class="muted">待完成</span>
+          <strong>${counts.todo}</strong>
+        </div>
+        <div class="summary-card">
+          <span class="muted">已完成</span>
+          <strong>${counts.done}</strong>
+        </div>
+        <div class="summary-card">
+          <span class="muted">Q2 重点</span>
+          <strong>${counts.q2}</strong>
+        </div>
+      </div>
+      <p class="muted hint">直接在每个象限底部输入即可新增任务，回车保存。要补备注或调整状态，点卡片上的“编辑”。</p>
+    </aside>
+  `;
+}
+
+function renderGoalsSide() {
+  const counts = getGoalCounts();
+  return `
+    <aside class="panel">
+      <div class="field">
+        <h3>目标概览</h3>
+        <p class="muted">长期推进的事放这里，按领域归类、跟踪进度。</p>
+      </div>
+      <div class="summary-grid">
+        <div class="summary-card">
+          <span class="muted">全部目标</span>
+          <strong>${counts.total}</strong>
+        </div>
+        <div class="summary-card">
+          <span class="muted">进行中</span>
+          <strong>${counts.active}</strong>
+        </div>
+        <div class="summary-card">
+          <span class="muted">已完成</span>
+          <strong>${counts.done}</strong>
+        </div>
+      </div>
+
+      <form id="goal-add-form" class="composer">
+        <div class="field">
+          <label for="goal-title">新增目标</label>
+          <input id="goal-title" name="title" maxlength="120" placeholder="比如：读完《xx》" required />
+        </div>
+        <div class="field">
+          <label for="goal-description">备注</label>
+          <textarea id="goal-description" name="description" maxlength="2000" placeholder="想达成什么、为什么重要。"></textarea>
+        </div>
+        <div class="field">
+          <label for="goal-area">所属领域</label>
+          <select id="goal-area" name="area">
+            ${Object.entries(AREAS)
+              .map(([key, label]) => `<option value="${key}" ${key === "reading" ? "selected" : ""}>${label}</option>`)
+              .join("")}
+          </select>
+        </div>
+        <div class="field">
+          <label for="goal-target">目标日期（可选）</label>
+          <input id="goal-target" name="targetDate" type="date" />
+        </div>
+        <button class="button" type="submit">${state.busy ? "保存中..." : "新增目标"}</button>
+      </form>
+    </aside>
+  `;
+}
+
+function renderAppView() {
+  const isGoals = state.view === "goals";
   return `
     <div class="shell">
       <header class="hero">
@@ -292,77 +597,50 @@ function renderAppView() {
           </div>
           <button class="ghost-btn" id="logout-btn">退出登录</button>
         </div>
-        <div class="hero-actions">
-          <span class="pill">用户名：${escapeHtml(state.user.username)}</span>
-          <span class="pill">任务总数 ${counts.total}</span>
-          <span class="pill">Q2 长期任务 ${counts.q2}</span>
-        </div>
+        ${renderTabs()}
         ${renderBanner()}
       </header>
 
       <div class="layout">
-        <aside class="panel">
-          <div class="field">
-            <h3>今日概览</h3>
-            <p class="muted">让你快速判断今天更像是“推进”还是“救火”。</p>
-          </div>
-          <div class="summary-grid">
-            <div class="summary-card">
-              <span class="muted">全部任务</span>
-              <strong>${counts.total}</strong>
-            </div>
-            <div class="summary-card">
-              <span class="muted">待完成</span>
-              <strong>${counts.todo}</strong>
-            </div>
-            <div class="summary-card">
-              <span class="muted">已完成</span>
-              <strong>${counts.done}</strong>
-            </div>
-            <div class="summary-card">
-              <span class="muted">Q2 重点</span>
-              <strong>${counts.q2}</strong>
-            </div>
-          </div>
-
-          <form id="quick-add-form" class="composer">
-            <div class="field">
-              <label for="quick-title">快速新增</label>
-              <input id="quick-title" name="title" maxlength="120" placeholder="比如：整理下周发布清单" required />
-            </div>
-            <div class="field">
-              <label for="quick-description">备注</label>
-              <textarea id="quick-description" name="description" maxlength="2000" placeholder="补一句上下文，后面回来看会轻松很多。"></textarea>
-            </div>
-            <div class="field">
-              <label for="quick-quadrant">放入象限</label>
-              <select id="quick-quadrant" name="quadrant">
-                <option value="q1">重要且紧急</option>
-                <option value="q2" selected>重要不紧急</option>
-                <option value="q3">不重要但紧急</option>
-                <option value="q4">不重要不紧急</option>
-              </select>
-            </div>
-            <button class="button" type="submit">${state.busy ? "保存中..." : "新增任务"}</button>
-          </form>
-        </aside>
-
+        ${isGoals ? renderGoalsSide() : renderBoardSide()}
         <main>
-          ${renderBoard()}
+          ${isGoals ? renderGoalsView() : renderBoard()}
         </main>
       </div>
-      ${renderTaskSheet()}
+      ${isGoals ? renderGoalSheet() : renderTaskSheet()}
     </div>
   `;
 }
 
 function render() {
   app.innerHTML = state.user ? renderAppView() : renderAuthView();
+  applyPostRenderFocus();
+}
+
+function applyPostRenderFocus() {
+  if (!state.focusComposer) {
+    return;
+  }
+  const elementId = state.focusComposer;
+  state.focusComposer = null;
+  const input = document.getElementById(elementId);
+  if (input) {
+    input.focus();
+  }
 }
 
 async function refreshTasks() {
   const data = await apiFetch("./api/tasks");
   state.tasks = data.tasks || [];
+}
+
+async function refreshGoals() {
+  const data = await apiFetch("./api/goals");
+  state.goals = data.goals || [];
+}
+
+async function refreshData() {
+  await Promise.all([refreshTasks(), refreshGoals()]);
 }
 
 async function bootstrap() {
@@ -382,9 +660,9 @@ async function bootstrap() {
 
   if (state.user) {
     try {
-      await refreshTasks();
+      await refreshData();
     } catch (error) {
-      setMessage(error.message || "任务加载失败，但登录状态还在。", "error");
+      setMessage(error.message || "数据加载失败，但登录状态还在。", "error");
     }
   }
 
@@ -407,7 +685,9 @@ async function handleAuthSubmit(type, form) {
     state.user = data.user;
     state.activeTaskId = null;
     state.sheetDraft = null;
-    await refreshTasks();
+    state.activeGoalId = null;
+    state.goalSheetDraft = null;
+    await refreshData();
     setMessage(type === "register" ? "账号创建完成，已经帮你登录。" : "登录成功，开始安排今天吧。");
   } catch (error) {
     setMessage(error.message, "error");
@@ -417,30 +697,53 @@ async function handleAuthSubmit(type, form) {
   }
 }
 
-async function handleQuickAdd(form) {
-  state.busy = true;
-  clearMessage();
-  render();
+async function addTaskInline(quadrant, input) {
+  const title = input.value.trim();
+  if (!title) {
+    input.focus();
+    return;
+  }
 
-  const payload = Object.fromEntries(new FormData(form).entries());
+  // Clear synchronously so a quick double-Enter can't submit the same title twice.
+  input.value = "";
+  state.focusComposer = `composer-input-${quadrant}`;
+  clearMessage();
+
   try {
     const data = await apiFetch("./api/tasks", {
       method: "POST",
-      body: JSON.stringify(payload)
+      body: JSON.stringify({ title, quadrant })
     });
     state.tasks = [data.task, ...state.tasks];
-    form.reset();
-    const select = document.getElementById("quick-quadrant");
-    if (select) {
-      select.value = "q2";
-    }
-    setMessage("任务已经放进看板。");
   } catch (error) {
     setMessage(error.message, "error");
-  } finally {
-    state.busy = false;
-    render();
+    return;
   }
+  render();
+}
+
+async function addGoalInline(area, input) {
+  const title = input.value.trim();
+  if (!title) {
+    input.focus();
+    return;
+  }
+
+  input.value = "";
+  state.focusComposer = `goal-composer-input-${area}`;
+  clearMessage();
+
+  try {
+    const data = await apiFetch("./api/goals", {
+      method: "POST",
+      body: JSON.stringify({ title, area })
+    });
+    state.goals = [data.goal, ...state.goals];
+  } catch (error) {
+    setMessage(error.message, "error");
+    return;
+  }
+  render();
 }
 
 async function updateTask(taskId, payload, successMessage = "任务已更新。") {
@@ -530,6 +833,112 @@ async function deleteTask(taskId) {
   }
 }
 
+function replaceGoal(goalId, nextGoal) {
+  state.goals = state.goals.map((goal) => (goal.id === goalId ? nextGoal : goal));
+}
+
+async function handleGoalAdd(form) {
+  state.busy = true;
+  clearMessage();
+  render();
+
+  const payload = Object.fromEntries(new FormData(form).entries());
+  try {
+    const data = await apiFetch("./api/goals", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+    state.goals = [data.goal, ...state.goals];
+    form.reset();
+    const select = document.getElementById("goal-area");
+    if (select) {
+      select.value = payload.area || "reading";
+    }
+    setMessage("目标已添加。");
+  } catch (error) {
+    setMessage(error.message, "error");
+  } finally {
+    state.busy = false;
+    render();
+  }
+}
+
+async function updateGoal(goalId, payload, successMessage = "目标已更新。") {
+  state.busy = true;
+  clearMessage();
+  render();
+
+  try {
+    const data = await apiFetch(`./api/goals/${goalId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    });
+    replaceGoal(goalId, data.goal);
+    state.activeGoalId = null;
+    state.goalSheetDraft = null;
+    setMessage(successMessage);
+  } catch (error) {
+    setMessage(error.message, "error");
+  } finally {
+    state.busy = false;
+    render();
+  }
+}
+
+async function adjustGoalProgress(goalId, delta) {
+  const goal = state.goals.find((item) => item.id === goalId);
+  if (!goal || state.pendingGoalIds.has(goalId)) {
+    return;
+  }
+
+  const nextProgress = Math.max(0, Math.min(100, (goal.progress || 0) + delta));
+  if (nextProgress === goal.progress) {
+    return;
+  }
+
+  const previousGoal = { ...goal };
+  state.pendingGoalIds.add(goalId);
+  replaceGoal(goalId, { ...goal, progress: nextProgress, updated_at: new Date().toISOString() });
+  render();
+
+  try {
+    const data = await apiFetch(`./api/goals/${goalId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ progress: nextProgress })
+    });
+    replaceGoal(goalId, data.goal);
+  } catch (error) {
+    replaceGoal(goalId, previousGoal);
+    setMessage(error.message, "error");
+  } finally {
+    state.pendingGoalIds.delete(goalId);
+    render();
+  }
+}
+
+async function deleteGoal(goalId) {
+  if (!window.confirm("确定要删除这个目标吗？")) {
+    return;
+  }
+
+  state.busy = true;
+  clearMessage();
+  render();
+
+  try {
+    await apiFetch(`./api/goals/${goalId}`, { method: "DELETE" });
+    state.goals = state.goals.filter((goal) => goal.id !== goalId);
+    state.activeGoalId = null;
+    state.goalSheetDraft = null;
+    setMessage("目标已删除。");
+  } catch (error) {
+    setMessage(error.message, "error");
+  } finally {
+    state.busy = false;
+    render();
+  }
+}
+
 async function logout() {
   state.busy = true;
   clearMessage();
@@ -539,8 +948,11 @@ async function logout() {
     await apiFetch("./api/auth/logout", { method: "POST" });
     state.user = null;
     state.tasks = [];
+    state.goals = [];
     state.activeTaskId = null;
     state.sheetDraft = null;
+    state.activeGoalId = null;
+    state.goalSheetDraft = null;
     setMessage("已退出登录。");
   } catch (error) {
     setMessage(error.message, "error");
@@ -568,9 +980,23 @@ document.addEventListener("submit", async (event) => {
     return;
   }
 
-  if (target.id === "quick-add-form") {
+  const quadAdd = target.getAttribute("data-quad-add");
+  if (quadAdd) {
     event.preventDefault();
-    await handleQuickAdd(target);
+    const input = target.querySelector('input[name="title"]');
+    if (input) {
+      await addTaskInline(quadAdd, input);
+    }
+    return;
+  }
+
+  const areaAdd = target.getAttribute("data-area-add");
+  if (areaAdd) {
+    event.preventDefault();
+    const input = target.querySelector('input[name="title"]');
+    if (input) {
+      await addGoalInline(areaAdd, input);
+    }
     return;
   }
 
@@ -579,6 +1005,20 @@ document.addEventListener("submit", async (event) => {
     const taskId = target.dataset.taskId;
     const formData = new FormData(target);
     await updateTask(taskId, Object.fromEntries(formData.entries()), "任务改动已经保存。");
+    return;
+  }
+
+  if (target.id === "goal-add-form") {
+    event.preventDefault();
+    await handleGoalAdd(target);
+    return;
+  }
+
+  if (target.id === "goal-edit-form") {
+    event.preventDefault();
+    const goalId = target.dataset.goalId;
+    const formData = new FormData(target);
+    await updateGoal(goalId, Object.fromEntries(formData.entries()), "目标改动已经保存。");
   }
 });
 
@@ -598,6 +1038,85 @@ document.addEventListener("click", async (event) => {
 
   if (target.id === "logout-btn") {
     await logout();
+    return;
+  }
+
+  const view = target.closest("[data-view]")?.getAttribute("data-view");
+  if (view && view !== state.view) {
+    state.view = view;
+    state.activeTaskId = null;
+    state.sheetDraft = null;
+    state.activeGoalId = null;
+    state.goalSheetDraft = null;
+    clearMessage();
+    render();
+    return;
+  }
+
+  const openGoalId = target.closest("[data-open-goal]")?.getAttribute("data-open-goal");
+  if (openGoalId) {
+    state.activeGoalId = openGoalId;
+    const goal = state.goals.find((item) => item.id === openGoalId);
+    state.goalSheetDraft = goal
+      ? {
+          title: goal.title,
+          description: goal.description || "",
+          area: goal.area,
+          status: goal.status,
+          progress: goal.progress || 0,
+          targetDate: goal.target_date || ""
+        }
+      : null;
+    clearMessage();
+    render();
+    return;
+  }
+
+  const closeGoalSheet = target.closest("[data-close-goal-sheet]")?.getAttribute("data-close-goal-sheet");
+  if (closeGoalSheet) {
+    state.activeGoalId = null;
+    state.goalSheetDraft = null;
+    render();
+    return;
+  }
+
+  const progressGoal = target.closest("[data-goal-progress]");
+  if (progressGoal) {
+    const goalId = progressGoal.getAttribute("data-goal-progress");
+    const delta = Number(progressGoal.getAttribute("data-delta"));
+    await adjustGoalProgress(goalId, delta);
+    return;
+  }
+
+  const pickArea = target.closest("[data-pick-area]")?.getAttribute("data-pick-area");
+  if (pickArea) {
+    const input = document.querySelector('#goal-edit-form input[name="area"]');
+    if (input) {
+      input.value = pickArea;
+      if (state.goalSheetDraft) {
+        state.goalSheetDraft.area = pickArea;
+      }
+      render();
+    }
+    return;
+  }
+
+  const pickGoalStatus = target.closest("[data-pick-goal-status]")?.getAttribute("data-pick-goal-status");
+  if (pickGoalStatus) {
+    const input = document.querySelector('#goal-edit-form input[name="status"]');
+    if (input) {
+      input.value = pickGoalStatus;
+      if (state.goalSheetDraft) {
+        state.goalSheetDraft.status = pickGoalStatus;
+      }
+      render();
+    }
+    return;
+  }
+
+  const deleteGoalId = target.closest("[data-delete-goal]")?.getAttribute("data-delete-goal");
+  if (deleteGoalId) {
+    await deleteGoal(deleteGoalId);
     return;
   }
 
@@ -670,21 +1189,33 @@ document.addEventListener("input", (event) => {
     return;
   }
 
-  if (!state.sheetDraft) {
+  if (state.sheetDraft && target.closest("#task-edit-form")) {
+    if (target.name === "title") {
+      state.sheetDraft.title = target.value;
+    }
+    if (target.name === "description") {
+      state.sheetDraft.description = target.value;
+    }
     return;
   }
 
-  const form = target.closest("#task-edit-form");
-  if (!form) {
-    return;
-  }
-
-  if (target.name === "title") {
-    state.sheetDraft.title = target.value;
-  }
-
-  if (target.name === "description") {
-    state.sheetDraft.description = target.value;
+  if (state.goalSheetDraft && target.closest("#goal-edit-form")) {
+    if (target.name === "title") {
+      state.goalSheetDraft.title = target.value;
+    }
+    if (target.name === "description") {
+      state.goalSheetDraft.description = target.value;
+    }
+    if (target.name === "targetDate") {
+      state.goalSheetDraft.targetDate = target.value;
+    }
+    if (target.name === "progress") {
+      state.goalSheetDraft.progress = Number(target.value);
+      const label = document.querySelector('#goal-edit-form label[for="goal-edit-progress"]');
+      if (label) {
+        label.textContent = `进度：${target.value}%`;
+      }
+    }
   }
 });
 
