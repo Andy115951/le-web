@@ -2,19 +2,20 @@ const { getDailyMarketEvents, isAfterUsMarketClose, marketDate } = require("./da
 
 function getConfig() {
   const url = String(process.env.SUPABASE_URL || "").trim().replace(/\/$/, "");
-  const serviceRoleKey = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
-  if (!url || !serviceRoleKey) {
-    throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+  const secretKey = String(process.env.SUPABASE_SECRET_KEY || "").trim();
+  if (!url || !secretKey) {
+    throw new Error("Missing SUPABASE_URL or SUPABASE_SECRET_KEY");
   }
-  return { url, serviceRoleKey };
+  return { url, secretKey };
 }
 
 async function requestSupabase(config, path, options) {
   const response = await fetch(config.url + path, {
     method: options?.method || "GET",
     headers: {
-      apikey: config.serviceRoleKey,
-      Authorization: "Bearer " + config.serviceRoleKey,
+      // Supabase's new sb_secret_ keys are opaque API keys, not JWTs.
+      // Sending one as a Bearer token causes authentication failures.
+      apikey: config.secretKey,
       "Content-Type": "application/json",
       ...(options?.headers || {})
     },

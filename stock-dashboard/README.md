@@ -92,6 +92,8 @@
 - 但 `分析` 功能依赖 `api/` 下的本地函数
 - 所以本地开发建议直接用 `vercel dev`
 
+完整的 Windows/Vercel/Supabase 环境准备、环境变量、Cron 测试、部署和排错流程见 [DEVELOPMENT.md](DEVELOPMENT.md)。
+
 ## 涨跌历史的运行方式
 
 历史看板有两条写入路径：
@@ -187,9 +189,9 @@ vercel
 
 当前这个项目：
 
-- **没有必须依赖的服务端私密环境变量**
+- 页面行情与基础分析不依赖服务端私密环境变量
 - `Supabase URL` 和 `Supabase Anon Key` 由页面输入并保存在浏览器本地
-- 当前没有接 `service role key`
+- 每日收盘历史归档依赖服务端的 `SUPABASE_URL`、`SUPABASE_SECRET_KEY` 和 `CRON_SECRET`
 - 当前也没有接 `OpenAI / DeepSeek` 这类模型密钥
 
 所以目前多端开发比较轻：

@@ -141,8 +141,8 @@ with check (auth.uid() = user_id);
 
 - 这些输入值保存在当前浏览器的 `localStorage`
 - 不会通过 git 自动同步到另一台设备
-- 当前页面不会使用 `Supabase Service Role Key`
-- 行情历史的定时补抓会在服务端使用 Service Role Key，浏览器拿不到这个值
+- 当前页面不会使用 `Supabase Secret Key`
+- 行情历史的定时补抓会在服务端使用 Secret Key，浏览器拿不到这个值
 
 ## 5. 本地开发建议
 
@@ -193,9 +193,9 @@ vercel dev
 在 Vercel 项目的 `Settings -> Environment Variables` 添加以下 **Production** 变量：
 
 - `SUPABASE_URL`: Supabase Project URL
-- `SUPABASE_SERVICE_ROLE_KEY`: Supabase 的 Service Role Key，只给服务端 Cron 使用
+- `SUPABASE_SECRET_KEY`: Supabase 的 `sb_secret_...` Secret Key，只给服务端 Cron 使用
 - `CRON_SECRET`: 至少 16 位随机字符串，用于验证 Vercel Cron 请求
 
-本地可复制 [`.env.example`](.env.example) 为 `.env.local` 填写测试值；`.env.local` 已被 git 忽略。不要把 Service Role Key 或 Cron Secret 写进前端、README 示例或 git。
+本地可复制 [`.env.example`](.env.example) 为 `.env.local` 填写测试值；`.env.local` 已被 git 忽略。不要把 Secret Key 或 Cron Secret 写进前端、README 示例或 git。Secret Key 通过 `apikey` 请求头发送，不能作为 `Authorization: Bearer` JWT 使用。
 
 部署后可在 Vercel 项目的 `Settings -> Cron Jobs` 查看 `/api/cron/capture-market-history`。首次也可以等下一次交易日收盘，或在本地通过带 `Authorization: Bearer <CRON_SECRET>` 的请求测试。
