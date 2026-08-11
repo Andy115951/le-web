@@ -2,6 +2,8 @@
 
 围绕纳指与美国七巨头的股票决策看板。
 
+长期产品目标、完整功能范围、数据体系、Agent 分工和分阶段计划见 [ROADMAP.md](ROADMAP.md)；本地环境与部署见 [DEVELOPMENT.md](DEVELOPMENT.md)。
+
 当前这版重点支持：
 
 - `QQQ` / `MAGS` / 七巨头跟踪
