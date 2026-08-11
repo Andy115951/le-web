@@ -1,6 +1,7 @@
 const STORAGE_KEY = "stock-dashboard-state-v2";
 
 const CORE_US_TECH_ITEMS = [
+  { symbol: "QQQ", displayName: "Invesco QQQ Trust", group: "纳指核心", note: "纳指 100 ETF 基准", createdAt: "2026-04-22T00:00:00.000Z" },
   { symbol: "AAPL", displayName: "Apple", group: "美股巨头", note: "iPhone 与服务业务", createdAt: "2026-04-22T00:00:00.000Z" },
   { symbol: "MSFT", displayName: "Microsoft", group: "美股巨头", note: "Azure + Copilot", createdAt: "2026-04-22T00:01:00.000Z" },
   { symbol: "NVDA", displayName: "NVIDIA", group: "美股巨头", note: "AI 算力龙头", createdAt: "2026-04-22T00:02:00.000Z" },
@@ -31,10 +32,64 @@ const DEFAULT_PREFERENCES = {
   dropAlertNotify: false
 };
 
-const ALLOWED_SORT_KEYS = new Set(["symbol", "displayName", "price", "changePercent", "drawdownPercent", "targetDistance"]);
+const ALLOWED_SORT_KEYS = new Set(["symbol", "displayName", "price", "changePercent", "drawdownPercent", "targetDistance", "relativeQqq"]);
 const ALLOWED_PERFORMANCE_FILTERS = new Set(["all", "up", "down", "flat"]);
 const ALLOWED_PAGE_SIZES = new Set([10, 20, 50]);
 const ALLOWED_AUTO_REFRESH = new Set([0, 30, 60, 300]);
+const ALLOWED_HOLDING_TYPES = new Set(["watchlist", "core", "trading"]);
+const MARKET_EVENT_RETENTION_DAYS = 14;
+
+function normalizeMarketEvents(events) {
+  if (!Array.isArray(events)) return [];
+
+  const cutoff = Date.now() - MARKET_EVENT_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+  const latestByDayAndSymbol = new Map();
+
+  for (const entry of events) {
+    const symbol = String(entry?.symbol || "").trim().toUpperCase();
+    const capturedAt = new Date(entry?.capturedAt || entry?.updatedAt || 0).getTime();
+    const date = typeof entry?.date === "string" ? entry.date.slice(0, 10) : "";
+    if (!symbol || !date || !Number.isFinite(capturedAt) || capturedAt < cutoff) continue;
+
+    const key = date + ":" + symbol;
+    const current = latestByDayAndSymbol.get(key);
+    if (current && new Date(current.capturedAt).getTime() >= capturedAt) continue;
+
+    latestByDayAndSymbol.set(key, {
+      id: String(entry?.id || key),
+      symbol,
+      name: String(entry?.name || symbol).trim() || symbol,
+      date,
+      capturedAt: new Date(capturedAt).toISOString(),
+      changePercent: typeof entry?.changePercent === "number" && Number.isFinite(entry.changePercent)
+        ? Number(entry.changePercent.toFixed(2))
+        : null,
+      benchmarkChangePercent: typeof entry?.benchmarkChangePercent === "number" && Number.isFinite(entry.benchmarkChangePercent)
+        ? Number(entry.benchmarkChangePercent.toFixed(2))
+        : null,
+      driverType: ["market", "company", "mixed", "unclear"].includes(entry?.driverType) ? entry.driverType : "unclear",
+      confidence: ["high", "medium", "low"].includes(entry?.confidence) ? entry.confidence : "low",
+      summary: String(entry?.summary || "暂无明确的当日驱动证据。").trim().slice(0, 360),
+      reasons: Array.isArray(entry?.reasons)
+        ? entry.reasons.slice(0, 3).map(function (reason) { return String(reason || "").trim().slice(0, 240); }).filter(Boolean)
+        : [],
+      news: Array.isArray(entry?.news)
+        ? entry.news.slice(0, 2).map(function (news) {
+          return {
+            title: String(news?.title || "未命名资讯").trim().slice(0, 240),
+            publisher: String(news?.publisher || "资讯来源").trim().slice(0, 80),
+            publishedAt: typeof news?.publishedAt === "string" ? news.publishedAt : "",
+            url: typeof news?.url === "string" ? news.url.slice(0, 1000) : ""
+          };
+        })
+        : []
+    });
+  }
+
+  return Array.from(latestByDayAndSymbol.values()).sort(function (left, right) {
+    return new Date(right.capturedAt).getTime() - new Date(left.capturedAt).getTime();
+  });
+}
 
 function normalizeUsPeaks(usPeaks) {
   const normalized = {};
@@ -56,12 +111,20 @@ function normalizeUsPeaks(usPeaks) {
 function normalizeItem(item) {
   const symbol = String(item.symbol || "").trim().toUpperCase();
   const targetPrice = Number(item.targetPrice);
+  const costBasis = Number(item.costBasis);
+  const shares = Number(item.shares);
+  const holdingType = typeof item.holdingType === "string" && ALLOWED_HOLDING_TYPES.has(item.holdingType)
+    ? item.holdingType
+    : "watchlist";
   return {
     symbol,
     displayName: String(item.displayName || symbol).trim() || symbol,
     group: String(item.group || "未分组").trim() || "未分组",
     note: String(item.note || "").trim(),
     targetPrice: Number.isFinite(targetPrice) && targetPrice > 0 ? Number(targetPrice.toFixed(3)) : null,
+    costBasis: Number.isFinite(costBasis) && costBasis > 0 ? Number(costBasis.toFixed(3)) : null,
+    shares: Number.isFinite(shares) && shares > 0 ? Number(shares.toFixed(4)) : null,
+    holdingType,
     createdAt: typeof item.createdAt === "string" ? item.createdAt : new Date().toISOString()
   };
 }
@@ -113,7 +176,8 @@ export function loadState() {
     return {
       items: dedupeItems(DEFAULT_ITEMS.map(normalizeItem)),
       preferences: { ...DEFAULT_PREFERENCES },
-      usPeaks: {}
+      usPeaks: {},
+      marketEvents: []
     };
   }
 
@@ -129,7 +193,8 @@ export function loadState() {
   return {
     items: mergedItems,
     preferences: normalizePreferences(raw.preferences),
-    usPeaks: normalizeUsPeaks(raw.usPeaks)
+    usPeaks: normalizeUsPeaks(raw.usPeaks),
+    marketEvents: normalizeMarketEvents(raw.marketEvents)
   };
 }
 
@@ -137,7 +202,8 @@ export function saveState(state) {
   const payload = {
     items: dedupeItems((state.items || []).map(normalizeItem)),
     preferences: normalizePreferences(state.preferences || {}),
-    usPeaks: normalizeUsPeaks(state.usPeaks)
+    usPeaks: normalizeUsPeaks(state.usPeaks),
+    marketEvents: normalizeMarketEvents(state.marketEvents)
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 }

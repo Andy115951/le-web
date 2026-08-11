@@ -1,0 +1,12 @@
+# Local Node.js dependencies are reproducible from each project's lockfile.
+node_modules/
+
+# Deployment and editor state belongs to the local machine.
+.vercel/
+.claude/
+.DS_Store
+
+# Keep credentials and machine-specific overrides out of Git.
+.env
+.env.local
+.env.*.local

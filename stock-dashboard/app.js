@@ -1,6 +1,6 @@
 import { loadState, saveState, upsertItem, removeItem, collectGroups } from "./storage.js";
 import { fetchQuotes } from "./quotes.js";
-import { renderSparkline } from "./chart.js";
+import { renderSparkline, renderTrendChart } from "./chart.js";
 import {
   loadCloudConfig,
   saveCloudConfig,
@@ -10,7 +10,9 @@ import {
   signOutCloud,
   onCloudAuthChange,
   loadRemoteState,
-  saveRemoteState
+  saveRemoteState,
+  saveMarketEventHistory,
+  loadMarketEventHistory
 } from "./cloud.js";
 
 const els = {
@@ -19,7 +21,17 @@ const els = {
   nameInput: document.getElementById("nameInput"),
   groupInput: document.getElementById("groupInput"),
   noteInput: document.getElementById("noteInput"),
+  costBasisInput: document.getElementById("costBasisInput"),
+  sharesInput: document.getElementById("sharesInput"),
+  holdingTypeInput: document.getElementById("holdingTypeInput"),
   refreshBtn: document.getElementById("refreshBtn"),
+  addStockBtn: document.getElementById("addStockBtn"),
+  addStockInlineBtn: document.getElementById("addStockInlineBtn"),
+  toggleCloudBtn: document.getElementById("toggleCloudBtn"),
+  toggleToolsBtn: document.getElementById("toggleToolsBtn"),
+  stockFormPanel: document.getElementById("stockForm"),
+  cloudPanel: document.getElementById("cloudPanel"),
+  toolsPanel: document.getElementById("toolsPanel"),
   supabaseUrlInput: document.getElementById("supabaseUrlInput"),
   supabaseAnonKeyInput: document.getElementById("supabaseAnonKeyInput"),
   cloudEmailInput: document.getElementById("cloudEmailInput"),
@@ -46,11 +58,21 @@ const els = {
   statusText: document.getElementById("statusText"),
   stockTableBody: document.getElementById("stockTableBody"),
   lastUpdated: document.getElementById("lastUpdated"),
+  actionQueueBody: document.getElementById("actionQueueBody"),
+  marketEventsBody: document.getElementById("marketEventsBody"),
+  marketEventsHint: document.getElementById("marketEventsHint"),
+  marketHistoryBody: document.getElementById("marketHistoryBody"),
+  marketHistoryHint: document.getElementById("marketHistoryHint"),
   rowTemplate: document.getElementById("rowTemplate"),
   countStat: document.getElementById("countStat"),
   upStat: document.getElementById("upStat"),
   downStat: document.getElementById("downStat"),
   flatStat: document.getElementById("flatStat"),
+  marketPulseBody: document.getElementById("marketPulseBody"),
+  mag7SnapshotBody: document.getElementById("mag7SnapshotBody"),
+  leadersBody: document.getElementById("leadersBody"),
+  portfolioSnapshotBody: document.getElementById("portfolioSnapshotBody"),
+  decisionWorkspaceBody: document.getElementById("decisionWorkspaceBody"),
   emptyState: document.getElementById("emptyState"),
   mobileList: document.getElementById("mobileList"),
   listHint: document.getElementById("listHint"),
@@ -67,7 +89,8 @@ const els = {
   dropAlertNotify: document.getElementById("dropAlertNotify"),
   testBroadcastBtn: document.getElementById("testBroadcastBtn"),
   dropSummary: document.getElementById("dropSummary"),
-  dropList: document.getElementById("dropList")
+  dropList: document.getElementById("dropList"),
+  detailOverlay: document.getElementById("detailOverlay")
 };
 
 const state = {
@@ -86,9 +109,23 @@ const state = {
   },
   quotes: {},
   usPeaks: {},
+  marketEvents: [],
+  marketEventsLoading: false,
+  marketEventsError: "",
+  marketEventsFetchedAt: 0,
+  marketHistory: [],
+  marketHistoryLoading: false,
+  marketHistoryError: "",
+  marketHistoryRange: 30,
   targetHits: new Set(),
   dropAlerted: new Set(),
   audioCtx: null,
+  detail: {
+    symbol: null,
+    loading: false,
+    error: "",
+    data: null
+  },
   loading: false,
   autoRefreshTimer: null,
   lastSuccessAt: null,
@@ -100,6 +137,10 @@ const state = {
   }
 };
 
+const NASDAQ_BENCHMARK_SYMBOL = "QQQ";
+const MAG7_ETF_SYMBOL = "MAGS";
+const MAG7_SYMBOLS = ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA"];
+
 init();
 
 async function init() {
@@ -108,6 +149,7 @@ async function init() {
   state.items = saved.items;
   state.preferences = saved.preferences;
   state.usPeaks = saved.usPeaks || {};
+  state.marketEvents = saved.marketEvents || [];
   bindEvents();
   syncCloudConfigInputs(cloudConfig);
   syncControls();
@@ -120,7 +162,67 @@ async function init() {
   await refreshQuotes();
 }
 
+function isAShareSymbol(symbol) {
+  return /^(6|0|3|8)\d{5}$/.test(String(symbol || "").trim().toUpperCase());
+}
+
+function isGlobalStockSymbol(symbol) {
+  return /^[A-Z][A-Z0-9.-]{0,9}$/.test(String(symbol || "").trim().toUpperCase());
+}
+
+function buildAShareDetailUrl(symbol) {
+  return "./api/a-share/detail?symbol=" + encodeURIComponent(String(symbol || "").trim().toUpperCase());
+}
+
+function buildGlobalDetailUrl(symbol) {
+  return "./api/global-stock/detail?symbol=" + encodeURIComponent(String(symbol || "").trim().toUpperCase());
+}
+
+function buildDailyMarketEventsUrl(symbols, benchmarkChange) {
+  const params = new URLSearchParams({ symbols: (symbols || []).join(",") });
+  if (Number.isFinite(Number(benchmarkChange))) params.set("benchmarkChange", String(benchmarkChange));
+  return "./api/global-stock/daily-events?" + params.toString();
+}
+
 function bindEvents() {
+  [els.addStockBtn, els.addStockInlineBtn].filter(Boolean).forEach(function (button) {
+    button.addEventListener("click", function () {
+      revealPanel(els.stockFormPanel, els.symbolInput);
+    });
+  });
+
+  if (els.toggleCloudBtn) {
+    els.toggleCloudBtn.addEventListener("click", function () {
+      togglePanel(els.cloudPanel, els.toggleCloudBtn);
+    });
+  }
+
+  if (els.toggleToolsBtn) {
+    els.toggleToolsBtn.addEventListener("click", function () {
+      togglePanel(els.toolsPanel, els.toggleToolsBtn);
+    });
+  }
+
+  document.querySelectorAll("[data-scroll-target]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      const target = document.getElementById(button.getAttribute("data-scroll-target"));
+      if (!target) return;
+      document.querySelectorAll("[data-scroll-target]").forEach(function (item) {
+        item.classList.toggle("is-active", item === button);
+      });
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+
+  document.querySelectorAll("[data-history-range]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      const range = Number(button.getAttribute("data-history-range"));
+      if (![30, 90, 180].includes(range) || range === state.marketHistoryRange) return;
+      state.marketHistoryRange = range;
+      void refreshMarketHistory();
+    });
+  });
+
   els.stockForm.addEventListener("submit", async function (event) {
     event.preventDefault();
 
@@ -132,6 +234,9 @@ function bindEvents() {
       displayName: els.nameInput.value,
       group: els.groupInput.value,
       note: els.noteInput.value,
+      costBasis: els.costBasisInput.value,
+      shares: els.sharesInput.value,
+      holdingType: els.holdingTypeInput.value,
       createdAt: new Date().toISOString()
     });
 
@@ -139,7 +244,7 @@ function bindEvents() {
     renderGroupFilter();
     syncControls();
     els.stockForm.reset();
-    els.symbolInput.focus();
+    els.stockForm.classList.add("hidden");
     await refreshQuotes();
   });
 
@@ -385,6 +490,49 @@ function bindEvents() {
   els.mobileList.addEventListener("click", handleDeleteClick);
   els.stockTableBody.addEventListener("change", handleTargetChange);
   els.mobileList.addEventListener("change", handleTargetChange);
+  els.stockTableBody.addEventListener("click", function (event) {
+    const button = event.target.closest("[data-analyze-symbol]");
+    if (!button) return;
+    void openAnalysis(button.getAttribute("data-analyze-symbol"));
+  });
+  els.mobileList.addEventListener("click", function (event) {
+    const button = event.target.closest("[data-analyze-symbol]");
+    if (!button) return;
+    void openAnalysis(button.getAttribute("data-analyze-symbol"));
+  });
+  els.actionQueueBody.addEventListener("click", function (event) {
+    const button = event.target.closest("[data-analyze-symbol]");
+    if (!button) return;
+    void openAnalysis(button.getAttribute("data-analyze-symbol"));
+  });
+  els.detailOverlay.addEventListener("click", function (event) {
+    if (event.target.closest("[data-close-detail]")) {
+      closeAnalysis();
+    }
+  });
+}
+
+function revealPanel(panel, focusTarget) {
+  if (!panel) return;
+  panel.classList.remove("hidden");
+  panel.scrollIntoView({ behavior: "smooth", block: "center" });
+  if (focusTarget) {
+    window.setTimeout(function () {
+      focusTarget.focus();
+    }, 250);
+  }
+}
+
+function togglePanel(panel, button) {
+  if (!panel) return;
+  const willOpen = panel.classList.contains("hidden");
+  panel.classList.toggle("hidden", !willOpen);
+  if (button) {
+    button.setAttribute("aria-expanded", String(willOpen));
+  }
+  if (willOpen) {
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 }
 
 function syncControls() {
@@ -502,6 +650,7 @@ async function pullFromCloud(options) {
     if (!pushed) return;
     setCloudStatus("云端为空，已自动迁移本地数据");
     updateCloudButtons();
+    void refreshMarketHistory();
     return;
   }
 
@@ -512,12 +661,14 @@ async function pullFromCloud(options) {
     const localFingerprint = JSON.stringify({
       items: state.items,
       preferences: state.preferences,
-      usPeaks: state.usPeaks
+      usPeaks: state.usPeaks,
+      marketEvents: state.marketEvents
     });
     const remoteFingerprint = JSON.stringify({
       items: Array.isArray(remote.data.items) ? remote.data.items : [],
       preferences: remote.data.preferences && typeof remote.data.preferences === "object" ? remote.data.preferences : {},
-      usPeaks: remote.data.us_peaks && typeof remote.data.us_peaks === "object" ? remote.data.us_peaks : {}
+      usPeaks: remote.data.us_peaks && typeof remote.data.us_peaks === "object" ? remote.data.us_peaks : {},
+      marketEvents: Array.isArray(remote.data.market_events) ? remote.data.market_events : []
     });
 
     if (localFingerprint !== remoteFingerprint) {
@@ -530,6 +681,7 @@ async function pullFromCloud(options) {
 
   toggleCloudButtons(false);
   updateCloudButtons();
+  void refreshMarketHistory();
 }
 
 function applyRemoteState(remoteData) {
@@ -539,6 +691,7 @@ function applyRemoteState(remoteData) {
     ...(remoteData.preferences && typeof remoteData.preferences === "object" ? remoteData.preferences : {})
   };
   state.usPeaks = remoteData.us_peaks && typeof remoteData.us_peaks === "object" ? remoteData.us_peaks : {};
+  state.marketEvents = Array.isArray(remoteData.market_events) ? remoteData.market_events : [];
   persist({ skipCloudSync: true });
   renderGroupFilter();
   syncControls();
@@ -558,7 +711,8 @@ async function pushToCloud(reason) {
   const result = await saveRemoteState(cloud.client, cloud.user.id, {
     items: state.items,
     preferences: state.preferences,
-    usPeaks: state.usPeaks
+    usPeaks: state.usPeaks,
+    marketEvents: state.marketEvents
   });
   cloud.syncing = false;
   updateCloudButtons();
@@ -609,6 +763,7 @@ async function refreshQuotes(options) {
 async function refreshQuotesInternal(options) {
   if (state.loading) return;
   state.loading = true;
+  let refreshed = false;
   els.refreshBtn.disabled = true;
   setStatus("neutral", options.trigger === "auto" ? "自动刷新中..." : "正在刷新...");
   try {
@@ -617,6 +772,7 @@ async function refreshQuotesInternal(options) {
     }));
     syncPeaksWithQuotes();
     persist();
+    refreshed = true;
     state.lastSuccessAt = new Date();
     updateLastUpdated(state.lastSuccessAt);
     setStatus("positive", options.trigger === "auto" ? "自动刷新成功" : "刷新成功");
@@ -627,7 +783,153 @@ async function refreshQuotesInternal(options) {
     state.loading = false;
     els.refreshBtn.disabled = false;
     render();
+    if (refreshed) {
+      void refreshDailyMarketEvents({ force: options.trigger !== "auto" });
+    }
   }
+}
+
+async function refreshDailyMarketEvents(options) {
+  const symbols = state.items.map(function (item) { return item.symbol; }).filter(isGlobalStockSymbol);
+  if (!symbols.length || state.marketEventsLoading) return;
+
+  const now = Date.now();
+  if (!options?.force && now - state.marketEventsFetchedAt < 10 * 60 * 1000) return;
+
+  state.marketEventsLoading = true;
+  state.marketEventsError = "";
+  renderMarketEvents();
+
+  try {
+    const benchmarkChange = state.quotes[NASDAQ_BENCHMARK_SYMBOL]?.changePercent;
+    const response = await fetch(buildDailyMarketEventsUrl(symbols, benchmarkChange));
+    const payload = await response.json().catch(function () { return {}; });
+    if (!response.ok) throw new Error(payload?.error || "当日行情线索抓取失败");
+
+    const incoming = Array.isArray(payload?.events) ? payload.events : [];
+    state.marketEvents = applyLiveMarketFallbacks(mergeMarketEvents(state.marketEvents, incoming));
+    state.marketEventsFetchedAt = Date.now();
+    persist();
+    void syncMarketEventsToHistory(incoming);
+  } catch (error) {
+    state.marketEventsError = error?.message || "当日行情线索抓取失败";
+  } finally {
+    state.marketEventsLoading = false;
+    renderMarketEvents();
+  }
+}
+
+async function syncMarketEventsToHistory(events) {
+  const cloud = state.cloud;
+  if (!cloud.client || !cloud.user || !Array.isArray(events) || !events.length) return;
+  const result = await saveMarketEventHistory(cloud.client, cloud.user.id, events);
+  if (result.error) return;
+  void refreshMarketHistory({ silent: true });
+}
+
+async function refreshMarketHistory(options) {
+  if (!els.marketHistoryBody || !els.marketHistoryHint) return;
+  const cloud = state.cloud;
+  if (!cloud.client || !cloud.user) {
+    state.marketHistory = [];
+    state.marketHistoryError = "";
+    renderMarketHistory();
+    return;
+  }
+  if (state.marketHistoryLoading) return;
+
+  state.marketHistoryLoading = true;
+  if (!options?.silent) renderMarketHistory();
+  const result = await loadMarketEventHistory(cloud.client, cloud.user.id, state.marketHistoryRange);
+  state.marketHistoryLoading = false;
+  if (result.error) {
+    state.marketHistoryError = result.error;
+  } else {
+    state.marketHistory = result.data;
+    state.marketHistoryError = "";
+  }
+  renderMarketHistory();
+}
+
+function mergeMarketEvents(existing, incoming) {
+  const merged = new Map();
+  (existing || []).concat(incoming || []).forEach(function (entry) {
+    const key = String(entry?.date || "") + ":" + String(entry?.symbol || "").toUpperCase();
+    if (!key || key === ":") return;
+    const current = merged.get(key);
+    if (!current || new Date(entry?.capturedAt || 0).getTime() >= new Date(current?.capturedAt || 0).getTime()) {
+      merged.set(key, entry);
+    }
+  });
+  return Array.from(merged.values()).sort(function (left, right) {
+    return new Date(right.capturedAt || 0).getTime() - new Date(left.capturedAt || 0).getTime();
+  });
+}
+
+function applyLiveMarketFallbacks(events) {
+  const latestDate = (events || []).reduce(function (current, entry) {
+    return !current || String(entry?.date || "") > current ? String(entry.date) : current;
+  }, "");
+  const benchmarkChange = Number(state.quotes[NASDAQ_BENCHMARK_SYMBOL]?.changePercent);
+  if (!latestDate || !Number.isFinite(benchmarkChange)) return events;
+
+  return (events || []).map(function (entry) {
+    if (entry?.date !== latestDate || typeof entry?.benchmarkChangePercent === "number") return entry;
+    const change = Number(entry?.changePercent);
+    const benchmarkReason = "QQQ 当日 " + formatSigned(benchmarkChange) + "%；该股 " + (Number.isFinite(change) ? formatSigned(change) + "%" : "涨跌幅暂不可用") + "。";
+    const reasons = Array.isArray(entry?.reasons) ? entry.reasons.slice() : [];
+    const missingIndex = reasons.findIndex(function (reason) { return /QQQ 基准数据暂不可用/.test(reason); });
+    if (missingIndex >= 0) reasons[missingIndex] = benchmarkReason;
+    else reasons.unshift(benchmarkReason);
+    return {
+      ...entry,
+      benchmarkChangePercent: Number(benchmarkChange.toFixed(2)),
+      reasons
+    };
+  });
+}
+
+async function openAnalysis(symbol) {
+  const normalized = String(symbol || "").trim().toUpperCase();
+  let detailUrl = "";
+  if (isAShareSymbol(normalized)) {
+    detailUrl = buildAShareDetailUrl(normalized);
+  } else if (isGlobalStockSymbol(normalized)) {
+    detailUrl = buildGlobalDetailUrl(normalized);
+  } else {
+    setStatus("neutral", "当前分析入口先支持 A 股和美股代码。");
+    return;
+  }
+
+  state.detail.symbol = normalized;
+  state.detail.loading = true;
+  state.detail.error = "";
+  state.detail.data = null;
+  render();
+
+  try {
+    const response = await fetch(detailUrl, {
+      headers: { Accept: "application/json" }
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data && data.error ? data.error : "加载分析失败");
+    }
+    state.detail.data = data.detail || null;
+  } catch (error) {
+    state.detail.error = error && error.message ? error.message : "加载分析失败";
+  } finally {
+    state.detail.loading = false;
+    render();
+  }
+}
+
+function closeAnalysis() {
+  state.detail.symbol = null;
+  state.detail.loading = false;
+  state.detail.error = "";
+  state.detail.data = null;
+  render();
 }
 
 function updateLastUpdated(now) {
@@ -642,6 +944,10 @@ function render() {
   const strategySignals = buildStrategySignals(rows);
 
   renderStats(rows);
+  renderActionQueue();
+  renderMarketEvents();
+  renderMarketHistory();
+  renderOverview();
   els.stockTableBody.innerHTML = "";
   els.mobileList.innerHTML = "";
   els.emptyState.classList.toggle("hidden", rows.length > 0);
@@ -654,32 +960,27 @@ function render() {
     const row = fragment.querySelector("tr");
     const symbolNode = row.querySelector(".stock-symbol");
     const nameNode = row.querySelector(".stock-name");
+    const metaNode = row.querySelector(".stock-meta");
     symbolNode.textContent = item.symbol;
     nameNode.textContent = quote && quote.name ? quote.name : item.displayName;
-    row.querySelector(".market-badge").textContent = quote && quote.market ? quote.market : "--";
-    row.querySelector(".group-badge").textContent = item.group;
-    row.querySelector(".note-cell").textContent = item.note || "-";
+    metaNode.innerHTML = renderHoldingMeta(item, quote);
     row.querySelector(".remove-btn").setAttribute("data-symbol", item.symbol);
+    row.querySelector(".analyze-btn").setAttribute("data-analyze-symbol", item.symbol);
 
     const priceCell = row.querySelector(".price-cell");
-    const changeCell = row.querySelector(".change-cell");
     const percentCell = row.querySelector(".percent-cell");
-    const prevOpenCell = row.querySelector(".prev-open-cell");
-    const rangeCell = row.querySelector(".range-cell");
+    const relativeCell = row.querySelector(".relative-cell");
     const drawdownCell = row.querySelector(".drawdown-cell");
     const adviceCell = row.querySelector(".advice-cell");
 
     fillQuoteCells({
       priceCell,
-      changeCell,
       percentCell,
-      prevOpenCell,
-      rangeCell,
       sparklineTarget: row.querySelector(".sparkline")
     }, quote);
+    fillRelativeCell(relativeCell, item, quote);
     fillDrawdownCell(drawdownCell, item, quote);
     fillAdviceCell(adviceCell, item, quote);
-    fillTargetCell(row, row.querySelector(".target-cell"), item, quote);
 
     els.stockTableBody.appendChild(fragment);
     els.mobileList.appendChild(createMobileCard(item, quote));
@@ -688,29 +989,498 @@ function render() {
   updatePagination(pagination, rows.length);
   renderListHint(rows.length);
   renderStrategyPanel(strategySignals);
+  renderDetailOverlay();
   checkTargetNotifications();
   checkDropAlerts();
 }
 
 function fillQuoteCells(cells, quote) {
   if (!quote || quote.price === null || quote.change === null || quote.changePercent === null) {
-    cells.priceCell.textContent = "--";
-    cells.changeCell.textContent = "--";
-    cells.percentCell.textContent = "--";
-    cells.prevOpenCell.textContent = "--";
-    cells.rangeCell.textContent = "--";
+    if (cells.priceCell) cells.priceCell.textContent = "--";
+    if (cells.changeCell) cells.changeCell.textContent = "--";
+    if (cells.percentCell) cells.percentCell.textContent = "--";
+    if (cells.prevOpenCell) cells.prevOpenCell.textContent = "--";
+    if (cells.rangeCell) cells.rangeCell.textContent = "--";
     renderSparkline(cells.sparklineTarget, quote ? quote.sparkline : [], 0);
     return;
   }
 
-  cells.priceCell.textContent = formatNumber(quote.price);
-  cells.changeCell.textContent = formatSigned(quote.change);
-  cells.percentCell.textContent = formatSigned(quote.changePercent) + "%";
-  cells.prevOpenCell.textContent = formatPair(quote.previousClose, quote.open);
-  cells.rangeCell.textContent = formatRange(quote.low, quote.high);
-  applyTone(cells.changeCell, quote.change);
-  applyTone(cells.percentCell, quote.changePercent);
+  if (cells.priceCell) cells.priceCell.textContent = formatNumber(quote.price);
+  if (cells.changeCell) {
+    cells.changeCell.textContent = formatSigned(quote.change);
+    applyTone(cells.changeCell, quote.change);
+  }
+  if (cells.percentCell) {
+    cells.percentCell.textContent = formatSigned(quote.changePercent) + "%";
+    applyTone(cells.percentCell, quote.changePercent);
+  }
+  if (cells.prevOpenCell) cells.prevOpenCell.textContent = formatPair(quote.previousClose, quote.open);
+  if (cells.rangeCell) cells.rangeCell.textContent = formatRange(quote.low, quote.high);
   renderSparkline(cells.sparklineTarget, quote.sparkline, quote.changePercent);
+}
+
+function renderOverview() {
+  renderMarketPulse();
+  renderMag7Snapshot();
+  renderRelativeLeaders();
+  renderPortfolioSnapshot();
+  renderDecisionWorkspace();
+}
+
+function renderMarketPulse() {
+  if (!els.marketPulseBody) return;
+  const qqqQuote = state.quotes[NASDAQ_BENCHMARK_SYMBOL] || null;
+  const magsQuote = state.quotes[MAG7_ETF_SYMBOL] || null;
+  const qqqDrawdown = getDrawdownPercent({ symbol: NASDAQ_BENCHMARK_SYMBOL }, qqqQuote);
+  const magsExcess = getRelativeToBenchmark(MAG7_ETF_SYMBOL);
+
+  els.marketPulseBody.innerHTML = [
+    renderOverviewMetric(
+      "QQQ",
+      qqqQuote && qqqQuote.changePercent !== null ? formatSigned(qqqQuote.changePercent) + "%" : "--",
+      qqqQuote && qqqQuote.price !== null ? "现价 " + formatNumber(qqqQuote.price) : "等待行情"
+    ),
+    renderOverviewMetric(
+      "MAGS",
+      magsQuote && magsQuote.changePercent !== null ? formatSigned(magsQuote.changePercent) + "%" : "--",
+      magsQuote && magsQuote.price !== null ? "现价 " + formatNumber(magsQuote.price) : "等待行情"
+    ),
+    renderOverviewMetric(
+      "MAGS 相对 QQQ",
+      magsExcess === null ? "--" : formatSigned(magsExcess) + "%",
+      magsExcess === null ? "等待基准行情" : magsExcess >= 0 ? "七巨头篮子跑赢纳指" : "七巨头篮子跑输纳指"
+    ),
+    renderOverviewMetric(
+      "QQQ 本地回撤",
+      qqqDrawdown === null ? "--" : formatUnsignedPercent(qqqDrawdown),
+      qqqDrawdown === null ? "等待峰值数据" : "基于本地跟踪峰值"
+    ),
+    '<div class="overview-trends">',
+    renderTrendCard("QQQ 日内走势", NASDAQ_BENCHMARK_SYMBOL, qqqQuote),
+    renderTrendCard("MAGS 日内走势", MAG7_ETF_SYMBOL, magsQuote),
+    "</div>"
+  ].join("");
+
+  renderOverviewTrendChart(els.marketPulseBody, NASDAQ_BENCHMARK_SYMBOL);
+  renderOverviewTrendChart(els.marketPulseBody, MAG7_ETF_SYMBOL);
+}
+
+function renderMag7Snapshot() {
+  if (!els.mag7SnapshotBody) return;
+  const members = getMag7Members();
+  const validMembers = members.filter(function (entry) {
+    return entry.quote && typeof entry.quote.changePercent === "number";
+  });
+
+  if (!validMembers.length) {
+    els.mag7SnapshotBody.innerHTML = '<p class="muted">等待七巨头行情后生成总览。</p>';
+    return;
+  }
+
+  const avgChange = validMembers.reduce(function (sum, entry) {
+    return sum + Number(entry.quote.changePercent || 0);
+  }, 0) / validMembers.length;
+  const upCount = validMembers.filter(function (entry) {
+    return Number(entry.quote.changePercent) > 0;
+  }).length;
+  const downCount = validMembers.filter(function (entry) {
+    return Number(entry.quote.changePercent) < 0;
+  }).length;
+  const qqqChange = getBenchmarkChangePercent();
+  const outperformCount = validMembers.filter(function (entry) {
+    const relative = getRelativeToBenchmark(entry.item.symbol);
+    return relative !== null && relative > 0;
+  }).length;
+  const leader = validMembers.slice().sort(function (left, right) {
+    return Number(right.quote.changePercent || 0) - Number(left.quote.changePercent || 0);
+  })[0];
+  const laggard = validMembers.slice().sort(function (left, right) {
+    return Number(left.quote.changePercent || 0) - Number(right.quote.changePercent || 0);
+  })[0];
+
+  els.mag7SnapshotBody.innerHTML = [
+    renderOverviewMetric("七巨头均值", formatSigned(avgChange) + "%", qqqChange === null ? "等待 QQQ 基准" : "相对 QQQ " + formatSigned(avgChange - qqqChange) + "%"),
+    renderOverviewMetric("上涨 / 下跌", upCount + " / " + downCount, "广度越高，板块越整齐"),
+    renderOverviewMetric("跑赢 QQQ", String(outperformCount) + " / " + String(validMembers.length), "衡量内部强弱扩散"),
+    renderOverviewMetric("最强 / 最弱", (leader ? leader.item.symbol : "--") + " / " + (laggard ? laggard.item.symbol : "--"), "快速定位领涨与拖累"),
+    '<div class="strength-bars">',
+    validMembers
+      .slice()
+      .sort(function (left, right) {
+        return Number(right.quote.changePercent || 0) - Number(left.quote.changePercent || 0);
+      })
+      .map(function (entry) {
+        return renderStrengthRow(entry.item.symbol, entry.quote.changePercent, "当日涨跌");
+      })
+      .join(""),
+    "</div>"
+  ].join("");
+}
+
+function renderRelativeLeaders() {
+  if (!els.leadersBody) return;
+  const ranked = getMag7RelativeRanking();
+  if (!ranked.length) {
+    els.leadersBody.innerHTML = '<p class="muted">等待 QQQ 与七巨头行情后生成强弱排序。</p>';
+    return;
+  }
+
+  const top = ranked.slice(0, 3);
+  const bottom = ranked.slice(-3).reverse();
+  els.leadersBody.innerHTML = [
+    '<div class="focus-list">',
+    '<div><p class="muted focus-title">领跑</p>' + top.map(renderRelativeFocusItem).join("") + "</div>",
+    '<div><p class="muted focus-title">掉队</p>' + bottom.map(renderRelativeFocusItem).join("") + "</div>",
+    "</div>",
+    '<div class="strength-bars relative-bars">',
+    ranked.map(function (entry) {
+      return renderStrengthRow(entry.symbol, entry.relative, "相对 QQQ");
+    }).join(""),
+    "</div>"
+  ].join("");
+}
+
+function renderRelativeFocusItem(entry) {
+  const relative = Number(entry.relative || 0);
+  const tone = relative > 0 ? "positive" : relative < 0 ? "negative" : "neutral";
+  return [
+    '<article class="focus-item">',
+    '<strong>' + escapeHtml(entry.symbol) + '</strong>',
+    '<span class="' + tone + '">' + formatSigned(relative) + '%</span>',
+    '<span class="muted">当日 ' + formatSigned(entry.changePercent) + "%</span>",
+    "</article>"
+  ].join("");
+}
+
+function renderOverviewMetric(label, value, note) {
+  return [
+    '<article class="overview-metric">',
+    '<span class="muted">' + escapeHtml(label) + "</span>",
+    '<strong>' + escapeHtml(value) + "</strong>",
+    '<span class="muted">' + escapeHtml(note) + "</span>",
+    "</article>"
+  ].join("");
+}
+
+function renderTrendCard(label, symbol, quote) {
+  const latestText = quote && quote.price !== null ? "现价 " + formatNumber(quote.price) : "等待行情";
+  const changeText = quote && quote.changePercent !== null ? formatSigned(quote.changePercent) + "%" : "--";
+  const tone = quote && typeof quote.changePercent === "number" && quote.changePercent !== 0
+    ? quote.changePercent > 0 ? "positive" : "negative"
+    : "neutral";
+
+  return [
+    '<article class="trend-card">',
+    '<div class="trend-card-head">',
+    '<div><strong>' + escapeHtml(label) + '</strong><p class="muted">' + escapeHtml(latestText) + "</p></div>",
+    '<span class="' + tone + '">' + escapeHtml(changeText) + "</span>",
+    "</div>",
+    '<div class="overview-trend-chart" data-trend-symbol="' + escapeHtml(symbol) + '"></div>',
+    "</article>"
+  ].join("");
+}
+
+function renderOverviewTrendChart(scope, symbol) {
+  if (!scope) return;
+  const target = scope.querySelector('[data-trend-symbol="' + String(symbol || "").trim().toUpperCase() + '"]');
+  if (!target) return;
+  const quote = state.quotes[String(symbol || "").trim().toUpperCase()];
+  renderTrendChart(target, quote && Array.isArray(quote.sparkline) ? quote.sparkline : [], quote && typeof quote.changePercent === "number" ? quote.changePercent : 0);
+}
+
+function renderStrengthRow(label, value, metaLabel) {
+  const amount = Number(value);
+  const safeValue = Number.isFinite(amount) ? amount : 0;
+  const width = Math.min(100, Math.max(8, Math.abs(safeValue) * 6));
+  const tone = safeValue > 0 ? "positive" : safeValue < 0 ? "negative" : "neutral";
+
+  return [
+    '<article class="strength-row">',
+    '<div class="strength-copy"><strong>' + escapeHtml(label) + '</strong><span class="muted">' + escapeHtml(metaLabel) + '</span></div>',
+    '<div class="strength-track"><span class="strength-fill ' + tone + '" style="width:' + width + '%"></span></div>',
+    '<span class="strength-value ' + tone + '">' + (Number.isFinite(amount) ? escapeHtml(formatSigned(amount) + "%") : "--") + "</span>",
+    "</article>"
+  ].join("");
+}
+
+function renderPortfolioSnapshot() {
+  if (!els.portfolioSnapshotBody) return;
+  const positions = state.items.map(function (item) {
+    return {
+      item,
+      quote: state.quotes[item.symbol] || null,
+      position: getPositionInfo(item, state.quotes[item.symbol] || null)
+    };
+  }).filter(function (entry) {
+    return entry.position !== null;
+  });
+
+  if (!positions.length) {
+    els.portfolioSnapshotBody.innerHTML = [
+      '<p class="muted">还没有填写持仓成本和股数。先给核心持仓补上成本价与股数，后续 AI 才能真正给出你的仓位建议。</p>'
+    ].join("");
+    return;
+  }
+
+  const marketValue = positions.reduce(function (sum, entry) {
+    return sum + Number(entry.position.marketValue || 0);
+  }, 0);
+  const costValue = positions.reduce(function (sum, entry) {
+    return sum + Number(entry.position.costValue || 0);
+  }, 0);
+  const pnl = marketValue - costValue;
+  const pnlPct = costValue > 0 ? (pnl / costValue) * 100 : null;
+  const coreCount = positions.filter(function (entry) {
+    return entry.item.holdingType === "core";
+  }).length;
+  const tradingCount = positions.filter(function (entry) {
+    return entry.item.holdingType === "trading";
+  }).length;
+
+  els.portfolioSnapshotBody.innerHTML = [
+    '<div class="workspace-metrics">',
+    renderWorkspaceMetric("持仓市值", formatMoney(marketValue), "按当前行情估算"),
+    renderWorkspaceMetric("持仓盈亏", formatMoneySigned(pnl), pnlPct === null ? "等待成本数据" : formatSigned(pnlPct) + "%"),
+    renderWorkspaceMetric("核心仓数量", String(coreCount), "适合长期跟踪"),
+    renderWorkspaceMetric("交易仓数量", String(tradingCount), "适合节奏管理"),
+    "</div>",
+    '<div class="workspace-position-list">',
+    positions
+      .slice()
+      .sort(function (left, right) {
+        return Number(right.position.marketValue || 0) - Number(left.position.marketValue || 0);
+      })
+      .slice(0, 5)
+      .map(function (entry) {
+        return renderPositionRow(entry.item, entry.position);
+      })
+      .join(""),
+    "</div>"
+  ].join("");
+}
+
+function renderDecisionWorkspace() {
+  if (!els.decisionWorkspaceBody) return;
+  const entries = state.items.map(function (item) {
+    const quote = state.quotes[item.symbol] || null;
+    return {
+      item,
+      quote,
+      position: getPositionInfo(item, quote),
+      relativeQqq: getRelativeToBenchmark(item.symbol),
+      targetInfo: getTargetInfo(item, quote),
+      strategySignal: getStrategySignal(item, quote)
+    };
+  });
+
+  const notes = [];
+  const candidateTrim = entries
+    .filter(function (entry) {
+      return entry.position && entry.position.pnlPercent !== null;
+    })
+    .slice()
+    .sort(function (left, right) {
+      return Number(right.position.pnlPercent || 0) - Number(left.position.pnlPercent || 0);
+    })[0];
+  if (candidateTrim && candidateTrim.position.pnlPercent > 15) {
+    notes.push({
+      tone: "positive",
+      title: "优先复盘止盈",
+      text: candidateTrim.item.symbol + " 当前浮盈 " + formatSigned(candidateTrim.position.pnlPercent) + "%，适合先对照你的分批止盈纪律。"
+    });
+  }
+
+  const riskEntry = entries
+    .filter(function (entry) {
+      return entry.strategySignal && entry.position;
+    })
+    .slice()
+    .sort(function (left, right) {
+      return Number(getDrawdownPercent(left.item, left.quote) || 0) - Number(getDrawdownPercent(right.item, right.quote) || 0);
+    })[0];
+  if (riskEntry) {
+    notes.push({
+      tone: "negative",
+      title: "回撤纪律触发",
+      text: riskEntry.item.symbol + " 已触发回撤规则，建议先判断是减仓执行，还是基本面仍支持继续持有。"
+    });
+  }
+
+  const strongEntry = entries
+    .filter(function (entry) {
+      return entry.relativeQqq !== null;
+    })
+    .slice()
+    .sort(function (left, right) {
+      return Number(right.relativeQqq || 0) - Number(left.relativeQqq || 0);
+    })[0];
+  if (strongEntry) {
+    notes.push({
+      tone: strongEntry.relativeQqq > 0 ? "positive" : "neutral",
+      title: "相对强弱焦点",
+      text: strongEntry.item.symbol + " 当前相对 QQQ " + formatSigned(strongEntry.relativeQqq) + "%，是今天最值得先看的强弱代表。"
+    });
+  }
+
+  const targetEntry = entries
+    .filter(function (entry) {
+      return entry.targetInfo && !entry.targetInfo.hit;
+    })
+    .slice()
+    .sort(function (left, right) {
+      return Math.abs(Number(left.targetInfo.distancePercent || 0)) - Math.abs(Number(right.targetInfo.distancePercent || 0));
+    })[0];
+  if (targetEntry) {
+    notes.push({
+      tone: "neutral",
+      title: "临近目标价",
+      text: targetEntry.item.symbol + " 距目标价仅 " + formatUnsignedPercent(Math.abs(targetEntry.targetInfo.distancePercent)) + "，可提前想好到价后的动作。"
+    });
+  }
+
+  if (!notes.length) {
+    els.decisionWorkspaceBody.innerHTML = '<p class="muted">先补持仓成本、股数、目标价后，这里会自动给你生成更贴近你仓位的决策摘要。</p>';
+    return;
+  }
+
+  els.decisionWorkspaceBody.innerHTML = [
+    '<div class="workspace-notes">',
+    notes.slice(0, 4).map(renderDecisionNote).join(""),
+    "</div>"
+  ].join("");
+}
+
+function renderWorkspaceMetric(label, value, note) {
+  return [
+    '<article class="workspace-metric">',
+    '<span class="muted">' + escapeHtml(label) + "</span>",
+    '<strong>' + escapeHtml(value) + "</strong>",
+    '<span class="muted">' + escapeHtml(note) + "</span>",
+    "</article>"
+  ].join("");
+}
+
+function renderPositionRow(item, position) {
+  return [
+    '<article class="position-row">',
+    '<div><strong>' + escapeHtml(item.symbol) + '</strong><span class="muted"> ' + escapeHtml(describeHoldingType(item.holdingType)) + "</span></div>",
+    '<div class="position-grid">',
+    '<span class="muted">股数 ' + escapeHtml(formatShareCount(item.shares)) + "</span>",
+    '<span class="muted">成本 ' + escapeHtml(formatMoney(item.costBasis)) + "</span>",
+    '<span class="' + (position.pnl >= 0 ? "positive" : "negative") + '">浮盈 ' + escapeHtml(formatMoneySigned(position.pnl)) + " (" + formatSigned(position.pnlPercent) + '%)</span>',
+    "</div>",
+    "</article>"
+  ].join("");
+}
+
+function renderDecisionNote(note) {
+  const tone = note?.tone === "positive" || note?.tone === "negative" ? note.tone : "neutral";
+  return [
+    '<article class="decision-note ' + tone + '">',
+    '<strong>' + escapeHtml(note?.title || "--") + "</strong>",
+    '<p class="muted">' + escapeHtml(note?.text || "--") + "</p>",
+    "</article>"
+  ].join("");
+}
+
+function renderHoldingMeta(item, quote) {
+  const position = getPositionInfo(item, quote);
+  const segments = [
+    '<span class="holding-pill ' + escapeHtml(item.holdingType || "watchlist") + '">' + escapeHtml(describeHoldingType(item.holdingType)) + "</span>"
+  ];
+
+  if (Number.isFinite(Number(item?.costBasis))) {
+    segments.push('<span class="holding-meta-text">成本 ' + escapeHtml(formatMoney(item.costBasis)) + "</span>");
+  }
+
+  if (Number.isFinite(Number(item?.shares))) {
+    segments.push('<span class="holding-meta-text">股数 ' + escapeHtml(formatShareCount(item.shares)) + "</span>");
+  }
+
+  if (position && position.pnlPercent !== null) {
+    segments.push(
+      '<span class="holding-meta-text ' + (position.pnl >= 0 ? "positive" : "negative") + '">浮盈 ' +
+      escapeHtml(formatMoneySigned(position.pnl)) +
+      " (" +
+      escapeHtml(formatSigned(position.pnlPercent)) +
+      "%)</span>"
+    );
+  }
+
+  return segments.join("");
+}
+
+function getPositionInfo(item, quote) {
+  const costBasis = Number(item?.costBasis);
+  const shares = Number(item?.shares);
+  const price = Number(quote?.price);
+  if (!Number.isFinite(costBasis) || costBasis <= 0 || !Number.isFinite(shares) || shares <= 0 || !Number.isFinite(price) || price <= 0) {
+    return null;
+  }
+
+  const costValue = costBasis * shares;
+  const marketValue = price * shares;
+  const pnl = marketValue - costValue;
+  const pnlPercent = costValue > 0 ? (pnl / costValue) * 100 : null;
+  return {
+    costValue: Number(costValue.toFixed(2)),
+    marketValue: Number(marketValue.toFixed(2)),
+    pnl: Number(pnl.toFixed(2)),
+    pnlPercent: pnlPercent === null ? null : Number(pnlPercent.toFixed(2))
+  };
+}
+
+function describeHoldingType(type) {
+  if (type === "core") return "核心仓";
+  if (type === "trading") return "交易仓";
+  return "观察仓";
+}
+
+function formatShareCount(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return "--";
+  return amount >= 100 ? amount.toFixed(0) : amount.toFixed(2);
+}
+
+function getBenchmarkChangePercent() {
+  const quote = state.quotes[NASDAQ_BENCHMARK_SYMBOL];
+  return quote && typeof quote.changePercent === "number" ? quote.changePercent : null;
+}
+
+function getRelativeToBenchmark(symbol) {
+  const benchmark = getBenchmarkChangePercent();
+  const quote = state.quotes[String(symbol || "").trim().toUpperCase()];
+  const current = quote && typeof quote.changePercent === "number" ? quote.changePercent : null;
+  if (benchmark === null || current === null) return null;
+  return Number((current - benchmark).toFixed(2));
+}
+
+function getMag7Members() {
+  return state.items.filter(function (item) {
+    return MAG7_SYMBOLS.includes(item.symbol);
+  }).map(function (item) {
+    return {
+      item,
+      quote: state.quotes[item.symbol] || null
+    };
+  });
+}
+
+function getMag7RelativeRanking() {
+  return getMag7Members().map(function (entry) {
+    const changePercent = entry.quote && typeof entry.quote.changePercent === "number" ? entry.quote.changePercent : null;
+    const relative = getRelativeToBenchmark(entry.item.symbol);
+    return {
+      symbol: entry.item.symbol,
+      displayName: entry.item.displayName,
+      changePercent,
+      relative
+    };
+  }).filter(function (entry) {
+    return entry.relative !== null && entry.changePercent !== null;
+  }).sort(function (left, right) {
+    return Number(right.relative) - Number(left.relative);
+  });
 }
 
 function fillDrawdownCell(cell, item, quote) {
@@ -728,6 +1498,23 @@ function fillDrawdownCell(cell, item, quote) {
   cell.classList.add(drawdown === 0 ? "neutral" : "negative");
   const peak = state.usPeaks[item.symbol];
   cell.title = peak ? "跟踪峰值 " + formatNumber(peak.peakPrice) : "";
+}
+
+function fillRelativeCell(cell, item, quote) {
+  if (!cell) return;
+  const relative = getRelativeToBenchmark(item.symbol);
+  cell.classList.remove("positive", "negative", "neutral");
+
+  if (relative === null) {
+    cell.textContent = "--";
+    cell.classList.add("neutral");
+    cell.title = "等待 QQQ 与个股行情后计算";
+    return;
+  }
+
+  cell.textContent = formatSigned(relative) + "%";
+  cell.classList.add(relative > 0 ? "positive" : relative < 0 ? "negative" : "neutral");
+  cell.title = "当日涨跌相对 QQQ：" + formatSigned(relative) + "%";
 }
 
 function fillAdviceCell(cell, item, quote) {
@@ -832,6 +1619,7 @@ function createMobileCard(item, quote) {
     : "建议：继续观察";
   const strategyTone = strategySignal ? "negative" : "neutral";
   const targetInfo = getTargetInfo(item, quote);
+  const holdingMeta = renderHoldingMeta(item, quote);
   const targetValue = item.targetPrice === null || item.targetPrice === undefined ? "" : String(item.targetPrice);
   let targetText;
   let targetTone;
@@ -854,6 +1642,7 @@ function createMobileCard(item, quote) {
     '<div class="stock-cell"><strong class="stock-symbol">' + escapeHtml(item.symbol) + '</strong><span class="stock-name">' + escapeHtml(displayName) + '</span></div>',
     '<div class="mobile-side-tags"><span class="market-badge">' + escapeHtml(quote && quote.market ? quote.market : "--") + '</span><span class="group-badge">' + escapeHtml(item.group) + '</span></div>',
     '</div>',
+    '<div class="mobile-position">' + holdingMeta + '</div>',
     '<div class="mobile-metrics">',
     '<div><span class="muted">最新价</span><strong>' + priceText + '</strong></div>',
     '<div><span class="muted">涨跌额</span><strong class="' + toneClass + '">' + changeText + '</strong></div>',
@@ -867,11 +1656,132 @@ function createMobileCard(item, quote) {
     '<p class="mobile-drawdown mobile-target"><span class="muted">目标价</span> <input type="number" class="target-input" data-symbol="' + escapeHtml(item.symbol) + '" value="' + escapeHtml(targetValue) + '" step="0.01" min="0" inputmode="decimal" placeholder="设目标" /> <strong class="' + targetTone + '">' + targetText + '</strong></p>',
     '<div class="mobile-chart"></div>',
     '<p class="mobile-note">' + escapeHtml(item.note || "暂无备注") + '</p>',
-    '<button type="button" class="btn btn-ghost remove-btn" data-symbol="' + escapeHtml(item.symbol) + '">删除</button>'
+    '<div class="mobile-actions"><button type="button" class="btn btn-ghost analyze-btn" data-analyze-symbol="' + escapeHtml(item.symbol) + '">分析</button><button type="button" class="btn btn-ghost remove-btn" data-symbol="' + escapeHtml(item.symbol) + '">删除</button></div>'
   ].join("");
 
   renderSparkline(card.querySelector(".mobile-chart"), quote && quote.sparkline ? quote.sparkline : [], quote && quote.changePercent !== null ? quote.changePercent : 0);
   return card;
+}
+
+function renderDetailOverlay() {
+  const detail = state.detail;
+  if (!els.detailOverlay) return;
+
+  if (!detail.symbol) {
+    els.detailOverlay.classList.add("hidden");
+    els.detailOverlay.innerHTML = "";
+    return;
+  }
+
+  els.detailOverlay.classList.remove("hidden");
+
+  if (detail.loading) {
+    els.detailOverlay.innerHTML = [
+      '<div class="detail-backdrop" data-close-detail="true"></div>',
+      '<section class="detail-modal">',
+      '<div class="detail-head"><div><p class="eyebrow">Stock Detail</p><h2>加载中</h2></div><button type="button" class="btn btn-ghost" data-close-detail="true">关闭</button></div>',
+      '<p class="muted">正在拉取股票详情、估值和近期资讯…</p>',
+      "</section>"
+    ].join("");
+    return;
+  }
+
+  if (detail.error) {
+    els.detailOverlay.innerHTML = [
+      '<div class="detail-backdrop" data-close-detail="true"></div>',
+      '<section class="detail-modal">',
+      '<div class="detail-head"><div><p class="eyebrow">Stock Detail</p><h2>' + escapeHtml(detail.symbol) + '</h2></div><button type="button" class="btn btn-ghost" data-close-detail="true">关闭</button></div>',
+      '<p class="negative">' + escapeHtml(detail.error) + '</p>',
+      "</section>"
+    ].join("");
+    return;
+  }
+
+  const data = detail.data;
+  if (!data) return;
+
+  const reports = Array.isArray(data.reports) ? data.reports : [];
+  const metrics = Array.isArray(data.metrics) ? data.metrics : [];
+  const decision = data.decision && typeof data.decision === "object" ? data.decision : null;
+  els.detailOverlay.innerHTML = [
+    '<div class="detail-backdrop" data-close-detail="true"></div>',
+    '<section class="detail-modal">',
+    '<div class="detail-head">',
+    '<div><p class="eyebrow">Stock Detail</p><h2>' + escapeHtml(data.name || data.symbol) + " · " + escapeHtml(data.symbol) + '</h2><p class="muted">' + escapeHtml(data.market || "") + " ｜ " + escapeHtml(data.summary || data.note || "") + '</p></div>',
+    '<button type="button" class="btn btn-ghost" data-close-detail="true">关闭</button>',
+    "</div>",
+    decision ? renderDecisionSection(decision) : "",
+    '<div class="detail-grid">',
+    metrics.map(function (entry) {
+      return renderDetailMetric(entry?.label || "--", entry?.value, entry?.suffix || "");
+    }).join(""),
+    "</div>",
+    '<section class="detail-section"><h3>' + escapeHtml(data.itemsTitle || "近期资讯") + "</h3>",
+    reports.length
+      ? reports
+          .map(function (report) {
+            const linkHtml = report.url
+              ? '<a href="' + escapeHtml(report.url) + '" target="_blank" rel="noreferrer">查看</a>'
+              : '<span class="muted">无链接</span>';
+            return [
+              '<article class="report-item">',
+              '<strong>' + escapeHtml(report.title) + "</strong>",
+              '<div class="report-meta"><span>' + escapeHtml(report.institution || "未知机构") + '</span><span>' + escapeHtml(report.rating || "--") + '</span><span>' + escapeHtml(report.reportDate || "--") + "</span>" + linkHtml + "</div>",
+              "</article>"
+            ].join("");
+          })
+          .join("")
+      : '<p class="muted">' + escapeHtml(data.itemsEmptyText || "暂无近期资讯。") + "</p>",
+    "</section>",
+    '<section class="detail-section"><h3>数据来源</h3><p class="muted">' + escapeHtml((data.sourceNames || []).join(" / ")) + "。 " + escapeHtml(data.note || "") + "</p></section>",
+    "</section>"
+  ].join("");
+}
+
+function renderDecisionSection(decision) {
+  const score = Number.isFinite(Number(decision.score)) ? Number(decision.score) : null;
+  const stance = decision.stance || "中性观察";
+  const summary = decision.summary || "";
+  const signals = Array.isArray(decision.signals) ? decision.signals : [];
+  const caveats = Array.isArray(decision.caveats) ? decision.caveats : [];
+
+  return [
+    '<section class="detail-section decision-section">',
+    '<div class="decision-hero">',
+    '<div class="decision-score-wrap">',
+    '<span class="muted">结构化观察分</span>',
+    '<strong class="decision-score">' + (score === null ? "--" : String(score)) + "</strong>",
+    "</div>",
+    '<div class="decision-copy">',
+    '<h3>' + escapeHtml(stance) + "</h3>",
+    '<p class="muted">' + escapeHtml(summary) + "</p>",
+    "</div>",
+    "</div>",
+    signals.length
+      ? '<div class="decision-signals">' + signals.map(renderDecisionSignal).join("") + "</div>"
+      : "",
+    caveats.length
+      ? '<div class="decision-caveats">' + caveats.map(function (entry) {
+          return '<p class="muted">- ' + escapeHtml(entry) + "</p>";
+        }).join("") + "</div>"
+      : "",
+    "</section>"
+  ].join("");
+}
+
+function renderDecisionSignal(signal) {
+  const tone = signal?.tone === "positive" || signal?.tone === "negative" ? signal.tone : "neutral";
+  return [
+    '<article class="decision-signal ' + tone + '">',
+    '<span class="muted">' + escapeHtml(signal?.label || "--") + "</span>",
+    '<strong>' + escapeHtml(signal?.text || "--") + "</strong>",
+    "</article>"
+  ].join("");
+}
+
+function renderDetailMetric(label, value, suffix) {
+  const display = Number.isFinite(Number(value)) ? formatNumber(Number(value)) + suffix : "--";
+  return '<article class="detail-metric"><span class="muted">' + label + "</span><strong>" + display + "</strong></article>";
 }
 
 function renderStats(rows) {
@@ -896,6 +1806,296 @@ function renderStats(rows) {
   els.flatStat.textContent = String(flat);
 }
 
+function renderActionQueue() {
+  if (!els.actionQueueBody) return;
+  const entries = buildActionQueue();
+
+  if (!state.items.length) {
+    els.actionQueueBody.innerHTML = [
+      '<article class="action-queue-empty">',
+      '<strong>先添加 QQQ、MAGS 或七巨头</strong>',
+      '<p class="muted">添加后这里会按回撤、目标价、相对 QQQ 和当日跌幅整理今日信号。</p>',
+      "</article>"
+    ].join("");
+    return;
+  }
+
+  if (!entries.length) {
+    els.actionQueueBody.innerHTML = [
+      '<article class="action-queue-empty">',
+      '<strong>当前没有高优先级处理项</strong>',
+      '<p class="muted">规则没有触发时，这里会保持安静。刷新行情后会重新计算。</p>',
+      "</article>"
+    ].join("");
+    return;
+  }
+
+  els.actionQueueBody.innerHTML = entries.slice(0, 6).map(renderActionQueueCard).join("");
+}
+
+function renderMarketEvents() {
+  if (!els.marketEventsBody || !els.marketEventsHint) return;
+
+  if (state.marketEventsLoading) {
+    els.marketEventsHint.textContent = "正在抓取当日行情与公开资讯，不会阻塞看板刷新。";
+  } else if (state.marketEventsError) {
+    els.marketEventsHint.textContent = "本次抓取失败，暂时展示最近一次已保存的事件。";
+  } else {
+    els.marketEventsHint.textContent = "自动记录显著行情与关联资讯；新闻是线索，不等于唯一因果。";
+  }
+
+  const latestDate = state.marketEvents.reduce(function (current, entry) {
+    return !current || String(entry?.date || "") > current ? String(entry.date) : current;
+  }, "");
+  const events = state.marketEvents.filter(function (entry) {
+    return entry?.date === latestDate;
+  }).sort(function (left, right) {
+    return Math.abs(Number(right?.changePercent || 0)) - Math.abs(Number(left?.changePercent || 0));
+  });
+
+  if (!events.length) {
+    els.marketEventsBody.innerHTML = [
+      '<article class="market-event-empty">',
+      '<strong>' + (state.marketEventsLoading ? "正在建立今日事件记录" : "还没有可展示的当日线索") + "</strong>",
+      '<p class="muted">' + (state.marketEventsError
+        ? escapeHtml(state.marketEventsError)
+        : "刷新行情后会自动抓取 QQQ 对照和公司公开资讯。") + "</p>",
+      "</article>"
+    ].join("");
+    return;
+  }
+
+  els.marketEventsBody.innerHTML = events.map(renderMarketEventCard).join("");
+}
+
+function renderMarketEventCard(event) {
+  const typeLabels = {
+    market: "市场同向",
+    company: "个股线索",
+    mixed: "市场 + 个股",
+    unclear: "证据不足"
+  };
+  const type = typeLabels[event.driverType] || typeLabels.unclear;
+  const change = Number(event.changePercent);
+  const changeText = Number.isFinite(change) ? formatSigned(change) + "%" : "--";
+  const tone = Number.isFinite(change) && change > 0 ? "positive" : Number.isFinite(change) && change < 0 ? "negative" : "neutral";
+  const reasons = Array.isArray(event.reasons) ? event.reasons : [];
+  const news = Array.isArray(event.news) ? event.news : [];
+
+  return [
+    '<article class="market-event-card ' + tone + '">',
+    '<div class="market-event-head"><span class="market-event-type">' + escapeHtml(type) + '</span><strong>' + escapeHtml(event.symbol || "--") + "</strong></div>",
+    '<div class="market-event-move ' + tone + '">' + escapeHtml(changeText) + "</div>",
+    '<p class="market-event-name">' + escapeHtml(event.name || event.symbol || "--") + "</p>",
+    '<p class="market-event-summary">' + escapeHtml(event.summary || "暂无明确的当日驱动证据。") + "</p>",
+    reasons.length ? '<ul class="market-event-reasons">' + reasons.map(function (reason) {
+      return "<li>" + escapeHtml(reason) + "</li>";
+    }).join("") + "</ul>" : "",
+    news.length ? '<div class="market-event-news">' + news.map(function (item) {
+      const link = item.url
+        ? '<a href="' + escapeHtml(item.url) + '" target="_blank" rel="noreferrer">原文</a>'
+        : "";
+      return '<p><span>' + escapeHtml(item.publisher || "资讯来源") + "</span>" + link + "</p>";
+    }).join("") + "</div>" : "",
+    "</article>"
+  ].join("");
+}
+
+function renderMarketHistory() {
+  if (!els.marketHistoryBody || !els.marketHistoryHint) return;
+  document.querySelectorAll("[data-history-range]").forEach(function (button) {
+    button.classList.toggle("is-active", Number(button.getAttribute("data-history-range")) === state.marketHistoryRange);
+  });
+
+  if (!state.cloud.client || !state.cloud.user) {
+    els.marketHistoryHint.textContent = "登录 Supabase 后会自动保留每天收盘快照，并在多设备间同步。";
+    els.marketHistoryBody.innerHTML = [
+      '<article class="market-history-empty">',
+      "<strong>历史看板需要云端登录</strong>",
+      '<p class="muted">当前的当日线索仍可使用；登录云端并执行历史表迁移后，系统会开始持续保存每日收盘原因。</p>',
+      "</article>"
+    ].join("");
+    return;
+  }
+
+  if (state.marketHistoryLoading) {
+    els.marketHistoryHint.textContent = "正在读取历史收盘快照…";
+    els.marketHistoryBody.innerHTML = '<article class="market-history-empty"><strong>正在加载历史</strong><p class="muted">按交易日整理涨跌、QQQ 对照和新闻证据。</p></article>';
+    return;
+  }
+
+  if (state.marketHistoryError) {
+    els.marketHistoryHint.textContent = "历史表尚未可用或本次加载失败。";
+    els.marketHistoryBody.innerHTML = [
+      '<article class="market-history-empty">',
+      "<strong>暂时无法读取历史</strong>",
+      '<p class="muted">' + escapeHtml(state.marketHistoryError) + "</p>",
+      '<p class="muted">请先执行 `SUPABASE_SETUP.md` 里的 `market_event_history` 建表 SQL。</p>',
+      "</article>"
+    ].join("");
+    return;
+  }
+
+  if (!state.marketHistory.length) {
+    els.marketHistoryHint.textContent = "每日收盘后会自动归档；你刷新页面时也会即时补写当天快照。";
+    els.marketHistoryBody.innerHTML = '<article class="market-history-empty"><strong>还没有历史快照</strong><p class="muted">首次执行迁移后，下一次刷新或收盘任务会写入当天事件。</p></article>';
+    return;
+  }
+
+  els.marketHistoryHint.textContent = "已加载最近 " + state.marketHistoryRange + " 天。展开某个交易日可查看每只股票的涨跌线索与原文证据。";
+  const byDate = new Map();
+  state.marketHistory.forEach(function (entry) {
+    const date = String(entry?.market_date || "").slice(0, 10);
+    if (!date) return;
+    if (!byDate.has(date)) byDate.set(date, []);
+    byDate.get(date).push(entry);
+  });
+  const groups = Array.from(byDate.entries()).sort(function (left, right) {
+    return right[0].localeCompare(left[0]);
+  });
+  els.marketHistoryBody.innerHTML = groups.map(function (group, index) {
+    return renderMarketHistoryDay(group[0], group[1], index === 0);
+  }).join("");
+}
+
+function renderMarketHistoryDay(date, entries, open) {
+  const up = entries.filter(function (entry) { return Number(entry.change_percent) > 0; }).length;
+  const down = entries.filter(function (entry) { return Number(entry.change_percent) < 0; }).length;
+  const sorted = entries.slice().sort(function (left, right) {
+    return Math.abs(Number(right.change_percent || 0)) - Math.abs(Number(left.change_percent || 0));
+  });
+  return [
+    '<details class="market-history-day"' + (open ? " open" : "") + ">",
+    "<summary>",
+    '<span class="history-date"><strong>' + escapeHtml(date) + '</strong><span>上涨 ' + up + " / 下跌 " + down + "</span></span>",
+    '<span class="history-count">' + entries.length + " 只</span>",
+    "</summary>",
+    '<div class="history-event-grid">' + sorted.map(renderMarketHistoryEvent).join("") + "</div>",
+    "</details>"
+  ].join("");
+}
+
+function renderMarketHistoryEvent(entry) {
+  const typeLabels = {
+    market: "市场同向",
+    company: "个股线索",
+    mixed: "市场 + 个股",
+    unclear: "证据不足"
+  };
+  const type = typeLabels[entry.driver_type] || typeLabels.unclear;
+  const change = entry.change_percent === null || entry.change_percent === undefined ? null : Number(entry.change_percent);
+  const benchmark = entry.benchmark_change_percent === null || entry.benchmark_change_percent === undefined ? null : Number(entry.benchmark_change_percent);
+  const tone = Number.isFinite(change) && change > 0 ? "positive" : Number.isFinite(change) && change < 0 ? "negative" : "neutral";
+  const news = Array.isArray(entry.news) ? entry.news : [];
+  const firstNews = news.find(function (item) { return item?.url; });
+  return [
+    '<article class="history-event ' + tone + '">',
+    '<div class="history-event-head"><strong>' + escapeHtml(entry.symbol || "--") + '</strong><span class="market-event-type">' + escapeHtml(type) + "</span></div>",
+    '<p class="history-event-name">' + escapeHtml(entry.display_name || entry.symbol || "--") + "</p>",
+    '<div class="history-event-metrics"><strong class="' + tone + '">' + (Number.isFinite(change) ? escapeHtml(formatSigned(change) + "%") : "--") + '</strong><span>QQQ ' + (Number.isFinite(benchmark) ? escapeHtml(formatSigned(benchmark) + "%") : "--") + "</span></div>",
+    '<p class="history-event-summary">' + escapeHtml(entry.summary || "暂无明确的当日驱动证据。") + "</p>",
+    firstNews ? '<a class="history-source" href="' + escapeHtml(firstNews.url) + '" target="_blank" rel="noreferrer">查看证据 · ' + escapeHtml(firstNews.publisher || "资讯来源") + "</a>" : '<span class="history-source muted">无可复核新闻链接</span>',
+    "</article>"
+  ].join("");
+}
+
+function buildActionQueue() {
+  return state.items.map(function (item) {
+    const quote = state.quotes[item.symbol] || null;
+    const strategySignal = getStrategySignal(item, quote);
+    const targetInfo = getTargetInfo(item, quote);
+    const relativeQqq = getRelativeToBenchmark(item.symbol);
+    const dailyChange = quote && typeof quote.changePercent === "number" ? quote.changePercent : null;
+    const drawdown = getDrawdownPercent(item, quote);
+
+    if (strategySignal) {
+      return {
+        priority: 100,
+        tone: "negative",
+        symbol: item.symbol,
+        name: quote && quote.name ? quote.name : item.displayName,
+        kind: "回撤纪律",
+        title: "检查减仓规则",
+        metric: "回撤 " + formatUnsignedPercent(drawdown),
+        detail: "已触发回撤≥" + strategySignal.drawdown + "%，规则动作是卖出 " + strategySignal.sellPercent + "%。"
+      };
+    }
+
+    if (targetInfo && targetInfo.hit) {
+      return {
+        priority: 90,
+        tone: targetInfo.direction === "up" ? "positive" : "negative",
+        symbol: item.symbol,
+        name: quote && quote.name ? quote.name : item.displayName,
+        kind: "目标已到",
+        title: targetInfo.direction === "up" ? "已突破目标价" : "已跌破目标价",
+        metric: formatNumber(targetInfo.price) + " / " + formatNumber(targetInfo.target),
+        detail: "当前价已" + (targetInfo.direction === "up" ? "突破" : "跌破") + "你设置的目标，需要决定是否执行原计划。"
+      };
+    }
+
+    if (targetInfo && Math.abs(targetInfo.distancePercent) <= 3) {
+      return {
+        priority: 70,
+        tone: "neutral",
+        symbol: item.symbol,
+        name: quote && quote.name ? quote.name : item.displayName,
+        kind: "临近目标",
+        title: "接近目标价",
+        metric: "差 " + formatUnsignedPercent(Math.abs(targetInfo.distancePercent)),
+        detail: "距离目标价很近，可以提前写好到价后的动作，避免临盘犹豫。"
+      };
+    }
+
+    if (relativeQqq !== null && relativeQqq <= -2) {
+      return {
+        priority: 60,
+        tone: "negative",
+        symbol: item.symbol,
+        name: quote && quote.name ? quote.name : item.displayName,
+        kind: "相对弱势",
+        title: "明显跑输 QQQ",
+        metric: formatSigned(relativeQqq) + "%",
+        detail: "当日表现弱于 QQQ 2% 以上，适合检查是否是个股问题还是短期波动。"
+      };
+    }
+
+    if (dailyChange !== null && dailyChange <= -3) {
+      return {
+        priority: 50,
+        tone: "negative",
+        symbol: item.symbol,
+        name: quote && quote.name ? quote.name : item.displayName,
+        kind: "当日大跌",
+        title: "跌幅超过 3%",
+        metric: formatSigned(dailyChange) + "%",
+        detail: "单日跌幅较大，建议结合持仓成本、回撤和新闻事件确认是否需要处理。"
+      };
+    }
+
+    return null;
+  }).filter(Boolean).sort(function (left, right) {
+    if (left.priority !== right.priority) return right.priority - left.priority;
+    return left.symbol.localeCompare(right.symbol);
+  });
+}
+
+function renderActionQueueCard(entry) {
+  return [
+    '<article class="action-card ' + escapeHtml(entry.tone) + '">',
+    '<div class="action-card-head">',
+    '<span class="action-kind">' + escapeHtml(entry.kind) + "</span>",
+    '<strong class="action-symbol">' + escapeHtml(entry.symbol) + "</strong>",
+    "</div>",
+    '<h3>' + escapeHtml(entry.title) + "</h3>",
+    '<p class="action-name">' + escapeHtml(entry.name || entry.symbol) + "</p>",
+    '<strong class="action-metric">' + escapeHtml(entry.metric) + "</strong>",
+    '<p class="muted">' + escapeHtml(entry.detail) + "</p>",
+    '<button type="button" class="btn btn-ghost" data-analyze-symbol="' + escapeHtml(entry.symbol) + '">查看分析</button>',
+    "</article>"
+  ].join("");
+}
+
 function getVisibleItems() {
   const selectedGroup = state.preferences.selectedGroup;
   const performanceFilter = state.preferences.performanceFilter;
@@ -909,7 +2109,8 @@ function getVisibleItems() {
       item.symbol,
       item.displayName,
       item.group,
-      item.note
+      item.note,
+      describeHoldingType(item.holdingType)
     ].join(" ").toLowerCase();
 
     return haystack.includes(searchKeyword);
@@ -936,6 +2137,7 @@ function getSortValue(item, sortKey) {
   const quote = state.quotes[item.symbol];
   if (sortKey === "price") return quote && typeof quote.price === "number" ? quote.price : null;
   if (sortKey === "changePercent") return quote && typeof quote.changePercent === "number" ? quote.changePercent : null;
+  if (sortKey === "relativeQqq") return getRelativeToBenchmark(item.symbol);
   if (sortKey === "drawdownPercent") return getDrawdownPercent(item, quote);
   if (sortKey === "targetDistance") {
     const info = getTargetInfo(item, quote);
@@ -1252,7 +2454,8 @@ function persist(options) {
   saveState({
     items: state.items,
     preferences: state.preferences,
-    usPeaks: state.usPeaks
+    usPeaks: state.usPeaks,
+    marketEvents: state.marketEvents
   });
 
   if (!options?.skipCloudSync) {
@@ -1262,6 +2465,17 @@ function persist(options) {
 
 function formatNumber(value) {
   return Number(value).toFixed(2);
+}
+
+function formatMoney(value) {
+  if (!Number.isFinite(Number(value))) return "--";
+  return "$" + Number(value).toFixed(2);
+}
+
+function formatMoneySigned(value) {
+  if (!Number.isFinite(Number(value))) return "--";
+  const amount = Number(value);
+  return (amount > 0 ? "+$" : amount < 0 ? "-$" : "$") + Math.abs(amount).toFixed(2);
 }
 
 function formatSigned(value) {

@@ -1,5 +1,6 @@
 const CLOUD_CONFIG_KEY = "stock-dashboard-supabase-config-v1";
 const TABLE_NAME = "watchlist_states";
+const HISTORY_TABLE_NAME = "market_event_history";
 const SUPABASE_ESM_URL = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
 
 let createClientLoader = null;
@@ -95,11 +96,21 @@ export function onCloudAuthChange(client, callback) {
 }
 
 export async function loadRemoteState(client, userId) {
-  const { data, error } = await client
+  const current = await client
     .from(TABLE_NAME)
-    .select("items,preferences,us_peaks,updated_at")
+    .select("items,preferences,us_peaks,market_events,updated_at")
     .eq("user_id", userId)
     .limit(1);
+
+  // Keep existing users working until they run the one-column migration.
+  const fallback = current.error && /market_events|column/i.test(current.error.message || "")
+    ? await client
+      .from(TABLE_NAME)
+      .select("items,preferences,us_peaks,updated_at")
+      .eq("user_id", userId)
+      .limit(1)
+    : current;
+  const { data, error } = fallback;
 
   if (error) {
     return { data: null, error: error.message || "拉取云端数据失败" };
@@ -115,12 +126,79 @@ export async function saveRemoteState(client, userId, state) {
     items: Array.isArray(state.items) ? state.items : [],
     preferences: state.preferences && typeof state.preferences === "object" ? state.preferences : {},
     us_peaks: state.usPeaks && typeof state.usPeaks === "object" ? state.usPeaks : {},
+    market_events: Array.isArray(state.marketEvents) ? state.marketEvents : [],
     updated_at: new Date().toISOString()
   };
 
-  const { error } = await client
+  const current = await client
     .from(TABLE_NAME)
     .upsert(payload, { onConflict: "user_id" });
 
+  // The fallback avoids breaking the existing watchlist sync before SQL is applied.
+  const fallback = current.error && /market_events|column/i.test(current.error.message || "")
+    ? await client
+      .from(TABLE_NAME)
+      .upsert({
+        user_id: payload.user_id,
+        items: payload.items,
+        preferences: payload.preferences,
+        us_peaks: payload.us_peaks,
+        updated_at: payload.updated_at
+      }, { onConflict: "user_id" })
+    : current;
+  const { error } = fallback;
+
   return { error: error ? (error.message || "写入云端数据失败") : null };
+}
+
+function toHistoryRow(userId, event) {
+  const symbol = String(event?.symbol || "").trim().toUpperCase();
+  const marketDate = String(event?.date || "").slice(0, 10);
+  if (!symbol || !marketDate) return null;
+  return {
+    user_id: userId,
+    market_date: marketDate,
+    symbol,
+    display_name: String(event?.name || symbol).trim() || symbol,
+    change_percent: typeof event?.changePercent === "number" ? event.changePercent : null,
+    benchmark_change_percent: typeof event?.benchmarkChangePercent === "number" ? event.benchmarkChangePercent : null,
+    driver_type: String(event?.driverType || "unclear"),
+    confidence: String(event?.confidence || "low"),
+    summary: String(event?.summary || "暂无明确的当日驱动证据。"),
+    reasons: Array.isArray(event?.reasons) ? event.reasons : [],
+    news: Array.isArray(event?.news) ? event.news : [],
+    captured_at: typeof event?.capturedAt === "string" ? event.capturedAt : new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+}
+
+export async function saveMarketEventHistory(client, userId, events) {
+  const rows = (events || []).map(function (event) {
+    return toHistoryRow(userId, event);
+  }).filter(Boolean);
+  if (!rows.length) return { error: null };
+
+  const { error } = await client
+    .from(HISTORY_TABLE_NAME)
+    .upsert(rows, { onConflict: "user_id,market_date,symbol" });
+  return { error: error ? (error.message || "写入行情历史失败") : null };
+}
+
+export async function loadMarketEventHistory(client, userId, days) {
+  const normalizedDays = Math.min(180, Math.max(30, Number(days) || 30));
+  const start = new Date();
+  start.setUTCDate(start.getUTCDate() - normalizedDays + 1);
+  const startDate = start.toISOString().slice(0, 10);
+  const { data, error } = await client
+    .from(HISTORY_TABLE_NAME)
+    .select("market_date,symbol,display_name,change_percent,benchmark_change_percent,driver_type,confidence,summary,reasons,news,captured_at")
+    .eq("user_id", userId)
+    .gte("market_date", startDate)
+    .order("market_date", { ascending: false })
+    .order("symbol", { ascending: true })
+    .limit(normalizedDays * 16);
+  return {
+    data: Array.isArray(data) ? data : [],
+    error: error ? (error.message || "拉取行情历史失败") : null
+  };
 }

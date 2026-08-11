@@ -10,9 +10,9 @@
   <main class="app">
     <header class="top card">
       <div>
-        <p class="eyebrow">Custom Watchlist</p>
-        <h1 class="title">股票自选看板</h1>
-        <p class="subtitle">支持美股/A股/港股代码，全市场峰值回撤跟踪、目标价到价提醒、分组筛选与迷你走势图。</p>
+        <p class="eyebrow">MARKET DESK / US EQUITIES</p>
+        <h1 class="title">US Equity Dashboard</h1>
+        <p class="subtitle">围绕纳指与美国七巨头，快速判断市场环境、持仓风险与下一步动作。</p>
       </div>
       <div class="top-actions">
         <div class="status-wrap">
@@ -23,11 +23,24 @@
           <span class="muted">最后更新</span>
           <strong id="lastUpdated">--</strong>
         </div>
+        <button type="button" class="btn btn-ghost" id="toggleCloudBtn">设置</button>
         <button type="button" class="btn btn-primary" id="refreshBtn">刷新行情</button>
       </div>
     </header>
 
-    <section class="card cloud-card">
+    <nav class="command-bar" aria-label="看板导航">
+      <div class="command-links">
+        <button type="button" class="command-link is-active" data-scroll-target="marketOverview">市场概览</button>
+        <button type="button" class="command-link" data-scroll-target="decisionWorkspace">今日决策</button>
+        <button type="button" class="command-link" data-scroll-target="watchlist">我的自选</button>
+      </div>
+      <div class="command-actions">
+        <button type="button" class="btn btn-ghost" id="toggleToolsBtn">规则与提醒</button>
+        <button type="button" class="btn btn-primary" id="addStockBtn">+ 添加自选</button>
+      </div>
+    </nav>
+
+    <section class="card cloud-card utility-card hidden" id="cloudPanel">
       <div class="cloud-head">
         <div>
           <h2>Supabase 云同步</h2>
@@ -58,8 +71,17 @@
       </div>
     </section>
 
-    <section class="card controls">
-      <form id="stockForm" class="stock-form">
+    <section class="card controls" id="watchlistControls">
+      <div class="controls-head">
+        <div>
+          <p class="eyebrow">WATCHLIST CONTROL</p>
+          <h2>自选与筛选</h2>
+          <p class="muted">从搜索开始，按需要展开添加和高级筛选。</p>
+        </div>
+        <button type="button" class="btn btn-ghost" id="addStockInlineBtn">添加股票</button>
+      </div>
+
+      <form id="stockForm" class="stock-form hidden">
         <div class="field">
           <label for="symbolInput">代码</label>
           <input id="symbolInput" name="symbol" placeholder="例如 AAPL / 600519 / 300750" maxlength="10" required />
@@ -75,6 +97,22 @@
         <div class="field note-field">
           <label for="noteInput">备注</label>
           <input id="noteInput" name="note" placeholder="例如 财报临近，重点跟踪" maxlength="80" />
+        </div>
+        <div class="field">
+          <label for="costBasisInput">成本价</label>
+          <input id="costBasisInput" name="costBasis" type="number" min="0" step="0.01" inputmode="decimal" placeholder="例如 185.50" />
+        </div>
+        <div class="field">
+          <label for="sharesInput">股数</label>
+          <input id="sharesInput" name="shares" type="number" min="0" step="0.0001" inputmode="decimal" placeholder="例如 10" />
+        </div>
+        <div class="field">
+          <label for="holdingTypeInput">持仓类型</label>
+          <select id="holdingTypeInput" name="holdingType">
+            <option value="watchlist">观察仓</option>
+            <option value="core">核心仓</option>
+            <option value="trading">交易仓</option>
+          </select>
         </div>
         <button type="submit" class="btn btn-primary form-submit">添加股票</button>
       </form>
@@ -104,6 +142,7 @@
             <option value="displayName">名称</option>
             <option value="price">最新价</option>
             <option value="changePercent">涨跌幅</option>
+            <option value="relativeQqq">相对QQQ强弱</option>
             <option value="drawdownPercent">较峰值回撤</option>
             <option value="targetDistance">距目标价</option>
           </select>
@@ -150,47 +189,147 @@
       </article>
     </section>
 
-    <section class="card strategy-card">
-      <div class="strategy-head">
-        <h2>自动回撤止盈规则</h2>
-        <p class="muted" id="strategyHint">规则格式：回撤%:卖出%（逗号分隔）</p>
-      </div>
-      <div class="strategy-form">
-        <div class="field strategy-input-wrap">
-          <label for="strategyRulesInput">规则</label>
-          <input id="strategyRulesInput" placeholder="例如 8:20,12:30,18:50" maxlength="120" />
+    <section class="action-queue" id="actionQueue">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">ACTION QUEUE</p>
+          <h2>今日需要处理</h2>
         </div>
-        <button type="button" class="btn btn-primary" id="saveStrategyBtn">保存规则</button>
+        <p class="muted">只列出需要你判断或执行的信号，不等同于买卖建议。</p>
       </div>
-      <div class="signal-summary" id="signalSummary">当前无触发建议</div>
-      <div class="signal-list" id="signalList"></div>
+      <div class="action-queue-list" id="actionQueueBody"></div>
     </section>
 
-    <section class="card broadcast-card">
-      <div class="strategy-head">
-        <h2>下跌提醒播报</h2>
-        <p class="muted" id="broadcastHint">当日跌幅达到阈值时自动语音播报。开启自动刷新后可持续盯盘。</p>
-      </div>
-      <div class="broadcast-form">
-        <label class="broadcast-toggle"><input type="checkbox" id="dropAlertEnabled" /> 开启播报</label>
-        <div class="field broadcast-threshold">
-          <label for="dropThresholdInput">跌幅阈值（%）</label>
-          <input id="dropThresholdInput" type="number" min="0.1" step="0.1" inputmode="decimal" />
+    <section class="market-events" id="marketEvents">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">MARKET DRIVERS</p>
+          <h2>当日涨跌线索</h2>
         </div>
-        <label class="broadcast-toggle"><input type="checkbox" id="dropAlertVoice" /> 语音</label>
-        <label class="broadcast-toggle"><input type="checkbox" id="dropAlertSound" /> 提示音</label>
-        <label class="broadcast-toggle"><input type="checkbox" id="dropAlertNotify" /> 桌面通知</label>
-        <button type="button" class="btn btn-ghost" id="testBroadcastBtn">试听</button>
+        <p class="muted" id="marketEventsHint">自动抓取行情与公开资讯，保留来源供你复核。</p>
       </div>
-      <div class="signal-summary" id="dropSummary">当前无下跌触发</div>
-      <div class="signal-list" id="dropList"></div>
+      <div class="market-events-list" id="marketEventsBody"></div>
     </section>
 
-    <section class="card list-card">
+    <section class="market-history" id="marketHistory">
+      <div class="section-heading history-heading">
+        <div>
+          <p class="eyebrow">MARKET HISTORY</p>
+          <h2>涨跌历史与原因</h2>
+        </div>
+        <div class="history-range" aria-label="历史范围">
+          <button type="button" class="history-range-btn is-active" data-history-range="30">30 天</button>
+          <button type="button" class="history-range-btn" data-history-range="90">90 天</button>
+          <button type="button" class="history-range-btn" data-history-range="180">180 天</button>
+        </div>
+      </div>
+      <p class="muted" id="marketHistoryHint">收盘后自动归档当天涨跌、QQQ 对照和可复核资讯。</p>
+      <div class="market-history-list" id="marketHistoryBody"></div>
+    </section>
+
+    <section class="overview-grid" id="marketOverview">
+      <article class="card overview-card">
+        <div class="overview-head">
+          <div>
+            <p class="eyebrow">Nasdaq Pulse</p>
+            <h2>纳指环境</h2>
+          </div>
+        </div>
+        <div class="overview-body" id="marketPulseBody"></div>
+      </article>
+
+      <article class="card overview-card">
+        <div class="overview-head">
+          <div>
+            <p class="eyebrow">Mag 7 Breadth</p>
+            <h2>七巨头总览</h2>
+          </div>
+        </div>
+        <div class="overview-body" id="mag7SnapshotBody"></div>
+      </article>
+
+      <article class="card overview-card">
+        <div class="overview-head">
+          <div>
+            <p class="eyebrow">Relative Strength</p>
+            <h2>相对 QQQ 强弱</h2>
+          </div>
+        </div>
+        <div class="overview-body" id="leadersBody"></div>
+      </article>
+    </section>
+
+    <section class="decision-workspace" id="decisionWorkspace">
+      <article class="card workspace-card">
+        <div class="overview-head">
+          <div>
+            <p class="eyebrow">Portfolio Context</p>
+            <h2>我的持仓上下文</h2>
+          </div>
+        </div>
+        <div class="workspace-body" id="portfolioSnapshotBody"></div>
+      </article>
+
+      <article class="card workspace-card">
+        <div class="overview-head">
+          <div>
+            <p class="eyebrow">Decision Prep</p>
+            <h2>今日决策摘要</h2>
+          </div>
+        </div>
+        <div class="workspace-body" id="decisionWorkspaceBody"></div>
+      </article>
+    </section>
+
+    <section class="card strategy-card tool-card hidden" id="toolsPanel">
+      <details open>
+        <summary>
+          <span><span class="summary-kicker">AUTOMATION</span>规则与提醒</span>
+          <span class="summary-note">展开管理</span>
+        </summary>
+        <div class="tool-section" id="strategyPanel">
+          <div class="strategy-head">
+            <h2>自动回撤止盈规则</h2>
+            <p class="muted" id="strategyHint">规则格式：回撤%:卖出%（逗号分隔）</p>
+          </div>
+          <div class="strategy-form">
+            <div class="field strategy-input-wrap">
+              <label for="strategyRulesInput">规则</label>
+              <input id="strategyRulesInput" placeholder="例如 8:20,12:30,18:50" maxlength="120" />
+            </div>
+            <button type="button" class="btn btn-primary" id="saveStrategyBtn">保存规则</button>
+          </div>
+          <div class="signal-summary" id="signalSummary">当前无触发建议</div>
+          <div class="signal-list" id="signalList"></div>
+        </div>
+
+        <div class="tool-section tool-section-divider" id="alertsPanel">
+          <div class="strategy-head">
+            <h2>下跌提醒播报</h2>
+            <p class="muted" id="broadcastHint">当日跌幅达到阈值时自动语音播报。开启自动刷新后可持续盯盘。</p>
+          </div>
+          <div class="broadcast-form">
+            <label class="broadcast-toggle"><input type="checkbox" id="dropAlertEnabled" /> 开启播报</label>
+            <div class="field broadcast-threshold">
+              <label for="dropThresholdInput">跌幅阈值（%）</label>
+              <input id="dropThresholdInput" type="number" min="0.1" step="0.1" inputmode="decimal" />
+            </div>
+            <label class="broadcast-toggle"><input type="checkbox" id="dropAlertVoice" /> 语音</label>
+            <label class="broadcast-toggle"><input type="checkbox" id="dropAlertSound" /> 提示音</label>
+            <label class="broadcast-toggle"><input type="checkbox" id="dropAlertNotify" /> 桌面通知</label>
+            <button type="button" class="btn btn-ghost" id="testBroadcastBtn">试听</button>
+          </div>
+          <div class="signal-summary" id="dropSummary">当前无下跌触发</div>
+          <div class="signal-list" id="dropList"></div>
+        </div>
+      </details>
+    </section>
+
+    <section class="card list-card" id="watchlist">
       <div class="list-head">
         <div>
           <h2>我的自选</h2>
-          <p class="muted" id="listHint">当前接入东方财富公开接口，可直接拉取 A 股与常见美股行情。</p>
+          <p class="muted" id="listHint">当前接入东方财富公开接口，可直接拉取 A 股与常见美股行情，并优先服务纳指 / 七巨头跟踪。</p>
         </div>
         <div class="page-size-wrap">
           <label for="pageSizeSelect" class="muted">每页</label>
@@ -207,18 +346,12 @@
           <thead>
             <tr>
               <th>股票</th>
-              <th>市场</th>
-              <th>分组</th>
               <th>最新价</th>
-              <th>涨跌额</th>
               <th>涨跌幅</th>
-              <th>目标价</th>
-              <th>昨收 / 今开</th>
-              <th>日内区间</th>
+              <th>相对 QQQ</th>
               <th>较峰值回撤</th>
-              <th>止盈建议</th>
+              <th>建议动作</th>
               <th>趋势</th>
-              <th>备注</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -238,6 +371,8 @@
         <button type="button" class="btn btn-ghost" id="nextPageBtn">下一页</button>
       </div>
     </section>
+
+    <div class="detail-overlay hidden" id="detailOverlay"></div>
   </main>
 
   <template id="rowTemplate">
@@ -246,25 +381,20 @@
         <div class="stock-cell">
           <strong class="stock-symbol"></strong>
           <span class="stock-name"></span>
+          <div class="stock-meta"></div>
         </div>
       </td>
-      <td><span class="market-badge"></span></td>
-      <td><span class="group-badge"></span></td>
       <td class="price-cell"></td>
-      <td class="change-cell"></td>
       <td class="percent-cell"></td>
-      <td class="target-cell">
-        <input type="number" class="target-input" step="0.01" min="0" inputmode="decimal" placeholder="设目标" />
-        <span class="target-distance"></span>
-      </td>
-      <td class="prev-open-cell"></td>
-      <td class="range-cell"></td>
+      <td class="relative-cell"></td>
       <td class="drawdown-cell"></td>
       <td class="advice-cell"></td>
       <td><div class="sparkline"></div></td>
-      <td class="note-cell"></td>
       <td>
-        <button type="button" class="btn btn-ghost remove-btn">删除</button>
+        <div class="row-actions">
+          <button type="button" class="btn btn-ghost analyze-btn">分析</button>
+          <button type="button" class="btn btn-ghost remove-btn">删除</button>
+        </div>
       </td>
     </tr>
   </template>
