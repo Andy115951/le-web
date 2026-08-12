@@ -451,6 +451,7 @@ CRON_SECRET
 ### Phase 5：自动研究系统
 
 - [ ] Collector、Labeler、Attribution、Similarity、Scenario、Reporter、Evaluator Agents
+- [x] 固定泄漏安全的日度研究输入包契约，供后续 Reporter/Attribution 使用
 - [ ] 每日/每周自动报告
 - [ ] 失败告警和任务看板
 - [ ] 某日 Agent 流程回放
@@ -472,7 +473,7 @@ CRON_SECRET
 严格按顺序：
 
 1. 配置真实 `SEC_USER_AGENT` 并用手动命令验证生产写入；随后接入 FRED、公司 IR 与财报日历，为日度特征和相似日补齐官方宏观/公司事件维度。
-2. 为后续 DeepSeek 归因摘要准备严格引用来源的输入输出契约，不让模型修改原始数据或生成未经回测的概率。
+2. 为 DeepSeek 归因摘要定义严格的输出 Schema、引用要求和落库审计；模型不得修改日度研究输入包或生成未经回测的概率。
 3. 定义冻结的训练/验证时间切分，再开始情景概率基线与校准评估。
 
 公共市场表和 Cron 实际写入验证完成前不开始 AI 预测；价格、事件和时间戳质量稳定前不开始复杂机器学习。

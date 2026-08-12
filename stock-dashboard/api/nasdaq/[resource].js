@@ -6,6 +6,7 @@ const { getNasdaqMarketHistory } = require("../../lib/market-history-capture");
 const { getStoredForwardLabels } = require("../../lib/market-label-store");
 const { getStoredDailyPrices } = require("../../lib/price-history-store");
 const { getStoredSimilarDays } = require("../../lib/similar-day-store");
+const { getDailyResearchPacket } = require("../../lib/daily-research-packet");
 
 function sendJson(res, statusCode, payload) {
   res.statusCode = statusCode;
@@ -163,6 +164,20 @@ const resources = {
         return;
       }
       sendFailure(res, "Failed to load similar days", error);
+    }
+  },
+
+  async "research-packet"(req, res) {
+    try {
+      const packet = await getDailyResearchPacket(req.query?.date);
+      res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=900");
+      sendJson(res, 200, { ok: true, packet });
+    } catch (error) {
+      if (/Invalid calendar date/.test(error?.message || "")) {
+        sendInvalidQuery(res, "Invalid research packet date; expected YYYY-MM-DD");
+        return;
+      }
+      sendFailure(res, "Failed to build daily research packet", error);
     }
   }
 };

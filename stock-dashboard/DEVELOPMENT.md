@@ -455,6 +455,25 @@ npm run sec:filings -- NVDA,AAPL,MSFT
 
 运行结果只会输出数量、标的和日期，不会回显 User-Agent。官方 API 不需要 API Key，但必须遵守 SEC 的公平访问规范：声明 User-Agent、总请求速率不超过 10 次/秒、只拉取必要数据。实现当前以 125ms 间隔串行请求，且只回看最近 7 个自然日。参考：[SEC EDGAR APIs](https://www.sec.gov/search-filings/edgar-application-programming-interfaces) 和 [SEC Developer Resources](https://www.sec.gov/about/developer-resources)。
 
+#### 8.2.1 日度研究输入包（Agent 前置契约）
+
+当前没有接入 DeepSeek 或任何其他模型。先固定只读输入契约，避免模型直接访问数据库、未来标签或不受控的网页文本：
+
+```text
+GET /api/nasdaq/research-packet?date=2026-08-11
+```
+
+响应核心字段：
+
+- `asOf`：目标市场日期、美东时区、数据边界和明确排除项
+- `marketState`：QQQ 调整收盘、当日涨跌、后视波动与重新计算后的已知事件摘要
+- `events`：只含 `available_at` 不晚于该日美东 `16:00` 的结构化事件和证据 URL
+- `ndxSnapshot`：目标日或更早的成分权重快照
+- `historicalSimilarity`：更早候选日的历史结果、方法版本、特征版本与描述统计
+- `constraints`：允许和禁止的后续 Agent 用途
+
+该接口明确不包含 `researchOutcome`，也不输出交易建议、目标价或模型概率。未来接 LLM 时，只能向模型传入这个 JSON 或其更严格的裁剪版本；模型输出必须单独保存，不能回写或覆盖本接口中的原始事实。
+
 ### 8.3 NDX 成分与权重快照
 
 首个完整快照保存在：
