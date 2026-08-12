@@ -16,6 +16,8 @@ const { getBaselineEvaluationReport } = require("../../lib/evaluation-baseline-r
 const { getLogisticEvaluationReport } = require("../../lib/evaluation-logistic-report");
 const { getTreeEvaluationReport } = require("../../lib/evaluation-tree-report");
 const { getWalkForwardBacktestReport } = require("../../lib/evaluation-backtest-report");
+const { getResearchOutcomeEvaluations } = require("../../lib/research-outcome-evaluations");
+const { getSupabaseConfig } = require("../../lib/supabase-server");
 const { getCandidatePromotionReviews, getLogisticPromotionReview, getTreePromotionReview } = require("../../lib/evaluation-promotion-report");
 
 function sendJson(res, statusCode, payload) {
@@ -333,6 +335,16 @@ const resources = {
       sendJson(res, 200, { ok: true, researchOnly: true, report });
     } catch (error) {
       sendFailure(res, "Failed to load frozen walk-forward backtest", error);
+    }
+  },
+
+  async "research-outcomes"(req, res) {
+    try {
+      const result = await getResearchOutcomeEvaluations({ limit: req.query?.limit }, getSupabaseConfig());
+      res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=900");
+      sendJson(res, 200, { ok: true, researchOnly: true, ...result });
+    } catch (error) {
+      sendFailure(res, "Failed to load mature research outcomes", error);
     }
   }
 };

@@ -4,6 +4,11 @@ const { requestSupabase } = require("./supabase-server");
 const RESEARCH_OUTCOME_EVALUATION_VERSION = "research-outcome-20d-v1";
 const HORIZON_TRADING_DAYS = 20;
 
+function normalizeOutcomeLimit(value) {
+  const limit = Number(value) || 12;
+  return Math.max(1, Math.min(30, Math.round(limit)));
+}
+
 function finite(value) {
   if (value === null || value === undefined || value === "") return null;
   const number = Number(value);
@@ -32,4 +37,10 @@ async function evaluateMatureResearchOutcomes(config, options = {}) {
   return { evaluationVersion: RESEARCH_OUTCOME_EVALUATION_VERSION, snapshotsScanned: Array.isArray(snapshots) ? snapshots.length : 0, existingEvaluations: Array.isArray(existing) ? existing.length : 0, matureOutcomesWritten: rows.length };
 }
 
-module.exports = { HORIZON_TRADING_DAYS, RESEARCH_OUTCOME_EVALUATION_VERSION, buildOutcomeRows, evaluateMatureResearchOutcomes };
+async function getResearchOutcomeEvaluations(options = {}, config, requestImpl = requestSupabase) {
+  const limit = normalizeOutcomeLimit(options.limit);
+  const rows = await requestImpl(config, "/rest/v1/research_outcome_evaluations?select=market_date,evaluation_version,horizon_trading_days,label_version,realized_return_percent,maximum_drawdown_percent,realized_volatility_percent,evaluated_at,created_at&order=market_date.desc,evaluated_at.desc&limit=" + limit);
+  return { evaluationVersion: RESEARCH_OUTCOME_EVALUATION_VERSION, count: Array.isArray(rows) ? rows.length : 0, evaluations: Array.isArray(rows) ? rows : [] };
+}
+
+module.exports = { HORIZON_TRADING_DAYS, RESEARCH_OUTCOME_EVALUATION_VERSION, buildOutcomeRows, evaluateMatureResearchOutcomes, getResearchOutcomeEvaluations, normalizeOutcomeLimit };

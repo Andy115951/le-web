@@ -779,6 +779,12 @@ set +a
 npm run research-outcomes:evaluate
 ```
 
+只读查询最多返回 30 条公共市场结果，不包含 `snapshot_id`、完整研究包、用户持仓或任何服务端密钥：
+
+```text
+GET /api/nasdaq/research-outcomes?limit=12
+```
+
 当前远程首个 `2026-08-11` 研究快照尚未有成熟 20 日标签，实测正确返回 `matureOutcomesWritten: 0`。
 
 ### 8.3 NDX 成分与权重快照

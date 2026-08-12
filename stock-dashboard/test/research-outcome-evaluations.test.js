@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { buildOutcomeRows } = require("../lib/research-outcome-evaluations");
+const { buildOutcomeRows, normalizeOutcomeLimit } = require("../lib/research-outcome-evaluations");
 
 test("mature research outcomes only write snapshots with a mature 20-day label", function () {
   const rows = buildOutcomeRows([{ id: "one", market_date: "2026-01-02" }, { id: "two", market_date: "2026-01-05" }], [{ market_date: "2026-01-02", return_20d_percent: 4.2, max_drawdown_20d_percent: -2.1, realized_volatility_20d_percent: 12, label_version: "labels-v1" }, { market_date: "2026-01-05", return_20d_percent: null }], "2026-02-01T00:00:00.000Z");
@@ -15,4 +15,10 @@ test("existing snapshot evaluations are skipped instead of overwritten", functio
   assert.equal(rows.length, 1);
   assert.equal(rows[0].snapshot_id, "two");
   assert.equal(rows[0].maximum_drawdown_percent, null);
+});
+
+test("outcome read limits stay bounded for public research output", function () {
+  assert.equal(normalizeOutcomeLimit(), 12);
+  assert.equal(normalizeOutcomeLimit(100), 30);
+  assert.equal(normalizeOutcomeLimit(-2), 1);
 });
