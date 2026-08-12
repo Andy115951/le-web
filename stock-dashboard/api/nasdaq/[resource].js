@@ -23,6 +23,7 @@ const { getDailyResearchReports } = require("../../lib/daily-research-reports");
 const { getWeeklyResearchReports } = require("../../lib/weekly-research-reports");
 const { getResearchTaskRuns } = require("../../lib/research-task-runs");
 const { getResearchQuality } = require("../../lib/research-quality");
+const { getResearchFlowReplay } = require("../../lib/research-flow-replay");
 const { getCandidatePromotionReviews, getLogisticPromotionReview, getTreePromotionReview } = require("../../lib/evaluation-promotion-report");
 
 function sendJson(res, statusCode, payload) {
@@ -48,6 +49,23 @@ function sendFailure(res, message, error) {
 }
 
 const resources = {
+  async "research-flow"(req, res) {
+    try {
+      const flow = await getResearchFlowReplay({ snapshotId: req.query?.snapshotId }, getSupabaseConfig());
+      if (!flow) {
+        sendJson(res, 404, { ok: false, error: "Research snapshot was not found" });
+        return;
+      }
+      res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=900");
+      sendJson(res, 200, { ok: true, researchOnly: true, flow });
+    } catch (error) {
+      if (/Invalid research snapshot id/.test(error?.message || "")) {
+        sendInvalidQuery(res, "Invalid research snapshot id");
+        return;
+      }
+      sendFailure(res, "Failed to load research flow replay", error);
+    }
+  },
   async "research-quality"(_req, res) {
     try {
       const quality = await getResearchQuality({ config: getSupabaseConfig() });

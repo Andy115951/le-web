@@ -837,6 +837,14 @@ GET /api/nasdaq/research-tasks?limit=20
 
 当前生产环境没有 `SEC_USER_AGENT`、`FRED_API_KEY` 或 DeepSeek 配置；因此 SEC 公司披露、宏观观测和模型摘要仍是明确关闭/缺失的能力。下一次完整收盘采集会开始填充新的阶段账本，历史运行不做推测性回填。
 
+#### 8.2.17 快照级研究流程回放
+
+`GET /api/nasdaq/research-flow?snapshotId=<uuid>` 以单个不可变 `research_packet_snapshots.id` 为唯一入口，精确关联：该输入包、同一 `snapshot_id` 的确定性日报、同一 `packet_fingerprint` 的模型审计状态，以及同一 `snapshot_id` 的 20 交易日结果审计。看板“研究输入回放”选择快照后，展示输入归档、每日事实、模型摘要和结果审计四个阶段的真实状态。
+
+模型审计的查询分为两条：所有尝试只读取 `status / provider / model / created_at` 摘要；只有 `accepted` 记录才读取并显示已通过校验的叙述。`rejected` 尝试仅显示次数和状态，绝不读取或返回原始模型文本、验证错误、元数据、请求头或密钥。日报和结果若不存在只标记 `not_archived`，该状态不推断是任务未执行、仍在 20 日窗口中，还是历史记录缺失。
+
+该接口不触发 Cron、模型或写入。Collector、Labeler、Attribution 的独立运行记录仍未关联到快照，因此“完整跨 Agent 运维回放”仍属于后续任务。
+
 首次部署不会用旧版 `market_capture_runs.details` 猜测补填历史任务。下一次完整美股收盘采集后才会出现第一批真实阶段记录；尚未进入收盘窗口或被提前跳过的运行没有伪造的阶段账本。网页不提供重试按钮，诊断或手动重跑必须继续使用受 `CRON_SECRET` 保护的运维入口。
 
 ### 8.3 NDX 成分与权重快照

@@ -175,6 +175,7 @@ const state = {
     detail: null,
     detailLoading: false,
     detailError: "",
+    flow: null,
     narratives: [],
     narrativesLoading: false,
     narrativeError: "",
@@ -1089,6 +1090,7 @@ async function refreshResearchReplay() {
     if (replay.snapshots[0]) await selectResearchSnapshot(replay.snapshots[0]);
     else {
       replay.detail = null;
+      replay.flow = null;
       renderResearchReplay();
     }
   } catch (error) {
@@ -1105,31 +1107,25 @@ async function selectResearchSnapshot(snapshot) {
   replay.selectedFingerprint = snapshot.packet_fingerprint || "";
   replay.detail = null;
   replay.detailError = "";
+  replay.flow = null;
   replay.narratives = [];
   replay.narrativeError = "";
   const requestId = ++replay.detailRequestId;
   replay.detailLoading = true;
-  replay.narrativesLoading = true;
+  replay.narrativesLoading = false;
   renderResearchReplay();
   try {
-    const date = String(snapshot.market_date || "");
-    const responses = await Promise.all([
-      fetch("./api/nasdaq/research-packet-snapshots?date=" + encodeURIComponent(date) + "&includePacket=true&limit=30"),
-      fetch("./api/nasdaq/research-narratives?date=" + encodeURIComponent(date) + "&limit=5")
-    ]);
-    const payload = await responses[0].json().catch(function () { return {}; });
-    const narrativePayload = await responses[1].json().catch(function () { return {}; });
-    if (!responses[0].ok) throw new Error(payload?.error || "读取完整研究输入失败");
+    const response = await fetch("./api/nasdaq/research-flow?snapshotId=" + encodeURIComponent(replay.selectedId));
+    const payload = await response.json().catch(function () { return {}; });
+    if (!response.ok) throw new Error(payload?.error || "读取完整研究流程失败");
     if (requestId !== replay.detailRequestId) return;
-    const snapshots = Array.isArray(payload?.snapshots) ? payload.snapshots : [];
-    replay.detail = snapshots.find(function (item) {
-      return item.id === replay.selectedId || item.packet_fingerprint === replay.selectedFingerprint;
-    }) || null;
+    replay.flow = payload?.flow || null;
+    replay.detail = replay.flow?.snapshot || null;
     if (!replay.detail) throw new Error("找不到所选快照的完整输入");
-    replay.narratives = responses[1].ok && Array.isArray(narrativePayload?.narratives)
-      ? narrativePayload.narratives.filter(function (item) { return item?.packet_fingerprint === replay.detail.packet_fingerprint; })
+    replay.narratives = Array.isArray(replay.flow?.stages?.modelNarrative?.narratives)
+      ? replay.flow.stages.modelNarrative.narratives
       : [];
-    replay.narrativeError = responses[1].ok ? "" : (narrativePayload?.error || "读取已验证摘要失败");
+    replay.narrativeError = "";
     replay.detailLoading = false;
     replay.narrativesLoading = false;
     renderResearchReplay();
@@ -1221,12 +1217,41 @@ function renderResearchReplayDetail() {
     '<div><span>相似样本</span><strong>' + matches.length + "</strong></div>",
     "</div>",
     renderReplaySourceSummary(summary),
+    renderReplayFlowTimeline(replay.flow),
     renderReplayNarrative(replay),
     renderReplayEvents(events),
     renderReplayMatches(matches),
     '<details class="replay-json"><summary>查看原始输入 JSON <span>' + escapeHtml(String(snapshot.packet_fingerprint || "").slice(0, 16)) + "…</span></summary><pre>" + escapeHtml(JSON.stringify(packet, null, 2)) + "</pre></details>",
     '<p class="replay-note">该包为已归档输入。它不包含模型输出、用户持仓、服务器密钥或请求头；已人工拒绝的事件不会进入此证据集。</p>'
   ].join("");
+}
+
+function renderReplayFlowTimeline(flow) {
+  const stages = flow?.stages || {};
+  const definitions = [
+    ["INPUT", "输入归档", stages.inputArchive],
+    ["REPORT", "每日事实", stages.dailyFactReport],
+    ["MODEL", "模型摘要", stages.modelNarrative],
+    ["OUTCOME", "20 日结果", stages.outcomeEvaluation]
+  ];
+  return '<section class="replay-flow"><div class="replay-block-head"><strong>完整研究流程</strong><span>ARCHIVED ARTIFACTS</span></div><div class="replay-flow-stages">' + definitions.map(function ([label, name, value]) {
+    const stage = value || {};
+    const status = String(stage.status || "unknown");
+    const note = replayFlowNote(status, stage);
+    return '<article class="is-' + escapeHtml(status.replace(/_/g, "-")) + '"><span>' + escapeHtml(label) + '</span><b>' + escapeHtml(name) + '</b><strong>' + escapeHtml(replayFlowStatusLabel(status)) + '</strong><small>' + escapeHtml(note) + '</small></article>';
+  }).join("") + "</div></section>";
+}
+
+function replayFlowStatusLabel(status) {
+  return ({ archived: "已归档", accepted: "已验证", rejected: "已拒绝", evaluated: "已评估", not_generated: "未生成", not_archived: "未归档" })[status] || "未知";
+}
+
+function replayFlowNote(status, stage) {
+  if (status === "archived") return stage.createdAt ? "归档 " + formatDualMarketTime(stage.createdAt) : (stage.capturedAt ? "采集 " + formatDualMarketTime(stage.capturedAt) : "已保存真实工件");
+  if (status === "accepted") return "通过校验 " + Number(stage.acceptedCount || 0) + " 份";
+  if (status === "rejected") return "拒绝 " + Number(stage.rejectedCount || 0) + " 次，未公开原始输出";
+  if (status === "evaluated") return "真实结果已追加";
+  return stage.reason || "当前没有对应的已归档工件";
 }
 
 function renderReplayNarrative(replay) {
