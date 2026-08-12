@@ -83,6 +83,9 @@ const els = {
   refreshDailyReportsBtn: document.getElementById("refreshDailyReportsBtn"),
   dailyReportsHint: document.getElementById("dailyReportsHint"),
   dailyReportsBody: document.getElementById("dailyReportsBody"),
+  refreshWeeklyReportsBtn: document.getElementById("refreshWeeklyReportsBtn"),
+  weeklyReportsHint: document.getElementById("weeklyReportsHint"),
+  weeklyReportsBody: document.getElementById("weeklyReportsBody"),
   rowTemplate: document.getElementById("rowTemplate"),
   countStat: document.getElementById("countStat"),
   upStat: document.getElementById("upStat"),
@@ -179,6 +182,7 @@ const state = {
   },
   researchHealth: { value: null, loading: false, error: "" },
   dailyReports: { reports: [], loading: false, error: "" },
+  weeklyReports: { reports: [], loading: false, error: "" },
   targetHits: new Set(),
   dropAlerted: new Set(),
   audioCtx: null,
@@ -224,7 +228,7 @@ async function init() {
   updateCloudButtons();
   await initCloud(cloudConfig);
   await refreshQuotes();
-  await Promise.all([refreshMarketHistory(), refreshMarketCalendar(), refreshResearchReplay(), refreshModelReview(), refreshResearchHealth(), refreshDailyReports()]);
+  await Promise.all([refreshMarketHistory(), refreshMarketCalendar(), refreshResearchReplay(), refreshModelReview(), refreshResearchHealth(), refreshDailyReports(), refreshWeeklyReports()]);
 }
 
 function getNewYorkMonth(now = new Date()) {
@@ -330,6 +334,7 @@ function bindEvents() {
   }
   if (els.refreshResearchHealthBtn) els.refreshResearchHealthBtn.addEventListener("click", function () { void refreshResearchHealth(); });
   if (els.refreshDailyReportsBtn) els.refreshDailyReportsBtn.addEventListener("click", function () { void refreshDailyReports(); });
+  if (els.refreshWeeklyReportsBtn) els.refreshWeeklyReportsBtn.addEventListener("click", function () { void refreshWeeklyReports(); });
   if (els.modelReviewBody) {
     els.modelReviewBody.addEventListener("click", function (event) {
       const button = event.target.closest("[data-model-review-version]");
@@ -1363,6 +1368,65 @@ function renderDailyReport(row) {
     '<div class="daily-report-metrics"><div><span>QQQ 收盘</span><strong>' + (Number.isFinite(Number(market.adjustedClose)) ? escapeHtml(formatNumber(Number(market.adjustedClose))) : "--") + '</strong></div><div><span>可引用事件</span><strong>' + Number(evidence.eventCount || 0) + '</strong></div><div><span>相似样本</span><strong>' + Number(evidence.similarDayCandidateCount || 0) + "</strong></div></div>",
     '<p><b>来源</b>' + escapeHtml(sourceText) + '</p>',
     '<small>确定性事实摘要 · ' + escapeHtml(String(row.report_version || report.reportVersion || "--")) + "</small>",
+    "</article>"
+  ].join("");
+}
+
+async function refreshWeeklyReports() {
+  if (!els.weeklyReportsBody || !els.weeklyReportsHint) return;
+  const weeklyReports = state.weeklyReports;
+  weeklyReports.loading = true;
+  weeklyReports.error = "";
+  renderWeeklyReports();
+  try {
+    const response = await fetch("./api/nasdaq/weekly-reports?limit=6");
+    const payload = await response.json().catch(function () { return {}; });
+    if (!response.ok) throw new Error(payload?.error || "读取每周研究汇总失败");
+    weeklyReports.reports = Array.isArray(payload?.reports) ? payload.reports : [];
+  } catch (error) {
+    weeklyReports.error = error?.message || "读取每周研究汇总失败";
+  }
+  weeklyReports.loading = false;
+  renderWeeklyReports();
+}
+
+function renderWeeklyReports() {
+  if (!els.weeklyReportsBody || !els.weeklyReportsHint) return;
+  const weeklyReports = state.weeklyReports;
+  if (weeklyReports.loading && !weeklyReports.reports.length) {
+    els.weeklyReportsBody.innerHTML = '<div class="weekly-reports-empty">正在聚合已归档日报…</div>';
+    return;
+  }
+  if (weeklyReports.error && !weeklyReports.reports.length) {
+    els.weeklyReportsHint.textContent = "每周汇总暂时不可用，其他研究功能不受影响。";
+    els.weeklyReportsBody.innerHTML = '<div class="weekly-reports-empty is-error">' + escapeHtml(weeklyReports.error) + "</div>";
+    return;
+  }
+  if (!weeklyReports.reports.length) {
+    els.weeklyReportsHint.textContent = "还没有可聚合的日报。系统只会汇总已归档事实，不会把缺失日或假日补成数据。";
+    els.weeklyReportsBody.innerHTML = '<div class="weekly-reports-empty"><strong>暂无每周汇总</strong><span>至少有一份已归档日报后才会显示事实覆盖范围。</span></div>';
+    return;
+  }
+  els.weeklyReportsHint.textContent = "最近 " + weeklyReports.reports.length + " 个纽约自然周的事实汇总；覆盖标签只描述实际归档日报天数，不构成预测或投资建议。";
+  els.weeklyReportsBody.innerHTML = weeklyReports.reports.map(renderWeeklyReport).join("");
+}
+
+function renderWeeklyReport(row) {
+  const report = row?.report && typeof row.report === "object" ? row.report : {};
+  const market = report.market || {};
+  const evidence = report.evidence || {};
+  const coverage = report.coverage || {};
+  const change = Number(market.observedWindowChangePercent);
+  const hasChange = Number.isFinite(change);
+  const providers = Object.entries(evidence.providers || {});
+  const providerText = providers.length ? providers.map(function ([name, count]) { return name + " " + count; }).join(" · ") : "暂无可引用来源";
+  return [
+    '<article class="weekly-report-card">',
+    '<div class="weekly-report-head"><div><span>WEEK OF</span><strong>' + escapeHtml(formatMarketDate(row.weekStart || report.weekStart)) + '</strong></div><b class="' + replayTone(change) + '">' + (hasChange ? escapeHtml(formatSigned(change) + "%") : "--") + "</b></div>",
+    '<div class="weekly-report-meta"><b class="' + escapeHtml(String(coverage.status || "limited")) + '">' + escapeHtml(String(coverage.status || "limited").toUpperCase()) + '</b><span>' + Number(coverage.archivedDailyReports || 0) + " 个归档日 · " + escapeHtml(formatMarketDate(report.observedStart)) + " 至 " + escapeHtml(formatMarketDate(report.observedEnd)) + "</span></div>",
+    '<div class="weekly-report-metrics"><div><span>期末 QQQ</span><strong>' + (Number.isFinite(Number(market.observedEndClose)) ? escapeHtml(formatNumber(Number(market.observedEndClose))) : "--") + '</strong></div><div><span>可引用事件</span><strong>' + Number(evidence.eventCount || 0) + '</strong></div><div><span>相似样本</span><strong>' + Number(evidence.similarDayCandidateCount || 0) + "</strong></div></div>",
+    '<p><b>来源</b>' + escapeHtml(providerText) + '</p>',
+    '<small>确定性周汇总 · ' + escapeHtml(String(report.reportVersion || "--")) + "</small>",
     "</article>"
   ].join("");
 }

@@ -35,6 +35,7 @@
         <button type="button" class="command-link" data-scroll-target="marketCalendar">市场日历</button>
         <button type="button" class="command-link" data-scroll-target="researchReplay">研究回放</button>
         <button type="button" class="command-link" data-scroll-target="dailyResearchReports">每日研究</button>
+        <button type="button" class="command-link" data-scroll-target="weeklyResearchReports">每周汇总</button>
         <button type="button" class="command-link" data-scroll-target="modelReview">模型复核</button>
         <button type="button" class="command-link" data-scroll-target="watchlist">个人持仓</button>
       </div>
@@ -294,6 +295,15 @@
       </div>
       <p class="muted" id="dailyReportsHint">日报由已归档研究输入确定性生成，不包含预测、建议或交易指令。</p>
       <div class="daily-reports-grid" id="dailyReportsBody" aria-live="polite"></div>
+    </section>
+
+    <section class="weekly-reports card" id="weeklyResearchReports">
+      <div class="section-heading">
+        <div><p class="eyebrow">WEEKLY FACT ROLLUP</p><h2>每周研究汇总</h2></div>
+        <button type="button" class="btn btn-ghost" id="refreshWeeklyReportsBtn">刷新周报</button>
+      </div>
+      <p class="muted" id="weeklyReportsHint">按纽约自然周聚合已归档日报；覆盖范围只代表实际归档天数，不对缺失交易日作推断。</p>
+      <div class="weekly-reports-grid" id="weeklyReportsBody" aria-live="polite"></div>
     </section>
 
     <section class="model-review" id="modelReview">
