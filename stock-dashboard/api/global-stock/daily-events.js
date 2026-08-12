@@ -9,13 +9,9 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  const symbols = String(req.query?.symbols || "").split(",");
-  if (!symbols.length || !symbols.some(function (symbol) { return String(symbol).trim(); })) {
-    res.statusCode = 400;
-    res.setHeader("Content-Type", "application/json; charset=utf-8");
-    res.end(JSON.stringify({ error: "symbols is required" }));
-    return;
-  }
+  const symbols = String(req.query?.symbols || "").split(",").filter(function (symbol) {
+    return String(symbol).trim();
+  });
 
   try {
     const result = await getDailyMarketEvents(symbols, {

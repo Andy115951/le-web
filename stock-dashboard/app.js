@@ -60,6 +60,7 @@ const els = {
   lastUpdated: document.getElementById("lastUpdated"),
   actionQueueBody: document.getElementById("actionQueueBody"),
   marketEventsBody: document.getElementById("marketEventsBody"),
+  marketNewsFeed: document.getElementById("marketNewsFeed"),
   marketEventsHint: document.getElementById("marketEventsHint"),
   marketHistoryBody: document.getElementById("marketHistoryBody"),
   marketHistoryHint: document.getElementById("marketHistoryHint"),
@@ -139,7 +140,9 @@ const state = {
 
 const NASDAQ_BENCHMARK_SYMBOL = "QQQ";
 const MAG7_ETF_SYMBOL = "MAGS";
-const MAG7_SYMBOLS = ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA"];
+// Mirrored from lib/nasdaq-universe.js so quotes can start before the API responds.
+const NASDAQ_FOCUS_SYMBOLS = ["QQQ", "MAGS", "NVDA", "AAPL", "MU", "MSFT", "AMD", "AMZN", "TSLA", "GOOGL", "GOOG", "INTC", "META", "AVGO"];
+const NASDAQ_CORE_SYMBOLS = ["NVDA", "AAPL", "MU", "MSFT", "AMD", "AMZN", "TSLA", "GOOGL", "INTC", "META", "AVGO"];
 
 init();
 
@@ -179,7 +182,9 @@ function buildGlobalDetailUrl(symbol) {
 }
 
 function buildDailyMarketEventsUrl(symbols, benchmarkChange) {
-  const params = new URLSearchParams({ symbols: (symbols || []).join(",") });
+  const params = new URLSearchParams();
+  params.set("mode", "nasdaq-focus-v1");
+  if (Array.isArray(symbols) && symbols.length) params.set("symbols", symbols.join(","));
   if (Number.isFinite(Number(benchmarkChange))) params.set("benchmarkChange", String(benchmarkChange));
   return "./api/global-stock/daily-events?" + params.toString();
 }
@@ -767,9 +772,10 @@ async function refreshQuotesInternal(options) {
   els.refreshBtn.disabled = true;
   setStatus("neutral", options.trigger === "auto" ? "自动刷新中..." : "正在刷新...");
   try {
-    state.quotes = await fetchQuotes(state.items.map(function (item) {
+    const quoteSymbols = Array.from(new Set(NASDAQ_FOCUS_SYMBOLS.concat(state.items.map(function (item) {
       return item.symbol;
-    }));
+    }))));
+    state.quotes = await fetchQuotes(quoteSymbols);
     syncPeaksWithQuotes();
     persist();
     refreshed = true;
@@ -790,8 +796,7 @@ async function refreshQuotesInternal(options) {
 }
 
 async function refreshDailyMarketEvents(options) {
-  const symbols = state.items.map(function (item) { return item.symbol; }).filter(isGlobalStockSymbol);
-  if (!symbols.length || state.marketEventsLoading) return;
+  if (state.marketEventsLoading) return;
 
   const now = Date.now();
   if (!options?.force && now - state.marketEventsFetchedAt < 10 * 60 * 1000) return;
@@ -802,7 +807,7 @@ async function refreshDailyMarketEvents(options) {
 
   try {
     const benchmarkChange = state.quotes[NASDAQ_BENCHMARK_SYMBOL]?.changePercent;
-    const response = await fetch(buildDailyMarketEventsUrl(symbols, benchmarkChange));
+    const response = await fetch(buildDailyMarketEventsUrl([], benchmarkChange));
     const payload = await response.json().catch(function () { return {}; });
     if (!response.ok) throw new Error(payload?.error || "当日行情线索抓取失败");
 
@@ -1073,7 +1078,7 @@ function renderMag7Snapshot() {
   });
 
   if (!validMembers.length) {
-    els.mag7SnapshotBody.innerHTML = '<p class="muted">等待七巨头行情后生成总览。</p>';
+    els.mag7SnapshotBody.innerHTML = '<p class="muted">等待核心成分行情后生成总览。</p>';
     return;
   }
 
@@ -1099,7 +1104,7 @@ function renderMag7Snapshot() {
   })[0];
 
   els.mag7SnapshotBody.innerHTML = [
-    renderOverviewMetric("七巨头均值", formatSigned(avgChange) + "%", qqqChange === null ? "等待 QQQ 基准" : "相对 QQQ " + formatSigned(avgChange - qqqChange) + "%"),
+    renderOverviewMetric("核心成分均值", formatSigned(avgChange) + "%", qqqChange === null ? "等待 QQQ 基准" : "相对 QQQ " + formatSigned(avgChange - qqqChange) + "%"),
     renderOverviewMetric("上涨 / 下跌", upCount + " / " + downCount, "广度越高，板块越整齐"),
     renderOverviewMetric("跑赢 QQQ", String(outperformCount) + " / " + String(validMembers.length), "衡量内部强弱扩散"),
     renderOverviewMetric("最强 / 最弱", (leader ? leader.item.symbol : "--") + " / " + (laggard ? laggard.item.symbol : "--"), "快速定位领涨与拖累"),
@@ -1456,12 +1461,14 @@ function getRelativeToBenchmark(symbol) {
 }
 
 function getMag7Members() {
-  return state.items.filter(function (item) {
-    return MAG7_SYMBOLS.includes(item.symbol);
-  }).map(function (item) {
+  return NASDAQ_CORE_SYMBOLS.map(function (symbol) {
+    const quote = state.quotes[symbol] || null;
     return {
-      item,
-      quote: state.quotes[item.symbol] || null
+      item: {
+        symbol,
+        displayName: quote?.name || symbol
+      },
+      quote
     };
   });
 }
@@ -1848,10 +1855,12 @@ function renderMarketEvents() {
     return !current || String(entry?.date || "") > current ? String(entry.date) : current;
   }, "");
   const events = state.marketEvents.filter(function (entry) {
-    return entry?.date === latestDate;
+    return entry?.date === latestDate && NASDAQ_FOCUS_SYMBOLS.includes(String(entry?.symbol || "").toUpperCase());
   }).sort(function (left, right) {
     return Math.abs(Number(right?.changePercent || 0)) - Math.abs(Number(left?.changePercent || 0));
   });
+
+  renderMarketNewsFeed(events);
 
   if (!events.length) {
     els.marketEventsBody.innerHTML = [
@@ -1859,13 +1868,71 @@ function renderMarketEvents() {
       '<strong>' + (state.marketEventsLoading ? "正在建立今日事件记录" : "还没有可展示的当日线索") + "</strong>",
       '<p class="muted">' + (state.marketEventsError
         ? escapeHtml(state.marketEventsError)
-        : "刷新行情后会自动抓取 QQQ 对照和公司公开资讯。") + "</p>",
+        : "刷新行情后会自动抓取 Nasdaq 核心成分、QQQ 对照和公开资讯。") + "</p>",
       "</article>"
     ].join("");
     return;
   }
 
-  els.marketEventsBody.innerHTML = events.map(renderMarketEventCard).join("");
+  els.marketEventsBody.innerHTML = events.slice(0, 9).map(renderMarketEventCard).join("");
+}
+
+function renderMarketNewsFeed(events) {
+  if (!els.marketNewsFeed) return;
+  const deduped = new Map();
+  (events || []).forEach(function (event) {
+    (Array.isArray(event?.news) ? event.news : []).forEach(function (item) {
+      const title = String(item?.title || "").trim();
+      const url = String(item?.url || "").trim();
+      if (!title || !url) return;
+      const key = title.toLowerCase().replace(/\s+/g, " ");
+      const current = deduped.get(key);
+      const candidate = {
+        symbol: String(event?.symbol || "NDX"),
+        title,
+        url,
+        publisher: String(item?.publisher || "资讯来源"),
+        publishedAt: String(item?.publishedAt || "")
+      };
+      if (!current || new Date(candidate.publishedAt).getTime() > new Date(current.publishedAt).getTime()) {
+        deduped.set(key, candidate);
+      }
+    });
+  });
+  const news = Array.from(deduped.values()).sort(function (left, right) {
+    return new Date(right.publishedAt || 0).getTime() - new Date(left.publishedAt || 0).getTime();
+  }).slice(0, 8);
+
+  if (!news.length) {
+    els.marketNewsFeed.innerHTML = '<div class="news-wire-empty"><strong>新闻雷达等待更新</strong><span>有可复核的新来源后会按发布时间展示。</span></div>';
+    return;
+  }
+
+  els.marketNewsFeed.innerHTML = [
+    '<div class="news-wire-head"><div><span class="eyebrow">LIVE NEWS WIRE</span><strong>Nasdaq 关联动态</strong></div><span class="muted">近 36 小时 · 去重后 ' + news.length + " 条</span></div>",
+    '<div class="news-wire-grid">',
+    news.map(function (item) {
+      return [
+        '<a class="news-wire-item" href="' + escapeHtml(item.url) + '" target="_blank" rel="noreferrer">',
+        '<span class="news-wire-symbol">' + escapeHtml(item.symbol) + "</span>",
+        '<strong>' + escapeHtml(item.title) + "</strong>",
+        '<span class="news-wire-meta">' + escapeHtml(item.publisher) + " · " + escapeHtml(formatNewsTime(item.publishedAt)) + "</span>",
+        "</a>"
+      ].join("");
+    }).join(""),
+    "</div>"
+  ].join("");
+}
+
+function formatNewsTime(value) {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "时间未知";
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date);
 }
 
 function renderMarketEventCard(event) {
@@ -1907,24 +1974,16 @@ function renderMarketHistory() {
     button.classList.toggle("is-active", Number(button.getAttribute("data-history-range")) === state.marketHistoryRange);
   });
 
-  if (!state.cloud.client || !state.cloud.user) {
-    els.marketHistoryHint.textContent = "登录 Supabase 后会自动保留每天收盘快照，并在多设备间同步。";
-    els.marketHistoryBody.innerHTML = [
-      '<article class="market-history-empty">',
-      "<strong>历史看板需要云端登录</strong>",
-      '<p class="muted">当前的当日线索仍可使用；登录云端并执行历史表迁移后，系统会开始持续保存每日收盘原因。</p>',
-      "</article>"
-    ].join("");
-    return;
-  }
+  const historyEntries = getAvailableMarketHistory();
+  const usingCloudHistory = Boolean(state.cloud.client && state.cloud.user && state.marketHistory.length);
 
-  if (state.marketHistoryLoading) {
+  if (state.marketHistoryLoading && !historyEntries.length) {
     els.marketHistoryHint.textContent = "正在读取历史收盘快照…";
     els.marketHistoryBody.innerHTML = '<article class="market-history-empty"><strong>正在加载历史</strong><p class="muted">按交易日整理涨跌、QQQ 对照和新闻证据。</p></article>';
     return;
   }
 
-  if (state.marketHistoryError) {
+  if (state.marketHistoryError && !historyEntries.length) {
     els.marketHistoryHint.textContent = "历史表尚未可用或本次加载失败。";
     els.marketHistoryBody.innerHTML = [
       '<article class="market-history-empty">',
@@ -1936,15 +1995,17 @@ function renderMarketHistory() {
     return;
   }
 
-  if (!state.marketHistory.length) {
-    els.marketHistoryHint.textContent = "每日收盘后会自动归档；你刷新页面时也会即时补写当天快照。";
-    els.marketHistoryBody.innerHTML = '<article class="market-history-empty"><strong>还没有历史快照</strong><p class="muted">首次执行迁移后，下一次刷新或收盘任务会写入当天事件。</p></article>';
+  if (!historyEntries.length) {
+    els.marketHistoryHint.textContent = "刷新后会先保留本机最近 14 天；云端历史将在后续持续补齐。";
+    els.marketHistoryBody.innerHTML = '<article class="market-history-empty"><strong>还没有历史快照</strong><p class="muted">完成第一次 Nasdaq 新闻雷达刷新后，这里会开始形成日度脉络。</p></article>';
     return;
   }
 
-  els.marketHistoryHint.textContent = "已加载最近 " + state.marketHistoryRange + " 天。展开某个交易日可查看每只股票的涨跌线索与原文证据。";
+  els.marketHistoryHint.textContent = usingCloudHistory
+    ? "已加载最近 " + state.marketHistoryRange + " 天云端记录。展开交易日可查看涨跌线索与原文证据。"
+    : "正在展示本机最近 14 天的 Nasdaq 雷达记录；无需登录即可使用。";
   const byDate = new Map();
-  state.marketHistory.forEach(function (entry) {
+  historyEntries.forEach(function (entry) {
     const date = String(entry?.market_date || "").slice(0, 10);
     if (!date) return;
     if (!byDate.has(date)) byDate.set(date, []);
@@ -1956,6 +2017,27 @@ function renderMarketHistory() {
   els.marketHistoryBody.innerHTML = groups.map(function (group, index) {
     return renderMarketHistoryDay(group[0], group[1], index === 0);
   }).join("");
+}
+
+function getAvailableMarketHistory() {
+  if (state.cloud.client && state.cloud.user && state.marketHistory.length) return state.marketHistory;
+  return state.marketEvents.filter(function (entry) {
+    return NASDAQ_FOCUS_SYMBOLS.includes(String(entry?.symbol || "").toUpperCase());
+  }).map(function (entry) {
+    return {
+      market_date: entry.date,
+      symbol: entry.symbol,
+      display_name: entry.name,
+      change_percent: entry.changePercent,
+      benchmark_change_percent: entry.benchmarkChangePercent,
+      driver_type: entry.driverType,
+      confidence: entry.confidence,
+      summary: entry.summary,
+      reasons: entry.reasons,
+      news: entry.news,
+      captured_at: entry.capturedAt
+    };
+  });
 }
 
 function renderMarketHistoryDay(date, entries, open) {

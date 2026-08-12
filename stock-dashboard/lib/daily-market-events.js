@@ -1,6 +1,28 @@
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36";
+const {
+  NASDAQ_FOCUS_INSTRUMENTS,
+  NASDAQ_UNIVERSE_AS_OF,
+  NASDAQ_UNIVERSE_SOURCE,
+  getNasdaqFocusSymbols
+} = require("./nasdaq-universe");
 const MAX_SYMBOLS = 16;
 const FRESH_NEWS_WINDOW_MS = 36 * 60 * 60 * 1000;
+const NEWS_ALIASES = {
+  QQQ: ["qqq", "nasdaq", "nasdaq-100", "nasdaq 100", "big tech", "tech stocks"],
+  MAGS: ["mags", "magnificent seven", "magnificent 7", "big tech", "mega-cap tech", "megacap tech"],
+  NVDA: ["nvda", "nvidia"],
+  AAPL: ["aapl", "apple"],
+  MU: ["micron", "micron technology", "mu stock"],
+  MSFT: ["msft", "microsoft"],
+  AMD: ["amd", "advanced micro devices"],
+  AMZN: ["amzn", "amazon"],
+  TSLA: ["tsla", "tesla"],
+  GOOGL: ["googl", "alphabet", "google"],
+  GOOG: ["goog", "alphabet", "google"],
+  INTC: ["intc", "intel"],
+  META: ["meta stock", "meta platforms", "facebook", "instagram"],
+  AVGO: ["avgo", "broadcom"]
+};
 
 function normalizeSymbol(value) {
   return String(value || "").trim().toUpperCase();
@@ -70,7 +92,16 @@ function isAfterUsMarketClose(now) {
   return ["Mon", "Tue", "Wed", "Thu", "Fri"].includes(clock.weekday) && Number(clock.hour) >= 17;
 }
 
-function parseNews(payload) {
+function isRelevantNewsTitle(title, symbol) {
+  const normalizedTitle = String(title || "").trim().toLowerCase();
+  const aliases = NEWS_ALIASES[normalizeSymbol(symbol)] || [normalizeSymbol(symbol).toLowerCase()];
+  return aliases.some(function (alias) {
+    const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp("(^|[^a-z0-9])" + escaped + "([^a-z0-9]|$)", "i").test(normalizedTitle);
+  });
+}
+
+function parseNews(payload, symbol) {
   const items = Array.isArray(payload?.news) ? payload.news : [];
   return items.map(function (item) {
     const timestamp = Number(item?.providerPublishTime);
@@ -81,7 +112,7 @@ function parseNews(payload) {
       url: String(item?.link || item?.clickThroughUrl?.url || "").trim()
     };
   }).filter(function (item) {
-    return item.title && item.url;
+    return item.title && item.url && isRelevantNewsTitle(item.title, symbol);
   });
 }
 
@@ -104,7 +135,7 @@ async function fetchTickerContext(symbol) {
     marketTimestamp: Number.isFinite(Number(meta.regularMarketTime))
       ? Number(meta.regularMarketTime) * 1000
       : null,
-    news: parseNews(searchPayload)
+    news: parseNews(searchPayload, symbol)
   };
 }
 
@@ -178,8 +209,10 @@ function buildEvent(context, benchmark, now) {
 }
 
 async function getDailyMarketEvents(symbols, options) {
-  const normalized = Array.from(new Set((symbols || []).map(normalizeSymbol).filter(isGlobalStockSymbol))).slice(0, MAX_SYMBOLS);
-  if (!normalized.length) return { date: marketDate(new Date()), events: [], failedSymbols: [] };
+  const requested = Array.isArray(symbols) ? symbols : [];
+  const normalizedRequested = Array.from(new Set(requested.map(normalizeSymbol).filter(isGlobalStockSymbol)));
+  const usingDefaultUniverse = normalizedRequested.length === 0;
+  const normalized = (usingDefaultUniverse ? getNasdaqFocusSymbols() : normalizedRequested).slice(0, MAX_SYMBOLS);
 
   const querySymbols = normalized.includes("QQQ") ? normalized : ["QQQ"].concat(normalized);
   const settled = await mapWithConcurrency(querySymbols, 3, fetchTickerContext);
@@ -206,7 +239,17 @@ async function getDailyMarketEvents(symbols, options) {
   }).filter(Boolean);
 
   const sourceDate = benchmark?.marketTimestamp ? marketDate(new Date(benchmark.marketTimestamp)) : marketDate(now);
-  return { date: sourceDate, events, failedSymbols };
+  return {
+    date: sourceDate,
+    events,
+    failedSymbols,
+    universe: {
+      type: usingDefaultUniverse ? "nasdaq-focus" : "custom",
+      asOf: usingDefaultUniverse ? NASDAQ_UNIVERSE_AS_OF : null,
+      source: usingDefaultUniverse ? NASDAQ_UNIVERSE_SOURCE : null,
+      instruments: usingDefaultUniverse ? NASDAQ_FOCUS_INSTRUMENTS : []
+    }
+  };
 }
 
 async function mapWithConcurrency(items, limit, task) {
@@ -226,4 +269,4 @@ async function mapWithConcurrency(items, limit, task) {
   return results;
 }
 
-module.exports = { getDailyMarketEvents, isAfterUsMarketClose, marketDate };
+module.exports = { getDailyMarketEvents, isAfterUsMarketClose, isRelevantNewsTitle, marketDate };

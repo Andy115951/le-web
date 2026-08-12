@@ -30,14 +30,15 @@
 当前剩余环境事项：
 
 - [ ] 当前网络没有公网 IPv6，`supabase db push --linked` 无法直连数据库；Schema 已通过 `supabase db query --linked --file` 应用，但仍需在具备 IPv6 或 Pooler 数据库密码时登记 migration 历史
-- [ ] 云端目前没有 `watchlist_states` 用户记录；待首次登录同步自选列表后，再验证 Cron 实际写入 `market_event_history`
+- [ ] 云端目前没有 `watchlist_states` 用户记录；这只影响旧的个人历史 Cron 验证，不阻塞 Nasdaq 公共雷达
 - [x] Cron 运行日志、失败诊断、手动重跑和最近运行记录接口
+- [x] Nasdaq 核心行情/新闻入口已与个人自选解耦，无登录也可运行
 
 页面、API、事件规则和数据库开发现在都可进行；当前未完成项不会阻塞下一批代码开发。
 
 ## 1. 当前系统边界
 
-当前项目是围绕 `QQQ`、美国七巨头和个人自选股的决策看板，主要由四部分组成：
+当前项目以 `QQQ` / Nasdaq-100 核心市场雷达为主，个人自选和持仓为辅助层，主要由四部分组成：
 
 - 浏览器页面：原生 `HTML + CSS + ES Modules`
 - 浏览器状态：`localStorage`
@@ -66,6 +67,7 @@ stock-dashboard/
 │  ├─ a-share-data.js                A 股数据层
 │  ├─ global-stock-data.js           美股数据层
 │  ├─ daily-market-events.js         QQQ 对照、新闻与事件规则
+│  ├─ nasdaq-universe.js             默认核心观察宇宙与来源日期
 │  └─ market-history-capture.js      Supabase 服务端写入逻辑
 ├─ supabase/
 │  └─ config.toml                    Supabase 本地项目配置
@@ -74,14 +76,25 @@ stock-dashboard/
 └─ SUPABASE_SETUP.md                 建表、RLS 与登录配置
 ```
 
-每日历史任务的数据流：
+当前公共雷达的数据流：
+
+```text
+Browser refresh
+  → GET /api/global-stock/daily-events（无需 symbols）
+  → 使用 lib/nasdaq-universe.js 的默认核心观察宇宙
+  → 抓取 QQQ、核心成分行情和近 36 小时新闻
+  → 标题相关性过滤 + 标题聚合去重
+  → 页面新闻流 + localStorage 最近 14 天日度脉络
+```
+
+旧的个人历史任务数据流：
 
 ```text
 Vercel Cron
   → GET /api/cron/capture-market-history
   → 校验 Authorization: Bearer <CRON_SECRET>
   → 用 Supabase Secret Key 读取 watchlist_states
-  → 抓取 QQQ、自选股行情和公开资讯
+  → 抓取 QQQ、个人自选股行情和公开资讯
   → 按 user_id + market_date + symbol 写入 market_event_history
 ```
 
@@ -375,6 +388,8 @@ npx vercel --global-config $vercelConfigDir --prod
 - 新闻发布时间、采集时间、行情日期要分开保存
 - 休市日或上游陈旧行情不能写成当天记录
 - 每日历史写入必须保持幂等，当前唯一键为 `user_id + market_date + symbol`
+- `lib/nasdaq-universe.js` 与 `app.js` 的核心代码列表必须同步更新；长期方案是改为数据库成分快照
+- 当前核心名单是限流条件下的新闻雷达，不可在文案中称为完整 Nasdaq-100 全量成分
 
 ### 归因表达
 
@@ -544,7 +559,7 @@ Could not find the table 'public.watchlist_states' in the schema cache
 }
 ```
 
-先在线上页面完成 Supabase 登录，并执行一次云同步。确认 `watchlist_states` 出现用户记录后，再在美股收盘窗口验证 `market_event_history` 写入。
+只有验证旧的个人历史归档时，才需要登录并同步 `watchlist_states`。Nasdaq 公共行情和新闻不依赖这一步；后续公共历史将迁移到独立市场表。
 
 ### Cron 返回 `skipped: true`
 

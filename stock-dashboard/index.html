@@ -3,16 +3,16 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>股票自选看板</title>
+  <title>Nasdaq 100 Intelligence</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
   <main class="app">
     <header class="top card">
       <div>
-        <p class="eyebrow">MARKET DESK / US EQUITIES</p>
-        <h1 class="title">US Equity Dashboard</h1>
-        <p class="subtitle">围绕纳指与美国七巨头，快速判断市场环境、持仓风险与下一步动作。</p>
+        <p class="eyebrow">NASDAQ 100 / MARKET INTELLIGENCE</p>
+        <h1 class="title">Nasdaq 100 Intelligence</h1>
+        <p class="subtitle">追踪纳指环境、核心权重股与关联新闻，先理解市场发生了什么，再处理个人持仓。</p>
       </div>
       <div class="top-actions">
         <div class="status-wrap">
@@ -30,13 +30,13 @@
 
     <nav class="command-bar" aria-label="看板导航">
       <div class="command-links">
-        <button type="button" class="command-link is-active" data-scroll-target="marketOverview">市场概览</button>
-        <button type="button" class="command-link" data-scroll-target="decisionWorkspace">今日决策</button>
-        <button type="button" class="command-link" data-scroll-target="watchlist">我的自选</button>
+        <button type="button" class="command-link is-active" data-scroll-target="marketOverview">Nasdaq 100</button>
+        <button type="button" class="command-link" data-scroll-target="marketEvents">动态新闻</button>
+        <button type="button" class="command-link" data-scroll-target="watchlist">个人持仓</button>
       </div>
       <div class="command-actions">
-        <button type="button" class="btn btn-ghost" id="toggleToolsBtn">规则与提醒</button>
-        <button type="button" class="btn btn-primary" id="addStockBtn">+ 添加自选</button>
+        <button type="button" class="btn btn-ghost" id="toggleToolsBtn">个人规则</button>
+        <button type="button" class="btn btn-primary" id="addStockBtn">+ 添加持仓</button>
       </div>
     </nav>
 
@@ -74,9 +74,9 @@
     <section class="card controls" id="watchlistControls">
       <div class="controls-head">
         <div>
-          <p class="eyebrow">WATCHLIST CONTROL</p>
-          <h2>自选与筛选</h2>
-          <p class="muted">从搜索开始，按需要展开添加和高级筛选。</p>
+          <p class="eyebrow">PERSONAL LAYER</p>
+          <h2>个人自选与持仓</h2>
+          <p class="muted">这是市场雷达之上的个人辅助层，不影响 Nasdaq 主看板的数据刷新。</p>
         </div>
         <button type="button" class="btn btn-ghost" id="addStockInlineBtn">添加股票</button>
       </div>
@@ -172,19 +172,19 @@
 
     <section class="stats-grid">
       <article class="card stat-card">
-        <span class="stat-label">股票数量</span>
+        <span class="stat-label">个人标的</span>
         <strong class="stat-value" id="countStat">0</strong>
       </article>
       <article class="card stat-card">
-        <span class="stat-label">上涨</span>
+        <span class="stat-label">个人上涨</span>
         <strong class="stat-value positive" id="upStat">0</strong>
       </article>
       <article class="card stat-card">
-        <span class="stat-label">下跌</span>
+        <span class="stat-label">个人下跌</span>
         <strong class="stat-value negative" id="downStat">0</strong>
       </article>
       <article class="card stat-card">
-        <span class="stat-label">平盘</span>
+        <span class="stat-label">个人平盘</span>
         <strong class="stat-value neutral" id="flatStat">0</strong>
       </article>
     </section>
@@ -193,7 +193,7 @@
       <div class="section-heading">
         <div>
           <p class="eyebrow">ACTION QUEUE</p>
-          <h2>今日需要处理</h2>
+          <h2>个人信号</h2>
         </div>
         <p class="muted">只列出需要你判断或执行的信号，不等同于买卖建议。</p>
       </div>
@@ -203,11 +203,12 @@
     <section class="market-events" id="marketEvents">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">MARKET DRIVERS</p>
-          <h2>当日涨跌线索</h2>
+          <p class="eyebrow">NASDAQ NEWS & DRIVERS</p>
+          <h2>Nasdaq 动态与新闻</h2>
         </div>
-        <p class="muted" id="marketEventsHint">自动抓取行情与公开资讯，保留来源供你复核。</p>
+        <p class="muted" id="marketEventsHint">自动抓取核心成分行情与公开资讯，保留原始来源供你复核。</p>
       </div>
+      <div class="market-news-feed" id="marketNewsFeed"></div>
       <div class="market-events-list" id="marketEventsBody"></div>
     </section>
 
@@ -215,7 +216,7 @@
       <div class="section-heading history-heading">
         <div>
           <p class="eyebrow">MARKET HISTORY</p>
-          <h2>涨跌历史与原因</h2>
+          <h2>Nasdaq 日度脉络</h2>
         </div>
         <div class="history-range" aria-label="历史范围">
           <button type="button" class="history-range-btn is-active" data-history-range="30">30 天</button>
@@ -223,7 +224,7 @@
           <button type="button" class="history-range-btn" data-history-range="180">180 天</button>
         </div>
       </div>
-      <p class="muted" id="marketHistoryHint">收盘后自动归档当天涨跌、QQQ 对照和可复核资讯。</p>
+      <p class="muted" id="marketHistoryHint">按交易日回看核心成分涨跌、QQQ 对照和可复核资讯。</p>
       <div class="market-history-list" id="marketHistoryBody"></div>
     </section>
 
@@ -241,8 +242,8 @@
       <article class="card overview-card">
         <div class="overview-head">
           <div>
-            <p class="eyebrow">Mag 7 Breadth</p>
-            <h2>七巨头总览</h2>
+            <p class="eyebrow">Core Components</p>
+            <h2>核心成分总览</h2>
           </div>
         </div>
         <div class="overview-body" id="mag7SnapshotBody"></div>
@@ -252,7 +253,7 @@
         <div class="overview-head">
           <div>
             <p class="eyebrow">Relative Strength</p>
-            <h2>相对 QQQ 强弱</h2>
+            <h2>核心成分相对强弱</h2>
           </div>
         </div>
         <div class="overview-body" id="leadersBody"></div>
@@ -328,8 +329,8 @@
     <section class="card list-card" id="watchlist">
       <div class="list-head">
         <div>
-          <h2>我的自选</h2>
-          <p class="muted" id="listHint">当前接入东方财富公开接口，可直接拉取 A 股与常见美股行情，并优先服务纳指 / 七巨头跟踪。</p>
+          <h2>个人持仓与自选</h2>
+          <p class="muted" id="listHint">用于记录你真正关心的成本、目标价和仓位，不再承担 Nasdaq 主市场数据入口。</p>
         </div>
         <div class="page-size-wrap">
           <label for="pageSizeSelect" class="muted">每页</label>
