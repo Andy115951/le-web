@@ -183,10 +183,11 @@ async function persistUnifiedRecords(config, records, now = new Date()) {
   }));
 
   const symbols = Array.from(new Set(records.entityLinks.map(function (link) { return link.symbol; })));
-  const instruments = await requestSupabase(
+  // Macro events can be valid evidence without a listed instrument, so avoid an invalid empty `in.()` filter.
+  const instruments = symbols.length ? await requestSupabase(
     config,
     "/rest/v1/instruments?select=id,symbol&symbol=in.(" + symbols.map(encodeURIComponent).join(",") + ")"
-  );
+  ) : [];
   const instrumentBySymbol = new Map((instruments || []).map(function (instrument) {
     return [instrument.symbol, instrument.id];
   }));
@@ -214,6 +215,42 @@ async function persistUnifiedRecords(config, records, now = new Date()) {
   }));
 
   return { eventsWritten: eventRows.length, sourcesWritten: sourceRows.length };
+}
+
+function selectRecordsByEventKeys(records, eventKeys) {
+  const allowed = eventKeys instanceof Set ? eventKeys : new Set(eventKeys || []);
+  const events = (records?.events || []).filter(function (event) { return allowed.has(event.event_key); });
+  const eventKeySet = new Set(events.map(function (event) { return event.event_key; }));
+  const sourceLinks = (records?.sourceLinks || []).filter(function (link) { return eventKeySet.has(link.eventKey); });
+  const sourceUrls = new Set(sourceLinks.map(function (link) { return link.canonicalUrl; }));
+  return {
+    marketDays: records?.marketDays || [],
+    sources: (records?.sources || []).filter(function (source) { return sourceUrls.has(source.canonical_url); }),
+    events,
+    sourceLinks,
+    entityLinks: (records?.entityLinks || []).filter(function (link) { return eventKeySet.has(link.eventKey); })
+  };
+}
+
+async function getExistingEventKeys(config, eventKeys, client = requestSupabase) {
+  const keys = Array.from(new Set((eventKeys || []).filter(Boolean)));
+  const existing = new Set();
+  for (let index = 0; index < keys.length; index += 100) {
+    const page = await client(
+      config,
+      "/rest/v1/events?select=event_key&event_key=in.(" + keys.slice(index, index + 100).map(encodeURIComponent).join(",") + ")"
+    );
+    (Array.isArray(page) ? page : []).forEach(function (row) { existing.add(row.event_key); });
+  }
+  return existing;
+}
+
+async function persistOnlyNewUnifiedRecords(config, records, now = new Date()) {
+  const existing = await getExistingEventKeys(config, (records?.events || []).map(function (event) { return event.event_key; }));
+  const freshKeys = new Set((records?.events || []).map(function (event) { return event.event_key; }).filter(function (key) {
+    return !existing.has(key);
+  }));
+  return persistUnifiedRecords(config, selectRecordsByEventKeys(records, freshKeys), now);
 }
 
 async function persistUnifiedMarketEvents(config, events, now = new Date()) {
@@ -293,7 +330,10 @@ module.exports = {
   getUnifiedMarketEventsRange,
   normalizeHistoryDays,
   insertMissing,
+  getExistingEventKeys,
   persistUnifiedRecords,
+  persistOnlyNewUnifiedRecords,
   persistUnifiedMarketEvents,
+  selectRecordsByEventKeys,
   sourceFingerprint
 };

@@ -35,6 +35,7 @@
 - [x] `similar_day_matches` 已通过 Management API 应用并完成 5,848 条 QQQ 相似日回填
 - [x] `ndx_constituent_changes` 已通过 Management API 应用；首份快照没有前序版本，因此当前尚无变更行
 - [x] SEC EDGAR filings 采集器、统一事件写入和离线测试已实现；当前未配置真实 `SEC_USER_AGENT`，生产采集保持禁用
+- [x] FRED 宏观观测采集器、稳定去重和离线测试已实现；当前未配置 `FRED_API_KEY`，生产采集保持禁用
 - [x] `research_narrative_audits` 已在远程创建；等待未来首条模型研究输出写入审计记录
 - [x] Cron 运行日志、失败诊断、手动重跑和最近运行记录接口
 - [x] Nasdaq 核心行情/新闻入口已与个人自选解耦，无登录也可运行
@@ -127,7 +128,7 @@ Vercel Cron
 3. 使用 `npx vercel link` 关联现有的 `stock-dashboard`，不要创建同名新项目。
 4. 使用 `supabase login` 登录有数据库权限的 Supabase 账号。
 5. 使用 `supabase link --project-ref ougpvpolmzsmaljscruo` 关联现有项目。
-6. 运行 `npx vercel env ls`，确认 Production 存在三项服务端变量；这里只检查变量名，不应尝试打印值。
+6. 运行 `npx vercel env ls`，确认 Production 存在三项核心服务端变量；这里只检查变量名，不应尝试打印值。
 7. 只有本地测试 Cron 或服务端归档时才配置 `.env.local`；普通页面和行情 API 开发不需要 Secret Key。
 8. 运行 `npx vercel dev`，以终端显示的本地端口为准。
 
@@ -251,7 +252,7 @@ supabase/migrations/20260812250000_add_ndx_constituent_changes.sql
 
 ## 6. 服务端环境变量
 
-当前 Cron 必须使用以下三个变量：
+当前 Cron 必须使用以下三个核心变量：
 
 ```dotenv
 SUPABASE_URL=https://your-project.supabase.co
@@ -290,6 +291,7 @@ npx vercel --global-config $vercelConfigDir env add SUPABASE_URL production
 npx vercel --global-config $vercelConfigDir env add SUPABASE_SECRET_KEY production
 npx vercel --global-config $vercelConfigDir env add CRON_SECRET production
 npx vercel --global-config $vercelConfigDir env add SEC_USER_AGENT production
+npx vercel --global-config $vercelConfigDir env add FRED_API_KEY production
 ```
 
 每条命令出现提示后再粘贴对应值。检查变量名：
@@ -303,6 +305,8 @@ npx vercel --global-config $vercelConfigDir env ls
 修改环境变量后必须重新部署，新部署才会使用新值。
 
 `SEC_USER_AGENT` 不是 API Key，但 SEC 要求其包含应用名称和可联系邮箱，例如 `StockDashboard your-monitored-email@example.com`。不能填写假的联系人，也不能将其写进仓库。未配置时收盘任务不会请求 SEC；配置错误或 SEC 暂时不可用时，任务会记录 `secFilingStatus: failed`，但不会丢弃已完成的行情快照。
+
+`FRED_API_KEY` 是 FRED 官方 API 的 32 位小写字母数字 Key，仅服务端保存。未配置时收盘任务不会请求 FRED。配置后，任务读取 `CPIAUCSL`、`UNRATE`、`FEDFUNDS`、`GDPC1` 的最近观测；FRED 的观测响应不提供精确发布时间，因此实现不会伪造 `published_at` 或 `event_time`，只将本系统实际采集时间写入 `available_at`。同一观测值使用稳定事件键去重，重复轮询不会被重新标记成当天的新事件。
 
 ### 6.2 本地 `.env.local`
 
@@ -456,6 +460,19 @@ npm run sec:filings -- NVDA,AAPL,MSFT
 
 运行结果只会输出数量、标的和日期，不会回显 User-Agent。官方 API 不需要 API Key，但必须遵守 SEC 的公平访问规范：声明 User-Agent、总请求速率不超过 10 次/秒、只拉取必要数据。实现当前以 125ms 间隔串行请求，且只回看最近 7 个自然日。参考：[SEC EDGAR APIs](https://www.sec.gov/search-filings/edgar-application-programming-interfaces) 和 [SEC Developer Resources](https://www.sec.gov/about/developer-resources)。
 
+#### FRED 宏观观测
+
+FRED collector 只在当前 shell 已安全加载 `FRED_API_KEY` 后运行：
+
+```bash
+set -a
+. ./.env.local
+set +a
+npm run fred:macro
+```
+
+命令只输出 series id 与写入数量，不会回显 Key。请求走 FRED 官方 `series/observations` API，但持久化的来源 URL 始终是公开的 `https://fred.stlouisfed.org/series/<SERIES_ID>`，不会把含 Key 的 API 请求 URL 写入数据库。首次启用会捕获每个系列最近 3 个有效观测；之后相同的 series、观测日期和数值会被稳定事件键去重，只有新观测或数值修订才会写入新事件。参考：[FRED series observations API](https://fred.stlouisfed.org/docs/api/fred/series_observations.html)。
+
 #### 8.2.1 日度研究输入包（Agent 前置契约）
 
 当前没有接入 DeepSeek 或任何其他模型。先固定只读输入契约，避免模型直接访问数据库、未来标签或不受控的网页文本：
@@ -468,12 +485,12 @@ GET /api/nasdaq/research-packet?date=2026-08-11
 
 - `asOf`：目标市场日期、美东时区、数据边界和明确排除项
 - `marketState`：QQQ 调整收盘、当日涨跌、后视波动与重新计算后的已知事件摘要
-- `events`：只含 `available_at` 不晚于该日美东 `16:00` 的结构化事件和证据 URL
+- `events`：只含上一交易日美东收盘后至目标日美东 `16:00` 前实际可知的结构化事件和证据 URL
 - `ndxSnapshot`：目标日或更早的成分权重快照
 - `historicalSimilarity`：更早候选日的历史结果、方法版本、特征版本与描述统计
 - `constraints`：允许和禁止的后续 Agent 用途
 
-该接口明确不包含 `researchOutcome`，也不输出交易建议、目标价或模型概率。未来接 LLM 时，只能向模型传入这个 JSON 或其更严格的裁剪版本；模型输出必须单独保存，不能回写或覆盖本接口中的原始事实。
+该接口明确不包含 `researchOutcome`，也不输出交易建议、目标价或模型概率。收盘后才采集或发布的事件会进入下一交易日的研究窗口，而不是被丢弃或倒灌到前一日。未来接 LLM 时，只能向模型传入这个 JSON 或其更严格的裁剪版本；模型输出必须单独保存，不能回写或覆盖本接口中的原始事实。
 
 #### 8.2.2 研究摘要输出契约与审计
 
@@ -695,6 +712,7 @@ Remove-Variable cronSecretForTest, cronHeaders
 - `ok: true` 且包含 `savedEvents`：任务已执行并写入历史表
 - `status: partial`：至少一个用户成功或正常跳过，同时有其他用户失败
 - `status: failed`：本次所有可处理用户都失败，接口返回 `502`
+- `fredMacroStatus: disabled`：未配置 `FRED_API_KEY`，属于正常保护；`succeeded` / `failed` 会同时附带 FRED 写入数量或安全错误摘要
 
 每次授权调用都会写入 `market_capture_runs`，包括因未到收盘时间而产生的 `skipped`。日志保存触发类型、状态、市场日期、耗时、用户数量、写入数量和失败摘要，不保存 Secret。
 

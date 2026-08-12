@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "scripts": {
     "backfill:qqq": "node scripts/backfill-market-prices.js QQQ 5y",
+    "fred:macro": "node scripts/capture-fred-macro.js",
     "sec:filings": "node scripts/capture-sec-filings.js",
     "events:rebuild": "node scripts/rebuild-unified-events.js 180",
     "features:qqq": "node scripts/rebuild-daily-features.js QQQ",

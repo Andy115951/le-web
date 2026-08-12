@@ -4,6 +4,7 @@ const { NASDAQ_FOCUS_INSTRUMENTS, NASDAQ_UNIVERSE_AS_OF } = require("./nasdaq-un
 const { getSupabaseConfig, requestSupabase } = require("./supabase-server");
 const { persistUnifiedMarketEvents } = require("./unified-market-events");
 const { captureRecentSecFilings, isSecEdgarConfigured } = require("./sec-edgar");
+const { captureRecentFredObservations, isFredConfigured } = require("./fred-macro");
 
 const RUNS_TABLE = "market_capture_runs";
 const PUBLIC_HISTORY_TABLE = "nasdaq_market_event_history";
@@ -233,6 +234,23 @@ async function captureMarketHistory(input) {
         secFilingResult = { ...secFilingResult, status: "failed", error: errorMessage(error) };
       }
     }
+    let fredMacroResult = {
+      status: isFredConfigured() ? "pending" : "disabled",
+      eventsWritten: 0,
+      sourcesWritten: 0,
+      seriesIds: [],
+      observations: [],
+      error: null
+    };
+    if (isFredConfigured()) {
+      try {
+        const captured = await captureRecentFredObservations(config, { now });
+        fredMacroResult = { status: "succeeded", error: null, ...captured };
+      } catch (error) {
+        // Macro data is additive research context and must not discard a completed market snapshot.
+        fredMacroResult = { ...fredMacroResult, status: "failed", error: errorMessage(error) };
+      }
+    }
 
     const states = await requestSupabase(config, "/rest/v1/watchlist_states?select=user_id,items", {
       headers: { Range: "0-999" }
@@ -303,6 +321,9 @@ async function captureMarketHistory(input) {
       secFilingStatus: secFilingResult.status,
       secFilingEvents: secFilingResult.eventsWritten,
       secFilingSources: secFilingResult.sourcesWritten,
+      fredMacroStatus: fredMacroResult.status,
+      fredMacroEvents: fredMacroResult.eventsWritten,
+      fredMacroSources: fredMacroResult.sourcesWritten,
       personalSavedEvents,
       skippedUsers,
       failedUsers,
@@ -327,6 +348,12 @@ async function captureMarketHistory(input) {
           secFilingFetchedCompanies: secFilingResult.fetchedCompanies,
           secFilingSkippedSymbols: secFilingResult.skippedSymbols,
           secFilingError: secFilingResult.error,
+          fredMacroStatus: fredMacroResult.status,
+          fredMacroEvents: fredMacroResult.eventsWritten,
+          fredMacroSources: fredMacroResult.sourcesWritten,
+          fredMacroSeriesIds: fredMacroResult.seriesIds,
+          fredMacroObservationCount: fredMacroResult.observations.length,
+          fredMacroError: fredMacroResult.error,
           personalSavedEvents,
           publicUniverseAsOf: publicSnapshot.universe?.asOf || NASDAQ_UNIVERSE_AS_OF,
           publicUniverseSource: publicSnapshot.universe?.source || null

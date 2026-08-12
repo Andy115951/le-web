@@ -6,6 +6,7 @@ const {
   monthBounds,
   normalizeDate,
   normalizeMonth,
+  previousWeekdayDate,
   volatilityLevel
 } = require("../lib/market-calendar");
 
@@ -15,6 +16,7 @@ test("calendar input validation handles real dates and leap months", function ()
   assert.equal(normalizeDate("2026-08-11"), "2026-08-11");
   assert.throws(function () { normalizeMonth("2026-13"); }, /Invalid calendar month/);
   assert.throws(function () { normalizeDate("2026-02-31"); }, /Invalid calendar date/);
+  assert.equal(previousWeekdayDate("2026-08-10"), "2026-08-07");
 });
 
 test("trailing volatility uses only the 20 returns ending on that day", function () {

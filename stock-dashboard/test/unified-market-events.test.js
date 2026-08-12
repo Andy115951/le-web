@@ -3,7 +3,9 @@ const test = require("node:test");
 const {
   buildUnifiedEventRecords,
   canonicalizeSourceUrl,
+  getExistingEventKeys,
   normalizeHistoryDays,
+  selectRecordsByEventKeys,
   sourceFingerprint
 } = require("../lib/unified-market-events");
 
@@ -84,4 +86,21 @@ test("event history ranges stay aligned with public dashboard choices", function
   assert.equal(normalizeHistoryDays("90"), 90);
   assert.equal(normalizeHistoryDays(180), 180);
   assert.equal(normalizeHistoryDays(365), 30);
+});
+
+test("new-only persistence keeps source relations only for unseen stable event keys", async function () {
+  const records = buildUnifiedEventRecords([{
+    symbol: "QQQ",
+    date: "2026-08-11",
+    capturedAt: "2026-08-11T22:00:00.000Z"
+  }]);
+  const selected = selectRecordsByEventKeys(records, new Set([records.events[0].event_key]));
+  assert.equal(selected.events.length, 1);
+  assert.equal(selected.sources.length, 1);
+  assert.equal(selected.entityLinks.length, 1);
+  const existing = await getExistingEventKeys({}, ["new", "seen"], async function (_config, path) {
+    assert.match(path, /event_key=in\.\(new,seen\)/);
+    return [{ event_key: "seen" }];
+  });
+  assert.deepEqual(Array.from(existing), ["seen"]);
 });

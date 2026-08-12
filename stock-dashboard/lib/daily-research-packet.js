@@ -1,6 +1,7 @@
-const { getMarketDayDetail, normalizeDate } = require("./market-calendar");
+const { getMarketDayDetail, getPreviousTradingDate, normalizeDate } = require("./market-calendar");
 const { getStoredSimilarDays } = require("./similar-day-store");
 const { marketCloseAt } = require("./daily-market-features");
+const { getUnifiedMarketEventsRange } = require("./unified-market-events");
 
 const RESEARCH_PACKET_VERSION = "daily-research-packet-v1";
 
@@ -47,6 +48,14 @@ function isAvailableByMarketClose(event, date) {
   return Number.isFinite(availableTime) && availableTime <= new Date(marketCloseAt(date)).getTime();
 }
 
+function isAvailableDuringResearchSession(event, previousMarketDate, date) {
+  const availableAt = event?.available_at || event?.availableAt || event?.event_time || event?.eventTime;
+  const availableTime = new Date(availableAt || "").getTime();
+  const sessionStart = new Date(marketCloseAt(previousMarketDate)).getTime();
+  const sessionEnd = new Date(marketCloseAt(date)).getTime();
+  return Number.isFinite(availableTime) && availableTime > sessionStart && availableTime <= sessionEnd;
+}
+
 function cleanSimilarMatch(match) {
   return {
     rank: finiteNumber(match?.rank),
@@ -91,8 +100,14 @@ function buildDailyResearchPacket(input) {
   const similar = input?.similar || {};
   const day = detail.day || {};
   const qqq = day.qqq || null;
-  const events = (Array.isArray(detail.events) ? detail.events : [])
-    .filter(function (event) { return isAvailableByMarketClose(event, date); })
+  const previousMarketDate = input?.previousMarketDate || null;
+  const candidateEvents = Array.isArray(input?.sessionEvents) ? input.sessionEvents : (Array.isArray(detail.events) ? detail.events : []);
+  const events = candidateEvents
+    .filter(function (event) {
+      return previousMarketDate
+        ? isAvailableDuringResearchSession(event, previousMarketDate, date)
+        : isAvailableByMarketClose(event, date);
+    })
     .map(cleanEvent);
   const eventSummary = summarizePacketEvents(events);
   return {
@@ -102,7 +117,10 @@ function buildDailyResearchPacket(input) {
     asOf: {
       marketDate: date,
       timezone: "America/New_York",
-      dataBoundary: "Target-market-date close; events require available_at no later than the target New York close.",
+      dataBoundary: previousMarketDate
+        ? "Research session from prior New York close through target New York close; events require available_at within that window."
+        : "Target-market-date close; events require available_at no later than the target New York close.",
+      previousMarketDate,
       excluded: [
         "Target-day forward returns and research labels",
         "Any event with available_at after target New York close",
@@ -152,11 +170,13 @@ function buildDailyResearchPacket(input) {
 
 async function getDailyResearchPacket(value, now = new Date()) {
   const date = normalizeDate(value);
-  const [detail, similar] = await Promise.all([
+  const [detail, similar, previousMarketDate] = await Promise.all([
     getMarketDayDetail(date, now),
-    getStoredSimilarDays("QQQ", date, 5)
+    getStoredSimilarDays("QQQ", date, 5),
+    getPreviousTradingDate(date)
   ]);
-  return buildDailyResearchPacket({ date, detail, similar, generatedAt: now.toISOString() });
+  const sessionEvents = await getUnifiedMarketEventsRange(previousMarketDate, date);
+  return buildDailyResearchPacket({ date, detail, similar, sessionEvents, previousMarketDate, generatedAt: now.toISOString() });
 }
 
 module.exports = {
@@ -167,5 +187,6 @@ module.exports = {
   cleanSource,
   getDailyResearchPacket,
   isAvailableByMarketClose,
+  isAvailableDuringResearchSession,
   summarizePacketEvents
 };

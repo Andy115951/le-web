@@ -1,6 +1,10 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { buildDailyResearchPacket, isAvailableByMarketClose } = require("../lib/daily-research-packet");
+const {
+  buildDailyResearchPacket,
+  isAvailableByMarketClose,
+  isAvailableDuringResearchSession
+} = require("../lib/daily-research-packet");
 
 const date = "2026-08-11";
 
@@ -66,4 +70,21 @@ test("daily research packet uses the daylight-safe New York close cutoff", funct
   assert.equal(isAvailableByMarketClose({ available_at: "2026-01-12T21:01:00.000Z" }, "2026-01-12"), false);
   assert.equal(isAvailableByMarketClose({ available_at: "2026-07-13T20:00:00.000Z" }, "2026-07-13"), true);
   assert.equal(isAvailableByMarketClose({ available_at: "2026-07-13T20:01:00.000Z" }, "2026-07-13"), false);
+});
+
+test("daily research packet carries post-close evidence into the next research session without future leakage", function () {
+  const afterPriorClose = event("after-prior-close", "2026-08-10T20:05:00.000Z");
+  const beforeTargetClose = event("before-target-close", "2026-08-11T19:59:00.000Z");
+  const afterTargetClose = event("after-target-close", "2026-08-11T20:01:00.000Z");
+  const packet = buildDailyResearchPacket({
+    date,
+    previousMarketDate: "2026-08-10",
+    detail: { day: { qqq: { adjustedClose: 600 } }, ndxSnapshot: null },
+    sessionEvents: [afterPriorClose, beforeTargetClose, afterTargetClose],
+    similar: { matches: [] }
+  });
+  assert.deepEqual(packet.events.map(function (item) { return item.eventKey; }), ["after-prior-close", "before-target-close"]);
+  assert.equal(packet.asOf.previousMarketDate, "2026-08-10");
+  assert.equal(isAvailableDuringResearchSession(afterPriorClose, "2026-08-10", date), true);
+  assert.equal(isAvailableDuringResearchSession(afterTargetClose, "2026-08-10", date), false);
 });

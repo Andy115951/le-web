@@ -48,6 +48,12 @@ function shiftDate(date, days) {
   return value.toISOString().slice(0, 10);
 }
 
+function previousWeekdayDate(date) {
+  let result = shiftDate(normalizeDate(date), -1);
+  while ([0, 6].includes(new Date(result + "T12:00:00.000Z").getUTCDay())) result = shiftDate(result, -1);
+  return result;
+}
+
 function calendarDates(start, end) {
   const dates = [];
   for (let date = start; date <= end; date = shiftDate(date, 1)) dates.push(date);
@@ -216,15 +222,29 @@ async function getMarketDayDetail(value, now = new Date()) {
   };
 }
 
+async function getPreviousTradingDate(value) {
+  const date = normalizeDate(value);
+  const config = getSupabaseConfig();
+  const rows = await requestSupabase(
+    config,
+    "/rest/v1/market_days?select=market_date&market_date=lt." + date
+      + "&is_trading_day=is.true&order=market_date.desc&limit=1"
+  );
+  const previous = Array.isArray(rows) ? rows[0]?.market_date : null;
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(previous || "")) ? previous : previousWeekdayDate(date);
+}
+
 module.exports = {
   annualizedTrailingVolatility,
   buildCalendarDays,
   getMarketCalendar,
   getMarketDayDetail,
+  getPreviousTradingDate,
   monthBounds,
   newYorkDate,
   normalizeDate,
   normalizeMonth,
   nullableNumber,
+  previousWeekdayDate,
   volatilityLevel
 };
