@@ -2041,6 +2041,12 @@ body {
 .research-health-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .research-health-grid article { display: grid; gap: 5px; padding: 12px; border: 1px solid #e1e8f2; border-radius: 10px; background: #f8fafc; }
 .research-health-grid span,.research-health-grid small { color: #74839a; font-size: .62rem; }.research-health-grid strong { color:#263b5e; font-size:.9rem; }.research-health-empty{padding:18px;color:#74839a}.research-health-empty.is-error{color:var(--danger)}
+.research-health-alerts { grid-column: 1 / -1; display: grid; gap: 7px; margin-top: 3px; }
+.research-health-alerts > article { grid-template-columns: 54px minmax(0, 1fr); align-items: start; gap: 9px; padding: 10px; }
+.research-health-alerts b { padding: 4px 5px; border-radius: 5px; color: #3f6c9e; background: #eaf2fd; font-size: .53rem; text-align: center; }
+.research-health-alerts article.is-warning b { color: #896018; background: #fff4d9; }.research-health-alerts article.is-error b { color: #a44755; background: #fff0f1; }
+.research-health-alerts article > div { display: grid; gap: 3px; }.research-health-alerts article > div strong { font-family: "SFMono-Regular", Consolas, monospace; font-size: .64rem; }.research-health-alerts article > div span { color: #738199; font-size: .63rem; line-height: 1.45; }
+.research-health-alerts.is-clear { padding: 11px 12px; border: 1px solid #d8eee2; border-radius: 10px; background: #f1fbf5; }.research-health-alerts.is-clear strong { color: #277451; font-size: .7rem; }.research-health-alerts.is-clear span { margin-left: 7px; color: #688478; font-size: .61rem; }
 .model-review-heading { align-items: center; }
 .model-review-card { overflow: hidden; padding: 0; border: 1px solid #d9e4f3; background: linear-gradient(135deg, #f7fbff, #fff 56%, #f8fafc); }
 .model-review-empty { display: grid; place-content: center; gap: 6px; min-height: 240px; padding: 22px; color: #718097; text-align: center; }

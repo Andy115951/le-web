@@ -787,6 +787,12 @@ GET /api/nasdaq/research-outcomes?limit=12
 
 当前远程首个 `2026-08-11` 研究快照尚未有成熟 20 日标签，实测正确返回 `matureOutcomesWritten: 0`。
 
+#### 8.2.12 研究运行健康与脱敏告警
+
+`GET /api/nasdaq/research-health` 使用 Supabase `Content-Range` 的 exact count 计算快照与到期审计总数，不再把分页读取的前 30 条误作全量。响应仅包含最近一次采集的状态、日期、时间与写入事件数，以及 `capture_history_missing`、`capture_failed`、`capture_partial`、`capture_skipped`、`mature_outcomes_pending`、`model_disabled` 等确定性告警。
+
+该公共接口特意不回传 `market_capture_runs.id`、`error_message`、`details`、用户计数、完整研究包或密钥。需要诊断具体失败原因时，仍必须用 `CRON_SECRET` 调受保护的 `/api/cron/market-history-runs`。
+
 ### 8.3 NDX 成分与权重快照
 
 首个完整快照保存在：

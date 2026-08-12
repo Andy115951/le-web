@@ -23,4 +23,20 @@ async function requestSupabase(config, path, options) {
   return text ? JSON.parse(text) : null;
 }
 
-module.exports = { getSupabaseConfig, requestSupabase };
+function parseSupabaseCount(contentRange) {
+  const match = String(contentRange || "").match(/\/(\d+)$/);
+  return match ? Number(match[1]) : null;
+}
+
+async function countSupabaseRows(config, path, fetchImpl = fetch) {
+  const response = await fetchImpl(config.url + path, {
+    headers: { apikey: config.secretKey, Prefer: "count=exact", Range: "0-0" }
+  });
+  const text = await response.text();
+  if (!response.ok) throw new Error("Supabase " + response.status + ": " + text.slice(0, 300));
+  const count = parseSupabaseCount(response.headers?.get?.("content-range"));
+  if (count === null) throw new Error("Supabase response omitted exact row count");
+  return count;
+}
+
+module.exports = { countSupabaseRows, getSupabaseConfig, parseSupabaseCount, requestSupabase };

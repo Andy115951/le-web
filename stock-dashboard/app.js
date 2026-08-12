@@ -1290,11 +1290,18 @@ function renderResearchHealth() {
     renderResearchHealthMetric("最近采集", run.status || "暂无", run.marketDate || "尚无完成日期"),
     renderResearchHealthMetric("研究快照", value.snapshotCount, "已归档输入版本"),
     renderResearchHealthMetric("待到期评估", value.pendingOutcomeCount, "等待成熟 20 日标签"),
-    renderResearchHealthMetric("研究模型", value.model?.enabled ? "已启用" : "未启用", value.model?.enabled ? "受预算和审计约束" : (value.model?.reason || "disabled"))
+    renderResearchHealthMetric("研究模型", value.model?.enabled ? "已启用" : "未启用", value.model?.enabled ? "受预算和审计约束" : (value.model?.reason || "disabled")),
+    renderResearchHealthAlerts(value.alerts)
   ].join("");
 }
 
 function renderResearchHealthMetric(label, value, note) { return '<article><span>' + escapeHtml(label) + "</span><strong>" + escapeHtml(String(value ?? "--")) + "</strong><small>" + escapeHtml(String(note || "--")) + "</small></article>"; }
+
+function renderResearchHealthAlerts(alerts) {
+  const rows = Array.isArray(alerts) ? alerts : [];
+  if (!rows.length) return '<section class="research-health-alerts is-clear"><strong>运行状态正常</strong><span>当前没有需要公开提示的研究任务告警。</span></section>';
+  return '<section class="research-health-alerts">' + rows.map(function (alert) { return '<article class="is-' + escapeHtml(String(alert?.severity || "info")) + '"><b>' + escapeHtml(String(alert?.severity || "info").toUpperCase()) + '</b><div><strong>' + escapeHtml(String(alert?.code || "research_alert")) + '</strong><span>' + escapeHtml(String(alert?.message || "")) + '</span></div></article>'; }).join("") + "</section>";
+}
 
 async function refreshModelReview() {
   if (!els.modelReviewBody || !els.modelReviewHint) return;
