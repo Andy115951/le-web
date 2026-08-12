@@ -31,7 +31,7 @@
 
 - [ ] 当前网络没有公网 IPv6，`supabase db push --linked` 无法直连数据库；Schema 已通过 `supabase db query --linked --file` 应用，但仍需在具备 IPv6 或 Pooler 数据库密码时登记 migration 历史
 - [ ] 云端目前没有 `watchlist_states` 用户记录；待首次登录同步自选列表后，再验证 Cron 实际写入 `market_event_history`
-- [ ] 增加 Cron 运行日志和补抓入口
+- [x] Cron 运行日志、失败诊断、手动重跑和最近运行记录接口
 
 页面、API、事件规则和数据库开发现在都可进行；当前未完成项不会阻塞下一批代码开发。
 
@@ -291,7 +291,7 @@ npx vercel dev
 
 ## 8. Cron 本地验证
 
-Cron 接口只允许 `GET`，并要求：
+定时任务使用 `GET`，手动重跑使用 `POST`。两个入口都要求：
 
 ```http
 Authorization: Bearer <CRON_SECRET>
@@ -306,12 +306,36 @@ Invoke-RestMethod -Method Get -Uri 'http://localhost:3000/api/cron/capture-marke
 Remove-Variable cronSecretForTest, cronHeaders
 ```
 
+手动重跑当前最近交易日：
+
+```powershell
+$cronSecretForTest = Read-Host '请输入本地 CRON_SECRET'
+$cronHeaders = @{ Authorization = "Bearer $cronSecretForTest" }
+Invoke-RestMethod -Method Post -Uri 'http://localhost:3000/api/cron/capture-market-history' -Headers $cronHeaders
+Remove-Variable cronSecretForTest, cronHeaders
+```
+
+查看最近 20 次运行记录：
+
+```powershell
+$cronSecretForTest = Read-Host '请输入本地 CRON_SECRET'
+$cronHeaders = @{ Authorization = "Bearer $cronSecretForTest" }
+Invoke-RestMethod -Method Get -Uri 'http://localhost:3000/api/cron/market-history-runs?limit=20' -Headers $cronHeaders
+Remove-Variable cronSecretForTest, cronHeaders
+```
+
+手动入口不会绕过美东收盘时间和上游行情日期检查，也不支持为任意历史日期倒推新闻原因。
+
 可能结果：
 
 - `401 Unauthorized`：本地环境没有 `CRON_SECRET`，或请求值不一致
 - `500 Missing SUPABASE_URL or SUPABASE_SECRET_KEY`：服务端变量未加载
 - `skipped: true`：尚未进入美股收盘后的归档窗口，属于正常保护
 - `ok: true` 且包含 `savedEvents`：任务已执行并写入历史表
+- `status: partial`：至少一个用户成功或正常跳过，同时有其他用户失败
+- `status: failed`：本次所有可处理用户都失败，接口返回 `502`
+
+每次授权调用都会写入 `market_capture_runs`，包括因未到收盘时间而产生的 `skipped`。日志保存触发类型、状态、市场日期、耗时、用户数量、写入数量和失败摘要，不保存 Secret。
 
 不要为了测试而删除收盘时间保护。需要稳定测试时，应为时间判断和抓取层补单元测试，而不是修改生产规则。
 
@@ -368,9 +392,10 @@ npx vercel --global-config $vercelConfigDir --prod
 
 ## 11. 当前测试与提交检查
 
-项目目前没有自动化测试套件，修改后至少完成：
+项目已有基于 Node.js 内置测试框架的基础测试，修改后至少完成：
 
 ```powershell
+npm test
 git diff --check
 git status --short
 ```

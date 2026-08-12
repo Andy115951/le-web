@@ -388,7 +388,7 @@ CRON_SECRET
 - [x] 生产部署
 - [x] 验证 Cron 鉴权和任务执行
 - [ ] 验证 Cron 写入
-- [ ] 失败日志和补抓方式
+- [x] 运行日志、失败诊断和手动重跑方式
 
 验收：电脑关机且用户未打开页面时，工作日收盘后仍能自动写入当天历史。
 
@@ -459,10 +459,9 @@ CRON_SECRET
 
 1. 在可直连数据库的网络中执行 `supabase db push`，登记已应用的 migration 历史。
 2. 登录看板并同步首份 `watchlist_states`，验证下一次 Cron 实际写入历史表。
-3. 增加 Cron 运行记录和失败诊断。
-4. 建立 `market_days`、`instruments`、`price_bars_daily`。
-5. 选择 QQQ 价格供应商并完成回填脚本。
-6. 实现第一个动态日历页面。
+3. 建立 `market_days`、`instruments`、`price_bars_daily`。
+4. 选择 QQQ 价格供应商并完成回填脚本。
+5. 实现第一个动态日历页面。
 
 Cron 实际写入验证完成前不开始 AI 预测；价格、事件和时间戳质量稳定前不开始复杂机器学习。
 

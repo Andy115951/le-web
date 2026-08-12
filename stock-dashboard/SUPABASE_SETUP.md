@@ -94,6 +94,22 @@ using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 ```
 
+### 采集运行日志表
+
+`market_capture_runs` 保存每次定时任务或手动重跑的运行状态，用于判断任务是否启动、跳过、部分失败或完整失败。其正式定义位于：
+
+- `supabase/migrations/20260812141057_add_market_capture_runs.sql`
+
+该表包含：
+
+- `trigger_type`: `cron` 或 `manual`
+- `status`: `running / succeeded / partial / skipped / failed`
+- `market_date`、开始/结束时间和耗时
+- 来源用户数、成功用户数、跳过用户数、失败用户数和写入事件数
+- 截断后的错误摘要与非敏感诊断详情
+
+该表启用 RLS，不给 `anon` 和 `authenticated` 角色访问权限，只允许服务端 Secret Key 管理。浏览器不能直接读取运维日志。
+
 ## 2. 打开邮箱登录
 
 在 Supabase Dashboard:
@@ -199,3 +215,5 @@ vercel dev
 本地可复制 [`.env.example`](.env.example) 为 `.env.local` 填写测试值；`.env.local` 已被 git 忽略。不要把 Secret Key 或 Cron Secret 写进前端、README 示例或 git。Secret Key 通过 `apikey` 请求头发送，不能作为 `Authorization: Bearer` JWT 使用。
 
 部署后可在 Vercel 项目的 `Settings -> Cron Jobs` 查看 `/api/cron/capture-market-history`。首次也可以等下一次交易日收盘，或在本地通过带 `Authorization: Bearer <CRON_SECRET>` 的请求测试。
+
+授权的 `POST /api/cron/capture-market-history` 可手动重跑当前最近交易日；授权的 `GET /api/cron/market-history-runs?limit=20` 可查看最近运行记录。两个接口都不能暴露到浏览器公开调用。

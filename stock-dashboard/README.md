@@ -39,6 +39,9 @@
 - 决策优先 UI：顶部行动队列 + 收敛后的自选表格
 - 当日市场线索：区分市场同向、个股资讯、混合因素与证据不足；新闻原文链接保留供复核
 - 历史归档基础：独立 `market_event_history` 表、30/90/180 天时间轴、收盘后自动补抓入口
+- 采集可观测性：每次 Cron/手动重跑写入 `market_capture_runs`，记录状态、耗时、用户数、写入数和失败摘要
+- 采集任务支持单用户失败隔离，不会因一个用户异常中断整批任务
+- 受 `CRON_SECRET` 保护的手动重跑与最近运行记录接口
 
 ### 当前版本重点
 
@@ -51,10 +54,10 @@
 
 ### 下一阶段
 
-1. 执行历史表 SQL 与 Vercel 环境变量配置，让每日收盘任务开始持续归档
-2. 增加一键决策日志：从行情事件或行动队列直接记录关注、持有、减仓、加仓
-3. 增加 AI 解释层：可选接入 DeepSeek，将已抓取的新闻与行情证据归纳为中文复盘摘要
-4. 增加更清晰的长期趋势图：叠加 `QQQ` / 七巨头 / 自选股与历史决策点
+1. 登录线上看板并同步首份自选数据，验证下一次收盘任务实际写入历史表
+2. 建立 `market_days`、`instruments`、`price_bars_daily`，开始 QQQ 市场记忆数据层
+3. 选择长期行情供应商并回填至少 5 年 QQQ 日线
+4. 实现第一个动态日历和单日详情页
 
 ## 技术结构
 
@@ -77,10 +80,12 @@
 - `api/global-stock/detail.js`: 美股分析接口
 - `api/global-stock/daily-events.js`: 当日行情事件接口
 - `api/cron/capture-market-history.js`: 收盘后自动归档入口
+- `api/cron/market-history-runs.js`: 最近采集运行记录接口
 - `lib/a-share-data.js`: A 股分析数据层
 - `lib/global-stock-data.js`: 美股分析数据层
 - `lib/daily-market-events.js`: 当日涨跌线索、`QQQ` 对照与新闻关联规则
 - `lib/market-history-capture.js`: 受保护的 Supabase 历史归档任务
+- `lib/cron-auth.js`: Cron/运维接口统一鉴权与 JSON 响应
 - `vercel.json`: 每个工作日一次的收盘后 Cron 配置
 - `SUPABASE_SETUP.md`: 云同步建表与配置说明
 
