@@ -75,6 +75,7 @@
 - Logistic Regression 候选：基于训练期标准化与 L2 正则完成首份概率/校准报告；当前没有胜过弱对照，因此标记为 `research_only_not_selected`，`GET /api/nasdaq/evaluation-logistic` 只用于复核
 - Shallow Probability Tree 候选：最大深度 `2`、每叶至少 `30` 个训练样本、训练期分位数阈值与 Laplace 概率平滑；同样没有胜过对照，因此固定为 `research_only_not_selected`，`GET /api/nasdaq/evaluation-tree` 只用于复核
 - Walk-forward 概率门控回测：以每 20 个交易日的非重叠冻结样本模拟“概率 ≥ 0.5 才持有 QQQ”，汇总收益与回撤；现有三个候选均未优于始终持有 QQQ，`GET /api/nasdaq/evaluation-backtest` 只用于研究复盘
+- 到期结果审计：收盘任务会对已有研究输入快照检查成熟的 20 日标签，并以只追加记录保存真实收益、回撤和波动；`npm run research-outcomes:evaluate` 可手动幂等重跑
 - 模型晋升治理：固定 `qqq-model-promotion-policy-v1` 对候选执行样本、冻结切分、相对 Brier/平衡准确率及校准门槛检查；当前 Logistic 的失败标签可由 `GET /api/nasdaq/evaluation-logistic-review` 复核，永不自动部署
 - 看板模型复核：新增“模型复核”导航区，可切换 Logistic 与浅层树候选，直接呈现冻结候选的门槛通过情况、指标差距和失败标签；它只读取离线评估，不会调用模型或输出投资指令
 - SEC EDGAR filings 骨架：可将核心标的的 `10-K / 10-Q / 8-K / 20-F / 40-F / 6-K` 以官方归档链接、接受时间和 CIK 写入统一事件层；配置合规 `SEC_USER_AGENT` 后启用

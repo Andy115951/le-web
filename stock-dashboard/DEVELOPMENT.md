@@ -764,6 +764,23 @@ GET /api/nasdaq/evaluation-backtest
 GET /api/nasdaq/evaluation-logistic-review
 ```
 
+#### 8.2.11 研究快照到期结果审计
+
+收盘任务在归档当天研究包后，会额外扫描历史 `research_packet_snapshots`：仅当同一 `market_date` 已拥有成熟的 `market_forward_labels.return_20d_percent` 时，才以 `research-outcome-20d-v1` 追加真实收益、20 日最大回撤和已实现波动率。未成熟标签、休市和缺失数据都会保留为待评估，绝不写成 `0`。
+
+写入采用 `(snapshot_id, evaluation_version)` 唯一键和 `resolution=ignore-duplicates`，因此 Cron 重跑安全。该评估只用于“当时记录的市场研究在事后发生了什么”的审计，不包含模型概率、个人持仓或交易指令；失败时也不会让行情归档任务失败。
+
+可手动重跑：
+
+```bash
+set -a
+. ./.env.local
+set +a
+npm run research-outcomes:evaluate
+```
+
+当前远程首个 `2026-08-11` 研究快照尚未有成熟 20 日标签，实测正确返回 `matureOutcomesWritten: 0`。
+
 ### 8.3 NDX 成分与权重快照
 
 首个完整快照保存在：

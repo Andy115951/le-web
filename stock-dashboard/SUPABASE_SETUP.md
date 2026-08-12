@@ -257,6 +257,12 @@ FRED API Key 只放在服务端 `FRED_API_KEY`。API 请求 URL 不会写库，�
 
 表启用 RLS，只授予服务端 Secret Key `select / insert`。读取 API 默认不返回 `packet` JSON，只有 `includePacket=true` 的明确回放请求才返回；输入包本身只含公共市场证据、审核状态和相似日事实，不包含服务器密钥、请求头或个人 watchlist 数据。Cron 如果无法构成带 QQQ 市场状态的输入包，会记录 `skipped` 而非保存不完整快照。
 
+### 研究到期结果审计
+
+`20260813010000_add_research_outcome_evaluations.sql` 新增 `research_outcome_evaluations`，把不可变 `research_packet_snapshots` 与后续已成熟的 20 个交易日真实结果关联。每条结果固定保存标签版本、真实收益、最大回撤、波动率和评估时间；唯一键 `(snapshot_id, evaluation_version)` 保证 Cron 重跑不会覆盖或重复历史审计。
+
+这不是预测表，也不保存个人持仓、价格目标或交易指令。表开启 RLS，仅服务端 Secret Key 可 `select / insert`；浏览器只能通过受控的只读汇总接口读取公开市场研究结果。
+
 ## 2. 打开邮箱登录
 
 在 Supabase Dashboard:

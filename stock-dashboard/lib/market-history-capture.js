@@ -8,6 +8,7 @@ const { captureRecentFredObservations, isFredConfigured } = require("./fred-macr
 const { getDailyResearchPacket } = require("./daily-research-packet");
 const { persistResearchPacketSnapshot } = require("./research-packet-snapshots");
 const { runDeepSeekResearchNarrative } = require("./deepseek-research-narrative");
+const { evaluateMatureResearchOutcomes } = require("./research-outcome-evaluations");
 
 const RUNS_TABLE = "market_capture_runs";
 const PUBLIC_HISTORY_TABLE = "nasdaq_market_event_history";
@@ -298,6 +299,14 @@ async function captureMarketHistory(input) {
         reason: errorMessage(error)
       };
     }
+    let researchOutcomeEvaluationResult = { status: "pending", matureOutcomesWritten: 0, error: null };
+    try {
+      const evaluated = await evaluateMatureResearchOutcomes(config, { evaluatedAt: now.toISOString() });
+      researchOutcomeEvaluationResult = { status: "succeeded", error: null, ...evaluated };
+    } catch (error) {
+      // Mature-outcome audit is additive and must never block factual close capture.
+      researchOutcomeEvaluationResult = { ...researchOutcomeEvaluationResult, status: "failed", error: errorMessage(error) };
+    }
 
     const states = await requestSupabase(config, "/rest/v1/watchlist_states?select=user_id,items", {
       headers: { Range: "0-999" }
@@ -377,6 +386,8 @@ async function captureMarketHistory(input) {
       researchNarrativeStatus: researchNarrativeResult.status,
       researchNarrativeReason: researchNarrativeResult.reason,
       researchNarrativeCreated: researchNarrativeResult.created,
+      researchOutcomeEvaluationStatus: researchOutcomeEvaluationResult.status,
+      researchOutcomeEvaluationsWritten: researchOutcomeEvaluationResult.matureOutcomesWritten,
       personalSavedEvents,
       skippedUsers,
       failedUsers,
