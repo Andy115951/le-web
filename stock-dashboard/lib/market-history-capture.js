@@ -10,6 +10,7 @@ const { findResearchPacketSnapshot, persistResearchPacketSnapshot } = require(".
 const { persistDailyResearchReport } = require("./daily-research-reports");
 const { runDeepSeekResearchNarrative } = require("./deepseek-research-narrative");
 const { evaluateMatureResearchOutcomes } = require("./research-outcome-evaluations");
+const { buildResearchTaskRunRows, persistResearchTaskRuns } = require("./research-task-runs");
 
 const RUNS_TABLE = "market_capture_runs";
 const PUBLIC_HISTORY_TABLE = "nasdaq_market_event_history";
@@ -322,6 +323,25 @@ async function captureMarketHistory(input) {
       // Mature-outcome audit is additive and must never block factual close capture.
       researchOutcomeEvaluationResult = { ...researchOutcomeEvaluationResult, status: "failed", error: errorMessage(error) };
     }
+    let researchTaskRunResult = { status: "pending", written: 0, error: null };
+    try {
+      const rows = buildResearchTaskRunRows({
+        captureRunId: runId,
+        marketDate: today,
+        createdAt: now.toISOString(),
+        stages: {
+          snapshot: researchPacketSnapshotResult,
+          dailyReport: dailyResearchReportResult,
+          narrative: researchNarrativeResult,
+          outcomeEvaluation: researchOutcomeEvaluationResult
+        }
+      });
+      const saved = await persistResearchTaskRuns(config, rows);
+      researchTaskRunResult = { status: "succeeded", error: null, ...saved };
+    } catch (error) {
+      // The task ledger improves observability but must not block factual capture.
+      researchTaskRunResult = { ...researchTaskRunResult, status: "failed", error: errorMessage(error) };
+    }
 
     const states = await requestSupabase(config, "/rest/v1/watchlist_states?select=user_id,items", {
       headers: { Range: "0-999" }
@@ -405,6 +425,8 @@ async function captureMarketHistory(input) {
       researchNarrativeCreated: researchNarrativeResult.created,
       researchOutcomeEvaluationStatus: researchOutcomeEvaluationResult.status,
       researchOutcomeEvaluationsWritten: researchOutcomeEvaluationResult.matureOutcomesWritten,
+      researchTaskRunStatus: researchTaskRunResult.status,
+      researchTaskRunsWritten: researchTaskRunResult.written,
       personalSavedEvents,
       skippedUsers,
       failedUsers,
@@ -446,6 +468,12 @@ async function captureMarketHistory(input) {
           researchNarrativeValidationErrorCount: Array.isArray(researchNarrativeResult.validationErrors)
             ? researchNarrativeResult.validationErrors.length
             : 0,
+          dailyResearchReportStatus: dailyResearchReportResult.status,
+          dailyResearchReportCreated: dailyResearchReportResult.created,
+          researchOutcomeEvaluationStatus: researchOutcomeEvaluationResult.status,
+          researchOutcomeEvaluationsWritten: researchOutcomeEvaluationResult.matureOutcomesWritten,
+          researchTaskRunStatus: researchTaskRunResult.status,
+          researchTaskRunsWritten: researchTaskRunResult.written,
           personalSavedEvents,
           publicUniverseAsOf: publicSnapshot.universe?.asOf || NASDAQ_UNIVERSE_AS_OF,
           publicUniverseSource: publicSnapshot.universe?.source || null

@@ -85,6 +85,7 @@
 - 研究输入回放：收盘任务会追加保存字段顺序无关稳定指纹的研究包快照；看板“研究回放”以摘要列表加按需详情方式复原当时事实输入，`GET /api/nasdaq/research-packet-snapshots` 默认只返回摘要，显式 `includePacket=true` 才返回完整历史输入
 - 每日研究事实摘要：每次成功归档研究快照后，系统会按同一快照与报告版本幂等写入日报；`GET /api/nasdaq/daily-reports?limit=7` 只返回 QQQ 收盘、涨跌和证据计数，不含预测、建议或交易指令
 - 每周研究事实汇总：`GET /api/nasdaq/weekly-reports?limit=6` 按纽约自然周聚合已归档日报，明确展示实际归档日数与观察区间；不足三日标记为 `limited`，不补全缺失交易日
+- 研究任务看板：收盘采集会为研究输入、日报、模型摘要与到期评估追加阶段运行摘要；`GET /api/nasdaq/research-tasks?limit=20` 只读展示安全状态、有限计数和版本，不公开原始错误或提供网页重试
 - 受控 DeepSeek 摘要执行器：只可读取已归档研究输入，默认关闭；启用后受每日请求上限、稳定输入指纹、引用/越权校验与服务端审计共同约束
 - 已验证摘要回放：研究回放会显示与所选快照指纹一致、且已通过校验的模型摘要；没有摘要时明确显示未生成，网页不会触发模型调用
 - 输出契约查询：`GET /api/nasdaq/research-narrative-contract?date=YYYY-MM-DD` 提供该日期允许引用的证据与固定 JSON 结构
@@ -157,6 +158,7 @@
 - `lib/research-packet-snapshots.js`: 研究输入的稳定指纹、来源摘要、追加式快照写入与回放读取
 - `lib/daily-research-reports.js`: 基于不可变研究快照的确定性日报构建、幂等写入与只读查询
 - `lib/weekly-research-reports.js`: 基于不可变日报的纽约自然周事实聚合与只读查询，不写入新表
+- `lib/research-task-runs.js`: 追加式研究阶段账本、幂等写入和脱敏只读查询
 - `scripts/capture-research-packet-snapshot.js`: 手动生成某个市场日研究输入快照的受控入口
 - `lib/research-narrative-contract.js`: 未来 LLM 市场复盘的引用约束、禁止语义与输出验证
 - `lib/research-narrative-audit.js`: 服务端审计写入；记录版本、指纹、验证结果与原始模型 JSON

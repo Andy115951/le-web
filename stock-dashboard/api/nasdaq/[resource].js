@@ -21,6 +21,7 @@ const { getSupabaseConfig } = require("../../lib/supabase-server");
 const { getResearchHealth } = require("../../lib/research-health");
 const { getDailyResearchReports } = require("../../lib/daily-research-reports");
 const { getWeeklyResearchReports } = require("../../lib/weekly-research-reports");
+const { getResearchTaskRuns } = require("../../lib/research-task-runs");
 const { getCandidatePromotionReviews, getLogisticPromotionReview, getTreePromotionReview } = require("../../lib/evaluation-promotion-report");
 
 function sendJson(res, statusCode, payload) {
@@ -66,6 +67,13 @@ const resources = {
       res.setHeader("Cache-Control", "s-maxage=900, stale-while-revalidate=1800");
       sendJson(res, 200, { ok: true, researchOnly: true, ...result });
     } catch (error) { sendFailure(res, "Failed to load weekly research reports", error); }
+  },
+  async "research-tasks"(req, res) {
+    try {
+      const result = await getResearchTaskRuns({ limit: req.query?.limit }, getSupabaseConfig());
+      res.setHeader("Cache-Control", "s-maxage=120, stale-while-revalidate=300");
+      sendJson(res, 200, { ok: true, researchOnly: true, ...result });
+    } catch (error) { sendFailure(res, "Failed to load research task runs", error); }
   },
   async calendar(req, res) {
     try {

@@ -269,6 +269,12 @@ FRED API Key 只放在服务端 `FRED_API_KEY`。API 请求 URL 不会写库，�
 
 报告 JSON 只存当时可知的 QQQ 收盘状态、事件/来源/审核状态聚合和相似日候选数；不存预测、投资建议、个人持仓、服务器密钥或请求头。表开启 RLS，只授予服务端 Secret Key `select / insert`；浏览器必须通过 `GET /api/nasdaq/daily-reports` 的受控只读汇总访问。
 
+### 研究任务阶段账本
+
+`20260813030000_add_research_task_runs.sql` 新增 `research_task_runs`，用于保存每次完整收盘采集的阶段级运行摘要。它通过 `capture_run_id` 关联既有 `market_capture_runs`，允许的阶段仅为研究输入快照、每日事实报告、模型摘要和到期结果评估。每行只保存状态、任务版本、有限计数和固定失败码；不保存原始错误正文、用户信息、研究包或凭据。
+
+`20260813040000_add_research_task_run_idempotency.sql` 添加 `(capture_run_id, task_kind, attempt)` 唯一键。服务端使用冲突忽略写入，因此重试同一采集阶段不会重复追加；新的采集尝试仍会通过新的 `capture_run_id` 形成可审计历史。表开启 RLS，仅服务端 Secret Key 可 `select / insert`，浏览器只能读取 `GET /api/nasdaq/research-tasks` 的受控脱敏视图。
+
 ## 2. 打开邮箱登录
 
 在 Supabase Dashboard:

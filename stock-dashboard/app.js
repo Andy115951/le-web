@@ -80,6 +80,9 @@ const els = {
   refreshResearchHealthBtn: document.getElementById("refreshResearchHealthBtn"),
   researchHealthHint: document.getElementById("researchHealthHint"),
   researchHealthBody: document.getElementById("researchHealthBody"),
+  refreshResearchTasksBtn: document.getElementById("refreshResearchTasksBtn"),
+  researchTasksHint: document.getElementById("researchTasksHint"),
+  researchTasksBody: document.getElementById("researchTasksBody"),
   refreshDailyReportsBtn: document.getElementById("refreshDailyReportsBtn"),
   dailyReportsHint: document.getElementById("dailyReportsHint"),
   dailyReportsBody: document.getElementById("dailyReportsBody"),
@@ -181,6 +184,7 @@ const state = {
     requestId: 0
   },
   researchHealth: { value: null, loading: false, error: "" },
+  researchTasks: { runs: [], loading: false, error: "" },
   dailyReports: { reports: [], loading: false, error: "" },
   weeklyReports: { reports: [], loading: false, error: "" },
   targetHits: new Set(),
@@ -228,7 +232,7 @@ async function init() {
   updateCloudButtons();
   await initCloud(cloudConfig);
   await refreshQuotes();
-  await Promise.all([refreshMarketHistory(), refreshMarketCalendar(), refreshResearchReplay(), refreshModelReview(), refreshResearchHealth(), refreshDailyReports(), refreshWeeklyReports()]);
+  await Promise.all([refreshMarketHistory(), refreshMarketCalendar(), refreshResearchReplay(), refreshModelReview(), refreshResearchHealth(), refreshResearchTasks(), refreshDailyReports(), refreshWeeklyReports()]);
 }
 
 function getNewYorkMonth(now = new Date()) {
@@ -333,6 +337,7 @@ function bindEvents() {
     els.refreshModelReviewBtn.addEventListener("click", function () { void refreshModelReview(); });
   }
   if (els.refreshResearchHealthBtn) els.refreshResearchHealthBtn.addEventListener("click", function () { void refreshResearchHealth(); });
+  if (els.refreshResearchTasksBtn) els.refreshResearchTasksBtn.addEventListener("click", function () { void refreshResearchTasks(); });
   if (els.refreshDailyReportsBtn) els.refreshDailyReportsBtn.addEventListener("click", function () { void refreshDailyReports(); });
   if (els.refreshWeeklyReportsBtn) els.refreshWeeklyReportsBtn.addEventListener("click", function () { void refreshWeeklyReports(); });
   if (els.modelReviewBody) {
@@ -1311,6 +1316,77 @@ function renderResearchHealthAlerts(alerts) {
   const rows = Array.isArray(alerts) ? alerts : [];
   if (!rows.length) return '<section class="research-health-alerts is-clear"><strong>运行状态正常</strong><span>当前没有需要公开提示的研究任务告警。</span></section>';
   return '<section class="research-health-alerts">' + rows.map(function (alert) { return '<article class="is-' + escapeHtml(String(alert?.severity || "info")) + '"><b>' + escapeHtml(String(alert?.severity || "info").toUpperCase()) + '</b><div><strong>' + escapeHtml(String(alert?.code || "research_alert")) + '</strong><span>' + escapeHtml(String(alert?.message || "")) + '</span></div></article>'; }).join("") + "</section>";
+}
+
+const researchTaskLabels = {
+  research_input_snapshot: "研究输入",
+  daily_fact_report: "每日事实报告",
+  model_recap: "模型摘要",
+  outcome_evaluation: "到期评估"
+};
+
+async function refreshResearchTasks() {
+  if (!els.researchTasksBody || !els.researchTasksHint) return;
+  const researchTasks = state.researchTasks;
+  researchTasks.loading = true;
+  researchTasks.error = "";
+  renderResearchTasks();
+  try {
+    const response = await fetch("./api/nasdaq/research-tasks?limit=20");
+    const payload = await response.json().catch(function () { return {}; });
+    if (!response.ok) throw new Error(payload?.error || "读取研究任务账本失败");
+    researchTasks.runs = Array.isArray(payload?.runs) ? payload.runs : [];
+  } catch (error) {
+    researchTasks.error = error?.message || "读取研究任务账本失败";
+  }
+  researchTasks.loading = false;
+  renderResearchTasks();
+}
+
+function renderResearchTasks() {
+  if (!els.researchTasksBody || !els.researchTasksHint) return;
+  const researchTasks = state.researchTasks;
+  if (researchTasks.loading && !researchTasks.runs.length) {
+    els.researchTasksBody.innerHTML = '<div class="research-task-empty">正在读取阶段运行记录…</div>';
+    return;
+  }
+  if (researchTasks.error && !researchTasks.runs.length) {
+    els.researchTasksHint.textContent = "研究任务账本暂时不可用，其他市场研究功能不受影响。";
+    els.researchTasksBody.innerHTML = '<div class="research-task-empty is-error">' + escapeHtml(researchTasks.error) + "</div>";
+    return;
+  }
+  if (!researchTasks.runs.length) {
+    els.researchTasksHint.textContent = "暂无独立阶段记录。下一次成功进入收盘采集流程后，会追加真实的输入、日报、模型与评估阶段摘要。";
+    els.researchTasksBody.innerHTML = '<div class="research-task-empty"><strong>尚无任务运行记录</strong><span>任务账本不会从旧日志猜测状态，也不会展示原始错误正文。</span></div>';
+    return;
+  }
+  const latestByKind = new Map();
+  researchTasks.runs.forEach(function (run) {
+    if (!latestByKind.has(run.task_kind)) latestByKind.set(run.task_kind, run);
+  });
+  const taskCards = Object.keys(researchTaskLabels).map(function (kind) {
+    return renderResearchTaskCard(kind, latestByKind.get(kind));
+  }).join("");
+  els.researchTasksHint.textContent = "显示每个阶段最近一次真实运行和最近 " + researchTasks.runs.length + " 条追加式账本记录。失败码经过收敛处理；重试仍需走受保护的运维入口。";
+  els.researchTasksBody.innerHTML = '<div class="research-task-grid">' + taskCards + '</div><div class="research-task-history"><div><span>RECENT APPEND-ONLY RUNS</span><strong>最近记录</strong></div><section>' + researchTasks.runs.slice(0, 8).map(renderResearchTaskHistory).join("") + "</section></div>";
+}
+
+function renderResearchTaskCard(kind, run) {
+  const status = String(run?.status || "pending");
+  const detail = run?.details || {};
+  let metric = "--";
+  if (Object.prototype.hasOwnProperty.call(detail, "created")) metric = detail.created ? "本次新增" : "已存在 / 未新增";
+  if (Object.prototype.hasOwnProperty.call(detail, "matureOutcomesWritten")) metric = "新增 " + Number(detail.matureOutcomesWritten || 0) + " 条";
+  return '<article class="research-task-card"><span>' + escapeHtml(researchTaskLabels[kind]) + '</span><b class="is-' + escapeHtml(status) + '">' + escapeHtml(taskStatusLabel(status)) + '</b><strong>' + escapeHtml(metric) + '</strong><small>' + (run ? escapeHtml(formatMarketDate(run.market_date)) + " · " + escapeHtml(formatDualMarketTime(run.created_at)) : "等待下一次收盘采集") + "</small></article>";
+}
+
+function renderResearchTaskHistory(run) {
+  const status = String(run?.status || "unknown");
+  return '<article><b class="is-' + escapeHtml(status) + '">' + escapeHtml(taskStatusLabel(status)) + '</b><div><strong>' + escapeHtml(researchTaskLabels[run?.task_kind] || run?.task_kind || "未知任务") + '</strong><span>' + escapeHtml(formatMarketDate(run?.market_date)) + " · " + escapeHtml(String(run?.task_version || "--")) + '</span></div><small>' + escapeHtml(formatDualMarketTime(run?.created_at)) + "</small></article>";
+}
+
+function taskStatusLabel(status) {
+  return ({ succeeded: "完成", skipped: "跳过", failed: "失败", disabled: "关闭", pending: "等待" })[status] || "未知";
 }
 
 async function refreshDailyReports() {

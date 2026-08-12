@@ -815,6 +815,20 @@ GET /api/nasdaq/daily-reports?limit=7
 
 当前周报同样不调用模型、不保留用户数据、不输出预测或交易指令。若未来需要发行不可变的周末正式版本，应另建只追加表、明确截止时点与交易所日历覆盖规则，而不是覆盖当前动态聚合。
 
+#### 8.2.15 研究任务账本与看板
+
+`research_task_runs` 是收盘采集的独立、追加式阶段账本。每个进入完整收盘采集流程的 `market_capture_runs.id` 会尝试记录 4 个阶段：`research_input_snapshot`、`daily_fact_report`、`model_recap`、`outcome_evaluation`。记录保存市场日、固定任务版本、`succeeded / skipped / failed / disabled` 状态及少量公共计数；不保存原始异常文本、用户标识、完整输入包、模型原文、请求头或密钥。
+
+唯一键 `(capture_run_id, task_kind, attempt)` 与 `resolution=ignore-duplicates` 保证同一次采集、同一阶段、同一尝试不会重复写入。任务账本失败本身不会阻断行情归档；运行详情仅保留脱敏的 `researchTaskRunStatus` 与实际新增记录数。
+
+网页“研究任务看板”和只读接口读取同一边界：
+
+```text
+GET /api/nasdaq/research-tasks?limit=20
+```
+
+首次部署不会用旧版 `market_capture_runs.details` 猜测补填历史任务。下一次完整美股收盘采集后才会出现第一批真实阶段记录；尚未进入收盘窗口或被提前跳过的运行没有伪造的阶段账本。网页不提供重试按钮，诊断或手动重跑必须继续使用受 `CRON_SECRET` 保护的运维入口。
+
 ### 8.3 NDX 成分与权重快照
 
 首个完整快照保存在：

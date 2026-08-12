@@ -36,6 +36,7 @@
         <button type="button" class="command-link" data-scroll-target="researchReplay">研究回放</button>
         <button type="button" class="command-link" data-scroll-target="dailyResearchReports">每日研究</button>
         <button type="button" class="command-link" data-scroll-target="weeklyResearchReports">每周汇总</button>
+        <button type="button" class="command-link" data-scroll-target="researchTaskBoard">任务看板</button>
         <button type="button" class="command-link" data-scroll-target="modelReview">模型复核</button>
         <button type="button" class="command-link" data-scroll-target="watchlist">个人持仓</button>
       </div>
@@ -286,6 +287,15 @@
       </div>
       <p class="muted" id="researchHealthHint">读取脱敏运行状态，不包含运维错误正文或个人数据。</p>
       <div class="research-health-grid" id="researchHealthBody" aria-live="polite"></div>
+    </section>
+
+    <section class="research-task-board card" id="researchTaskBoard">
+      <div class="section-heading">
+        <div><p class="eyebrow">RESEARCH TASK LEDGER</p><h2>研究任务看板</h2></div>
+        <button type="button" class="btn btn-ghost" id="refreshResearchTasksBtn">刷新任务</button>
+      </div>
+      <p class="muted" id="researchTasksHint">仅显示追加式阶段运行摘要；原始错误、用户数据和密钥不会出现在此处。</p>
+      <div class="research-task-board-body" id="researchTasksBody" aria-live="polite"></div>
     </section>
 
     <section class="daily-reports card" id="dailyResearchReports">
