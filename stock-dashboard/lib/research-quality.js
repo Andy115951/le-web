@@ -4,6 +4,9 @@ const { getResearchHealth } = require("./research-health");
 const { getResearchTaskRuns } = require("./research-task-runs");
 const { getSupabaseConfig } = require("./supabase-server");
 const { getWeeklyResearchReports } = require("./weekly-research-reports");
+const { getSecUserAgent } = require("./sec-edgar");
+const { getFredApiKey } = require("./fred-macro");
+const { isDeepSeekResearchConfigured } = require("./deepseek-research-narrative");
 
 const RESEARCH_QUALITY_VERSION = "research-quality-v1";
 
@@ -27,12 +30,35 @@ function latestStagesByKind(runs) {
   return stages;
 }
 
+function readinessStatus(getConfig, env) {
+  try {
+    getConfig(env);
+    return "ready";
+  } catch (_error) {
+    return "needs_configuration";
+  }
+}
+
+function buildResearchIntegrationReadiness(env = process.env, dependencies = {}) {
+  const getSecConfig = dependencies.getSecConfig || getSecUserAgent;
+  const getFredConfig = dependencies.getFredConfig || getFredApiKey;
+  const getModelConfig = dependencies.getModelConfig || isDeepSeekResearchConfigured;
+  const model = getModelConfig(env) || {};
+  return {
+    marketCollection: { status: "ready", kind: "built_in" },
+    secFilings: { status: readinessStatus(getSecConfig, env), kind: "official_company_filings" },
+    fredMacro: { status: readinessStatus(getFredConfig, env), kind: "official_macro_observations" },
+    modelNarrative: { status: model.enabled ? "ready" : "needs_configuration", kind: "optional_research_recap" }
+  };
+}
+
 function buildResearchQualitySummary(input) {
   const health = input?.health || {};
   const daily = input?.daily || {};
   const weekly = input?.weekly || {};
   const review = input?.review || {};
   const tasks = input?.tasks || {};
+  const integrations = input?.integrations || {};
   const snapshotCount = finiteNonNegative(health.snapshotCount);
   const matureOutcomeCount = finiteNonNegative(health.matureOutcomeCount);
   const dailyReportCount = finiteNonNegative(daily.count);
@@ -68,6 +94,7 @@ function buildResearchQualitySummary(input) {
       taskLedgerState: taskRunCount ? "recording" : "awaiting_next_capture",
       latestStages: latestStagesByKind(tasks.runs)
     },
+    integrations,
     limitations
   };
 }
@@ -81,6 +108,7 @@ async function getResearchQuality(options = {}) {
   const getWeeklyReports = options.getWeeklyReports || getWeeklyResearchReports;
   const getReviewQueue = options.getReviewQueue || getEventReviewQueue;
   const getTaskRuns = options.getTaskRuns || getResearchTaskRuns;
+  const getIntegrationReadiness = options.getIntegrationReadiness || buildResearchIntegrationReadiness;
   const [health, daily, weekly, review, tasks] = await Promise.all([
     getHealth({ config, requestImpl, env: options.env }),
     getDailyReports({ limit: 30 }, config, requestImpl),
@@ -88,11 +116,12 @@ async function getResearchQuality(options = {}) {
     getReviewQueue(days),
     getTaskRuns({ limit: 50 }, config, requestImpl)
   ]);
-  return buildResearchQualitySummary({ health, daily, weekly, review, tasks });
+  return buildResearchQualitySummary({ health, daily, weekly, review, tasks, integrations: getIntegrationReadiness(options.env || process.env) });
 }
 
 module.exports = {
   RESEARCH_QUALITY_VERSION,
+  buildResearchIntegrationReadiness,
   buildResearchQualitySummary,
   getResearchQuality,
   latestStagesByKind

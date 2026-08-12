@@ -1402,6 +1402,7 @@ function renderResearchQuality() {
   const coverage = quality.coverage || {};
   const review = quality.review || {};
   const operations = quality.operations || {};
+  const integrations = quality.integrations || {};
   const ledgerReady = operations.taskLedgerState === "recording";
   els.researchQualityHint.textContent = "只汇总真实已归档材料与待办事项：它不是数据质量认证，也不构成预测或交易建议。";
   els.researchQualityBody.innerHTML = [
@@ -1413,6 +1414,7 @@ function renderResearchQuality() {
     '</div>',
     '<div class="research-quality-notes">',
     '<article class="research-quality-ledger"><span>TASK LEDGER</span><strong class="' + (ledgerReady ? "is-ready" : "") + '">' + (ledgerReady ? "Recording real stages" : "Waiting for next close") + '</strong><p>' + (ledgerReady ? Number(operations.taskRunCount || 0) + " 条真实阶段运行已追加，不会从旧日志合成。" : "下一次完整收盘采集后才会写入真实阶段记录，历史运行不会被猜测性补齐。") + '</p></article>',
+    renderResearchIntegrationReadiness(integrations),
     '<article class="research-quality-limitations"><span>LIMITATIONS</span><ul>' + (Array.isArray(quality.limitations) ? quality.limitations.slice(0, 3) : []).map(function (item) { return "<li>" + escapeHtml(String(item)) + "</li>"; }).join("") + '</ul></article>',
     '</div>'
   ].join("");
@@ -1420,6 +1422,20 @@ function renderResearchQuality() {
 
 function renderResearchQualityMetric(label, value, note, tone) {
   return '<article class="research-quality-metric ' + escapeHtml(String(tone || "")) + '"><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(String(value ?? "--")) + '</strong><small>' + escapeHtml(String(note || "--")) + '</small></article>';
+}
+
+function renderResearchIntegrationReadiness(integrations) {
+  const labels = {
+    marketCollection: "市场收盘采集",
+    secFilings: "SEC 公司披露",
+    fredMacro: "FRED 宏观观测",
+    modelNarrative: "模型研究摘要"
+  };
+  const rows = Object.keys(labels).map(function (key) {
+    const status = integrations?.[key]?.status === "ready" ? "ready" : "needs_configuration";
+    return '<div><span>' + escapeHtml(labels[key]) + '</span><b class="is-' + escapeHtml(status) + '">' + (status === "ready" ? "就绪" : "待配置") + "</b></div>";
+  }).join("");
+  return '<article class="research-quality-integrations"><span>INTEGRATION READINESS</span><p>状态只说明当前服务端能力是否可用，不公开配置值或密钥。</p><section>' + rows + "</section></article>";
 }
 
 const researchTaskLabels = {

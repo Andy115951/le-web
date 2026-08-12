@@ -839,6 +839,8 @@ GET /api/nasdaq/research-tasks?limit=20
 
 当前生产环境没有 `SEC_USER_AGENT`、`FRED_API_KEY` 或 DeepSeek 配置；因此 SEC 公司披露、宏观观测和模型摘要仍是明确关闭/缺失的能力。下一次完整收盘采集会开始填充新的阶段账本，历史运行不做推测性回填。
 
+覆盖面板中的“研究集成准备度”会把内置市场采集固定标为 `ready`，并按当前服务端环境分别显示 SEC、FRED 和模型摘要的 `ready` 或 `needs_configuration`。这是为多端协作准备的安全检查，不会返回 `SEC_USER_AGENT`、`FRED_API_KEY`、`DEEPSEEK_API_KEY`、联系人、环境变量值或具体配置失败原因；状态为待配置时，按第 6 节和第 13 节在本机 `.env.local` 与 Vercel Production 分别补齐变量后重新部署即可。
+
 #### 8.2.17 快照级研究流程回放
 
 `GET /api/nasdaq/research-flow?snapshotId=<uuid>` 以单个不可变 `research_packet_snapshots.id` 为唯一入口，精确关联：该输入包、同一 `snapshot_id` 的确定性日报、同一 `packet_fingerprint` 的模型审计状态，以及同一 `snapshot_id` 的 20 交易日结果审计。看板“研究输入回放”选择快照后，展示输入归档、每日事实、模型摘要和结果审计四个阶段的真实状态。
