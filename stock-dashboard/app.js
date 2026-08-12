@@ -83,6 +83,9 @@ const els = {
   refreshResearchTasksBtn: document.getElementById("refreshResearchTasksBtn"),
   researchTasksHint: document.getElementById("researchTasksHint"),
   researchTasksBody: document.getElementById("researchTasksBody"),
+  refreshEventReviewBtn: document.getElementById("refreshEventReviewBtn"),
+  eventReviewHint: document.getElementById("eventReviewHint"),
+  eventReviewBody: document.getElementById("eventReviewBody"),
   refreshDailyReportsBtn: document.getElementById("refreshDailyReportsBtn"),
   dailyReportsHint: document.getElementById("dailyReportsHint"),
   dailyReportsBody: document.getElementById("dailyReportsBody"),
@@ -185,6 +188,7 @@ const state = {
   },
   researchHealth: { value: null, loading: false, error: "" },
   researchTasks: { runs: [], loading: false, error: "" },
+  eventReview: { queue: null, filter: "needs_attention", loading: false, error: "" },
   dailyReports: { reports: [], loading: false, error: "" },
   weeklyReports: { reports: [], loading: false, error: "" },
   targetHits: new Set(),
@@ -232,7 +236,7 @@ async function init() {
   updateCloudButtons();
   await initCloud(cloudConfig);
   await refreshQuotes();
-  await Promise.all([refreshMarketHistory(), refreshMarketCalendar(), refreshResearchReplay(), refreshModelReview(), refreshResearchHealth(), refreshResearchTasks(), refreshDailyReports(), refreshWeeklyReports()]);
+  await Promise.all([refreshMarketHistory(), refreshMarketCalendar(), refreshResearchReplay(), refreshModelReview(), refreshResearchHealth(), refreshResearchTasks(), refreshEventReview(), refreshDailyReports(), refreshWeeklyReports()]);
 }
 
 function getNewYorkMonth(now = new Date()) {
@@ -338,6 +342,13 @@ function bindEvents() {
   }
   if (els.refreshResearchHealthBtn) els.refreshResearchHealthBtn.addEventListener("click", function () { void refreshResearchHealth(); });
   if (els.refreshResearchTasksBtn) els.refreshResearchTasksBtn.addEventListener("click", function () { void refreshResearchTasks(); });
+  if (els.refreshEventReviewBtn) els.refreshEventReviewBtn.addEventListener("click", function () { void refreshEventReview(); });
+  document.querySelectorAll("[data-event-review-filter]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      state.eventReview.filter = button.getAttribute("data-event-review-filter") || "needs_attention";
+      renderEventReview();
+    });
+  });
   if (els.refreshDailyReportsBtn) els.refreshDailyReportsBtn.addEventListener("click", function () { void refreshDailyReports(); });
   if (els.refreshWeeklyReportsBtn) els.refreshWeeklyReportsBtn.addEventListener("click", function () { void refreshWeeklyReports(); });
   if (els.modelReviewBody) {
@@ -1387,6 +1398,67 @@ function renderResearchTaskHistory(run) {
 
 function taskStatusLabel(status) {
   return ({ succeeded: "完成", skipped: "跳过", failed: "失败", disabled: "关闭", pending: "等待" })[status] || "未知";
+}
+
+async function refreshEventReview() {
+  if (!els.eventReviewBody || !els.eventReviewHint) return;
+  const eventReview = state.eventReview;
+  eventReview.loading = true;
+  eventReview.error = "";
+  renderEventReview();
+  try {
+    const response = await fetch("./api/nasdaq/review-queue?days=30");
+    const payload = await response.json().catch(function () { return {}; });
+    if (!response.ok) throw new Error(payload?.error || "读取归因审核队列失败");
+    eventReview.queue = payload;
+  } catch (error) {
+    eventReview.error = error?.message || "读取归因审核队列失败";
+  }
+  eventReview.loading = false;
+  renderEventReview();
+}
+
+function renderEventReview() {
+  if (!els.eventReviewBody || !els.eventReviewHint) return;
+  const eventReview = state.eventReview;
+  document.querySelectorAll("[data-event-review-filter]").forEach(function (button) {
+    button.classList.toggle("is-active", button.getAttribute("data-event-review-filter") === eventReview.filter);
+  });
+  if (eventReview.loading && !eventReview.queue) {
+    els.eventReviewBody.innerHTML = '<div class="event-review-empty">正在读取归因审核队列…</div>';
+    return;
+  }
+  if (eventReview.error && !eventReview.queue) {
+    els.eventReviewHint.textContent = "审核队列暂时不可用，其他研究功能不受影响。";
+    els.eventReviewBody.innerHTML = '<div class="event-review-empty is-error">' + escapeHtml(eventReview.error) + "</div>";
+    return;
+  }
+  const queue = eventReview.queue || {};
+  const allItems = Array.isArray(queue.items) ? queue.items : [];
+  const items = eventReview.filter === "all" ? allItems : allItems.filter(function (item) { return item.queueState === eventReview.filter; });
+  els.eventReviewHint.textContent = "近 " + Number(queue.days || 30) + " 日：" + Number(queue.needsAttentionCount || 0) + " 条需核对，" + Number(queue.unreviewedCount || 0) + " 条未审核。审核决定只可通过本地受控命令写入。";
+  if (!items.length) {
+    els.eventReviewBody.innerHTML = '<div class="event-review-empty"><strong>当前筛选没有待展示事件</strong><span>未发现符合该状态的公开市场归因记录。</span></div>';
+    return;
+  }
+  els.eventReviewBody.innerHTML = items.slice(0, 12).map(renderEventReviewItem).join("");
+}
+
+function renderEventReviewItem(item) {
+  const classification = item?.classification || {};
+  const flags = Array.isArray(classification.flags) ? classification.flags : [];
+  const sources = Array.isArray(item?.sources) ? item.sources : [];
+  const primary = sources.find(function (source) { return source?.relationType === "primary"; }) || sources[0] || null;
+  const stateLabel = ({ needs_attention: "需核对", unreviewed: "未审核", accepted: "已接受", rejected: "已拒绝" })[item?.queueState] || "未知";
+  return [
+    '<article class="event-review-item">',
+    '<div class="event-review-item-head"><div><b class="is-' + escapeHtml(String(item?.queueState || "unknown")) + '">' + escapeHtml(stateLabel) + '</b><span>' + escapeHtml(formatMarketDate(item?.marketDate)) + " · " + escapeHtml(String(item?.eventType || "unknown")) + '</span></div><strong>' + (Number.isFinite(Number(item?.confidence)) ? Math.round(Number(item.confidence) * 100) + "%" : "--") + " 置信度</strong></div>",
+    '<h3>' + escapeHtml(String(item?.title || "未命名事件")) + '</h3>',
+    flags.length ? '<div class="event-review-flags">' + flags.map(function (flag) { return '<span class="is-' + escapeHtml(String(flag?.severity || "medium")) + '">' + escapeHtml(String(flag?.code || "review_flag")) + "</span>"; }).join("") + "</div>" : "",
+    '<div class="event-review-source">' + (primary ? '<span>' + escapeHtml(String(primary.provider || "来源")) + '</span><a href="' + escapeHtml(String(primary.url || "#")) + '" target="_blank" rel="noreferrer">查看原始来源</a>' : "<span>缺少可用来源</span>") + "</div>",
+    '<small>本地审核：<code>npm run events:review -- decide ' + escapeHtml(String(item?.eventKey || "<event-key>")) + ' accepted &lt;reviewer&gt; "&lt;note&gt;"</code></small>',
+    "</article>"
+  ].join("");
 }
 
 async function refreshDailyReports() {

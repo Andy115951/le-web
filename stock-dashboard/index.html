@@ -37,6 +37,7 @@
         <button type="button" class="command-link" data-scroll-target="dailyResearchReports">每日研究</button>
         <button type="button" class="command-link" data-scroll-target="weeklyResearchReports">每周汇总</button>
         <button type="button" class="command-link" data-scroll-target="researchTaskBoard">任务看板</button>
+        <button type="button" class="command-link" data-scroll-target="eventReviewQueue">归因审核</button>
         <button type="button" class="command-link" data-scroll-target="modelReview">模型复核</button>
         <button type="button" class="command-link" data-scroll-target="watchlist">个人持仓</button>
       </div>
@@ -296,6 +297,20 @@
       </div>
       <p class="muted" id="researchTasksHint">仅显示追加式阶段运行摘要；原始错误、用户数据和密钥不会出现在此处。</p>
       <div class="research-task-board-body" id="researchTasksBody" aria-live="polite"></div>
+    </section>
+
+    <section class="event-review-queue card" id="eventReviewQueue">
+      <div class="section-heading">
+        <div><p class="eyebrow">ATTRIBUTION REVIEW</p><h2>归因审核队列</h2></div>
+        <button type="button" class="btn btn-ghost" id="refreshEventReviewBtn">刷新队列</button>
+      </div>
+      <p class="muted" id="eventReviewHint">只读展示需要人工核对的市场归因和来源。决定通过本地受控命令写入，不在网页保存身份或权限。</p>
+      <div class="event-review-controls" role="group" aria-label="审核队列筛选">
+        <button type="button" class="event-review-filter is-active" data-event-review-filter="needs_attention">优先核对</button>
+        <button type="button" class="event-review-filter" data-event-review-filter="unreviewed">未审核</button>
+        <button type="button" class="event-review-filter" data-event-review-filter="all">全部</button>
+      </div>
+      <div class="event-review-list" id="eventReviewBody" aria-live="polite"></div>
     </section>
 
     <section class="daily-reports card" id="dailyResearchReports">

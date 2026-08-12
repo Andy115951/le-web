@@ -55,7 +55,7 @@
 - 标签查询接口：`GET /api/nasdaq/labels?symbol=QQQ&limit=1254`，明确标记为研究专用
 - 统一事件与来源层：`sources / events / event_sources / event_entities`，支持 URL 去重、证据关系和标的关系
 - 统一事件接口：`GET /api/nasdaq/events?days=30|90|180`
-- 事件人工复核：追加式 `event_review_decisions` 审计记录、确定性待复核规则和只读队列；不会覆盖原始事件
+- 事件人工复核：追加式 `event_review_decisions` 审计记录、确定性待复核规则和只读队列；看板“归因审核”可筛选待核对项并直达原始来源，决定仍通过受控 CLI 写入，不会覆盖原始事件
 - 待复核队列接口：`GET /api/nasdaq/review-queue?days=30|90|180`
 - NDX 历史成分与权重快照：首个完整官方快照含 101 个证券，生效日 `2026-05-01`，权重合计 `99.96%`
 - 成分查询接口：`GET /api/nasdaq/constituents?asOf=YYYY-MM-DD`
