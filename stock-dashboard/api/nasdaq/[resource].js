@@ -14,6 +14,7 @@ const { getResearchPacketSnapshots } = require("../../lib/research-packet-snapsh
 const { getWalkForwardSplitManifest } = require("../../lib/evaluation-split-manifest");
 const { getBaselineEvaluationReport } = require("../../lib/evaluation-baseline-report");
 const { getLogisticEvaluationReport } = require("../../lib/evaluation-logistic-report");
+const { getLogisticPromotionReview } = require("../../lib/evaluation-promotion-report");
 
 function sendJson(res, statusCode, payload) {
   res.statusCode = statusCode;
@@ -280,6 +281,16 @@ const resources = {
       sendJson(res, 200, { ok: true, researchOnly: true, report });
     } catch (error) {
       sendFailure(res, "Failed to load frozen logistic evaluation", error);
+    }
+  },
+
+  async "evaluation-logistic-review"(_req, res) {
+    try {
+      const review = getLogisticPromotionReview();
+      res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=86400");
+      sendJson(res, 200, { ok: true, researchOnly: true, review });
+    } catch (error) {
+      sendFailure(res, "Failed to load logistic promotion review", error);
     }
   }
 };

@@ -710,6 +710,18 @@ git diff -- data/evaluation/qqq-logistic-evaluation-v1.json
 GET /api/nasdaq/evaluation-logistic
 ```
 
+#### 8.2.9 固定模型晋升门槛与失败标签
+
+任何候选在训练前都必须使用 [lib/model-promotion-governance.js](lib/model-promotion-governance.js) 的 `qqq-model-promotion-policy-v1`。政策不可根据某次评估结果临时放宽，且所有门槛必须同时满足：同一 `qqq-walk-forward-v1` 切分、至少 16 折和 900 个样本、相对 `conditionalMomentum20d` 的 Brier 至少改善 `0.005`、平衡准确率至少改善 `0.005`、每个至少 60 样本的校准分桶绝对误差不超过 `0.10`。
+
+通过只意味着 `eligible_for_human_review`，仍然明确是 `not_deployed`，不会自动生成市场信号、影响 Cron 或交给 DeepSeek。当前 Logistic 的确定性复核为 `not_eligible`，失败标签是 `brier_improvement`、`balanced_accuracy_improvement`、`calibration`：这比在页面上展示一个无上下文分数更便于排查失败案例。
+
+只读查询：
+
+```text
+GET /api/nasdaq/evaluation-logistic-review
+```
+
 ### 8.3 NDX 成分与权重快照
 
 首个完整快照保存在：
