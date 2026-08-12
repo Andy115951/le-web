@@ -97,6 +97,21 @@ Vercel Cron
 
 仓库根目录已安装 Vercel CLI 依赖，因此可以在 `stock-dashboard` 目录直接使用 `npx vercel`，无需再全局安装。
 
+### 新设备接入检查清单
+
+另一台电脑拉取代码后，按下面顺序确认。前一项未通过时，先不要继续排查后一项：
+
+1. 在 `stock-dashboard` 目录确认 Node 主版本为 22：`node --version`。
+2. 使用 `npx vercel login` 登录有项目权限的 Vercel 账号。
+3. 使用 `npx vercel link` 关联现有的 `stock-dashboard`，不要创建同名新项目。
+4. 使用 `supabase login` 登录有数据库权限的 Supabase 账号。
+5. 使用 `supabase link --project-ref ougpvpolmzsmaljscruo` 关联现有项目。
+6. 运行 `npx vercel env ls`，确认 Production 存在三项服务端变量；这里只检查变量名，不应尝试打印值。
+7. 只有本地测试 Cron 或服务端归档时才配置 `.env.local`；普通页面和行情 API 开发不需要 Secret Key。
+8. 运行 `npx vercel dev`，以终端显示的本地端口为准。
+
+正常情况下，新设备不需要重新创建 Supabase 项目、Vercel 项目、数据库表或 API Key。需要的是登录同一账号并关联已有资源。
+
 ## 4. 首次关联 Vercel
 
 进入项目：
@@ -392,6 +407,96 @@ git status --short
 
 使用第 4 节的 `--global-config $vercelConfigDir` 方案，避开 Roaming 配置目录。
 
+### Node 版本不是 22
+
+项目使用 [`.nvmrc`](.nvmrc) 和 `package.json` 的 `engines.node` 固定 Node 22，只约束 `stock-dashboard`，不会要求仓库里的其他项目跟着切换。
+
+macOS/Linux 使用 NVM 时：
+
+```bash
+cd stock-dashboard
+nvm install
+nvm use
+node --version
+```
+
+Windows 使用 nvm-windows 时可安装并切换到 Node 22。执行 Vercel 命令时优先使用 `npx vercel`，避免系统全局 Vercel CLI 与项目版本不一致。
+
+### Docker 已安装但 Supabase 本地命令连接失败
+
+仅安装 Docker CLI 不代表 Docker 引擎已经运行。先启动 Docker Desktop，再检查：
+
+```bash
+docker info
+```
+
+如果仍出现 `Cannot connect to the Docker daemon`、socket 不存在或 permission denied，等待 Docker Desktop 完成启动后重试。远程 `supabase link`、Management API 和线上 Vercel 开发不依赖本地 Docker；只有 `supabase start`、本地数据库重置和完整 migration 测试需要它。
+
+### `vercel env pull` 后 Sensitive 变量为空
+
+Vercel 的 Sensitive 变量设计上不能从 Dashboard 或 CLI 重新读取。`vercel env pull` 可能创建变量名，但不会恢复 Secret 明文，因此不能把它当作跨设备 Secret 同步方案。
+
+新设备本地测试 Cron 时：
+
+1. 从 Supabase Dashboard 的 `Settings → API Keys → Secret keys` 获取 `SUPABASE_SECRET_KEY`。
+2. 从项目维护者的安全密码管理渠道获取当前 `CRON_SECRET`，或同步轮换本机和 Vercel Production 的值。
+3. 按 `.env.example` 在本机创建 `.env.local`。
+4. 确认 `.env.local` 被 Git 忽略，且没有出现在 `git status --short` 中。
+
+不要把 Secret 写入 README、聊天、Git、Issue 或普通命令行参数。macOS/Linux 可以额外执行 `chmod 600 .env.local`。
+
+### 本地 Cron 一直返回 401
+
+先确认 `.env.local` 中的 `CRON_SECRET` 不是空值，并且与请求头完全一致。启动服务前再加载环境变量或重新启动 `vercel dev`，因为已经运行的进程不会自动获得之后才写入的变量。
+
+请求格式必须是：
+
+```http
+Authorization: Bearer <CRON_SECRET>
+```
+
+这里使用的是 Cron Secret，不是 Supabase Secret Key。
+
+### 新版 Supabase Secret Key 返回 `Invalid JWT`
+
+`sb_secret_...` 是不透明 API Key，不是 JWT。服务端访问 Supabase Data API 时应发送：
+
+```http
+apikey: sb_secret_...
+```
+
+不要再发送 `Authorization: Bearer sb_secret_...`。浏览器登录用户的 Session JWT 才放在 `Authorization` 头中。旧的 `service_role` JWT 和新的 Secret Key 不要混用。
+
+### `supabase db push --linked` 无法连接数据库
+
+如果出现以下错误之一：
+
+- `Connection terminated unexpectedly`
+- `failed to resolve db.<project-ref>.supabase.co`
+- 直连地址只有 IPv6，但当前网络没有公网 IPv6
+
+说明失败发生在 PostgreSQL 直连层，不代表 Supabase REST API、Auth 或项目本身离线。可以依次选择：
+
+1. 换到支持公网 IPv6 的网络后重试。
+2. 使用 Supabase Pooler 连接和数据库密码执行 `db push`。
+3. 临时通过 Management API 执行已审查的 SQL：
+
+```bash
+supabase db query --linked --file supabase/migrations/20260812031712_stock_dashboard_initial_schema.sql
+```
+
+第三种方式会应用 Schema，但不会自动登记 `supabase_migrations.schema_migrations` 历史。后续恢复数据库直连后仍需核对并补齐 migration 历史，不能直接假设 `db push` 已完成。
+
+### Supabase REST 返回 `PGRST205`
+
+例如：
+
+```text
+Could not find the table 'public.watchlist_states' in the schema cache
+```
+
+这表示数据库表尚未创建或 Schema Cache 尚未刷新，不是 API Key 错误。先检查 migration 是否已应用，再确认 `watchlist_states`、`market_event_history` 和对应 RLS Policy 存在。
+
 ### 首页能打开，但分析按钮失败
 
 不要使用静态文件服务器；改用 `vercel dev`，因为分析能力依赖 Vercel Functions。
@@ -399,6 +504,30 @@ git status --short
 ### 生产 Cron 返回 401
 
 确认 `CRON_SECRET` 已配置在 Production，重新部署，并检查接口收到的请求是否由 Vercel Cron 发起。
+
+环境变量修改只对新 Deployment 生效。添加或轮换变量后必须重新执行生产部署，旧 Deployment 不会自动更新运行时变量。
+
+### Cron 返回成功但 `processedUsers` 和 `savedEvents` 都是 0
+
+这不代表 Vercel 或 Supabase 连接失败。当前任务从 `watchlist_states` 读取各用户的自选列表；如果还没有用户登录并同步数据，任务会正常返回：
+
+```json
+{
+  "ok": true,
+  "processedUsers": 0,
+  "savedEvents": 0
+}
+```
+
+先在线上页面完成 Supabase 登录，并执行一次云同步。确认 `watchlist_states` 出现用户记录后，再在美股收盘窗口验证 `market_event_history` 写入。
+
+### Cron 返回 `skipped: true`
+
+收盘归档只在美东工作日 17:00 之后执行。盘前、盘中、周末或休市日被跳过是保护行为；不要为了测试删除时间和行情日期校验。
+
+### Vercel 显示的 Node 版本与本机不同
+
+本项目通过 `stock-dashboard/package.json` 的 `engines.node = 22.x` 固定构建和 Function 主版本。修改 Node 版本后需要重新部署。不要修改仓库根目录的 Node 配置来解决 Stock 项目的版本问题，否则可能影响其他子项目。
 
 ### Supabase 返回 401/403
 
