@@ -220,6 +220,16 @@ SEC_USER_AGENT=StockDashboard your-monitored-email@example.com
 
 输入包会主动排除：目标日未来 1/3/5/20 日标签、目标日美东收盘后才可获得的事件、交易建议、目标价和任何模型概率。事件摘要也会从过滤后的事件列表重新计算，避免收盘后的数量或影响等级间接泄漏。相似日的后续收益仅属于更早候选日的已成熟历史结果，且会保留方法与归一化信息。
 
+### 研究摘要审计表
+
+`20260812260000_add_research_narrative_audits.sql` 新增 `research_narrative_audits`，仅允许服务端 Secret Key 写入和读取。它为未来的 DeepSeek/LLM 输出保存：目标市场日、输入包/输出契约版本、输入/输出 SHA-256 指纹、提供商/模型、接受或拒绝状态、原始 JSON、验证错误和运行元数据。
+
+当前没有任何模型调用，也没有审计行写入。后续接入时必须先调用 `validateResearchNarrative`，然后无论接受还是拒绝都写入审计表；浏览器不能直接访问该表。验证器要求每条事实引用输入包里的事件 key + 对应原始来源 URL，或引用已有相似日候选；并拒绝交易指令、目标价与“预测概率”表述。
+
+审计元数据采用白名单，只保留 `runId`、生成时间、延迟、输入/输出 token 数和 temperature；API Key、Authorization、请求头、完整上游响应和任意额外字段都会被丢弃，不会写库。
+
+可通过 `GET /api/nasdaq/research-narrative-contract?date=YYYY-MM-DD` 读取该日期允许引用的 event key 与历史候选日期，以及 `research-narrative-v1` 的固定输出形状。这个端点只提供规则和证据标识，不会调用或代理任何模型。
+
 ## 2. 打开邮箱登录
 
 在 Supabase Dashboard:

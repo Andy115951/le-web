@@ -35,6 +35,7 @@
 - [x] `similar_day_matches` 已通过 Management API 应用并完成 5,848 条 QQQ 相似日回填
 - [x] `ndx_constituent_changes` 已通过 Management API 应用；首份快照没有前序版本，因此当前尚无变更行
 - [x] SEC EDGAR filings 采集器、统一事件写入和离线测试已实现；当前未配置真实 `SEC_USER_AGENT`，生产采集保持禁用
+- [x] `research_narrative_audits` 已在远程创建；等待未来首条模型研究输出写入审计记录
 - [x] Cron 运行日志、失败诊断、手动重跑和最近运行记录接口
 - [x] Nasdaq 核心行情/新闻入口已与个人自选解耦，无登录也可运行
 
@@ -473,6 +474,33 @@ GET /api/nasdaq/research-packet?date=2026-08-11
 - `constraints`：允许和禁止的后续 Agent 用途
 
 该接口明确不包含 `researchOutcome`，也不输出交易建议、目标价或模型概率。未来接 LLM 时，只能向模型传入这个 JSON 或其更严格的裁剪版本；模型输出必须单独保存，不能回写或覆盖本接口中的原始事实。
+
+#### 8.2.2 研究摘要输出契约与审计
+
+目前仍未调用 DeepSeek。已先实现 `research-narrative-v1` 输出校验器和 `research_narrative_audits` 服务端审计表，避免模型接入后先产生日志与事实不可追溯的问题。
+
+获取某市场日允许引用的证据与输出形状：
+
+```text
+GET /api/nasdaq/research-narrative-contract?date=2026-08-11
+```
+
+合法输出必须包含：目标日期、短标题、复盘文字、逐条 claim、每条 claim 的事件/来源或相似日候选引用，以及至少一项不确定性。校验器会拒绝：
+
+- 输入包中不存在的 `eventKey`、来源 URL 或相似日候选日期
+- 事件引用缺少该事件对应的来源 URL
+- 买入/卖出、加减仓、目标价、止盈止损和“预测概率”等越权措辞
+- 日期或契约版本不匹配、重复 claim id、过长字段或没有不确定性
+
+离线检查模型 JSON，不写数据库：
+
+```bash
+npm run narrative:validate -- /tmp/research-packet.json /tmp/narrative.json
+```
+
+后续模型调用必须始终先校验，再调用 `persistResearchNarrativeAudit` 写入接受或拒绝结果。审计记录保存输入/输出 SHA-256 指纹、模型标识、完整 JSON 和验证错误；该表仅服务端可读写，不能向浏览器或 LLM 反向暴露密钥。
+
+审计 `metadata` 不透传调用方对象，仅允许 `runId`、生成时间、延迟、输入/输出 token 数和 temperature。不要将 API Key、Authorization、请求头或完整模型响应放入该参数。
 
 ### 8.3 NDX 成分与权重快照
 

@@ -12,6 +12,7 @@
     "ndx:review": "node scripts/review-ndx-snapshot.js",
     "labels:qqq": "node scripts/rebuild-market-labels.js QQQ",
     "similar-days:qqq": "node scripts/rebuild-similar-days.js QQQ",
+    "narrative:validate": "node scripts/validate-research-narrative.js",
     "test": "node --test"
   },
   "engines": {
