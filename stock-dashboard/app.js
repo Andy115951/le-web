@@ -80,6 +80,9 @@ const els = {
   refreshResearchHealthBtn: document.getElementById("refreshResearchHealthBtn"),
   researchHealthHint: document.getElementById("researchHealthHint"),
   researchHealthBody: document.getElementById("researchHealthBody"),
+  refreshResearchQualityBtn: document.getElementById("refreshResearchQualityBtn"),
+  researchQualityHint: document.getElementById("researchQualityHint"),
+  researchQualityBody: document.getElementById("researchQualityBody"),
   refreshResearchTasksBtn: document.getElementById("refreshResearchTasksBtn"),
   researchTasksHint: document.getElementById("researchTasksHint"),
   researchTasksBody: document.getElementById("researchTasksBody"),
@@ -187,6 +190,7 @@ const state = {
     requestId: 0
   },
   researchHealth: { value: null, loading: false, error: "" },
+  researchQuality: { value: null, loading: false, error: "" },
   researchTasks: { runs: [], loading: false, error: "" },
   eventReview: { queue: null, filter: "needs_attention", loading: false, error: "" },
   dailyReports: { reports: [], loading: false, error: "" },
@@ -236,7 +240,7 @@ async function init() {
   updateCloudButtons();
   await initCloud(cloudConfig);
   await refreshQuotes();
-  await Promise.all([refreshMarketHistory(), refreshMarketCalendar(), refreshResearchReplay(), refreshModelReview(), refreshResearchHealth(), refreshResearchTasks(), refreshEventReview(), refreshDailyReports(), refreshWeeklyReports()]);
+  await Promise.all([refreshMarketHistory(), refreshMarketCalendar(), refreshResearchReplay(), refreshModelReview(), refreshResearchHealth(), refreshResearchQuality(), refreshResearchTasks(), refreshEventReview(), refreshDailyReports(), refreshWeeklyReports()]);
 }
 
 function getNewYorkMonth(now = new Date()) {
@@ -341,6 +345,7 @@ function bindEvents() {
     els.refreshModelReviewBtn.addEventListener("click", function () { void refreshModelReview(); });
   }
   if (els.refreshResearchHealthBtn) els.refreshResearchHealthBtn.addEventListener("click", function () { void refreshResearchHealth(); });
+  if (els.refreshResearchQualityBtn) els.refreshResearchQualityBtn.addEventListener("click", function () { void refreshResearchQuality(); });
   if (els.refreshResearchTasksBtn) els.refreshResearchTasksBtn.addEventListener("click", function () { void refreshResearchTasks(); });
   if (els.refreshEventReviewBtn) els.refreshEventReviewBtn.addEventListener("click", function () { void refreshEventReview(); });
   document.querySelectorAll("[data-event-review-filter]").forEach(function (button) {
@@ -1327,6 +1332,61 @@ function renderResearchHealthAlerts(alerts) {
   const rows = Array.isArray(alerts) ? alerts : [];
   if (!rows.length) return '<section class="research-health-alerts is-clear"><strong>运行状态正常</strong><span>当前没有需要公开提示的研究任务告警。</span></section>';
   return '<section class="research-health-alerts">' + rows.map(function (alert) { return '<article class="is-' + escapeHtml(String(alert?.severity || "info")) + '"><b>' + escapeHtml(String(alert?.severity || "info").toUpperCase()) + '</b><div><strong>' + escapeHtml(String(alert?.code || "research_alert")) + '</strong><span>' + escapeHtml(String(alert?.message || "")) + '</span></div></article>'; }).join("") + "</section>";
+}
+
+async function refreshResearchQuality() {
+  if (!els.researchQualityBody || !els.researchQualityHint) return;
+  const quality = state.researchQuality;
+  quality.loading = true;
+  quality.error = "";
+  renderResearchQuality();
+  try {
+    const response = await fetch("./api/nasdaq/research-quality");
+    const payload = await response.json().catch(function () { return {}; });
+    if (!response.ok) throw new Error(payload?.error || "读取研究覆盖状态失败");
+    quality.value = payload?.quality || null;
+    if (!quality.value) throw new Error("没有可用的研究覆盖状态");
+  } catch (error) {
+    quality.error = error?.message || "读取研究覆盖状态失败";
+  }
+  quality.loading = false;
+  renderResearchQuality();
+}
+
+function renderResearchQuality() {
+  if (!els.researchQualityBody || !els.researchQualityHint) return;
+  const qualityState = state.researchQuality;
+  if (qualityState.loading && !qualityState.value) {
+    els.researchQualityBody.innerHTML = '<div class="research-quality-empty">正在汇总已归档研究材料…</div>';
+    return;
+  }
+  if (qualityState.error || !qualityState.value) {
+    els.researchQualityHint.textContent = "研究覆盖状态暂时不可用，其他研究功能不受影响。";
+    els.researchQualityBody.innerHTML = '<div class="research-quality-empty is-error">' + escapeHtml(qualityState.error || "暂无状态") + "</div>";
+    return;
+  }
+  const quality = qualityState.value;
+  const coverage = quality.coverage || {};
+  const review = quality.review || {};
+  const operations = quality.operations || {};
+  const ledgerReady = operations.taskLedgerState === "recording";
+  els.researchQualityHint.textContent = "只汇总真实已归档材料与待办事项：它不是数据质量认证，也不构成预测或交易建议。";
+  els.researchQualityBody.innerHTML = [
+    '<div class="research-quality-grid">',
+    renderResearchQualityMetric("ARCHIVED INPUTS", coverage.researchSnapshots, "研究快照", "inputs"),
+    renderResearchQualityMetric("FACT RECAPS", coverage.dailyFactReports, "日报 · 周报 " + Number(coverage.weeklyFactReports || 0), "reports"),
+    renderResearchQualityMetric("OUTCOMES", coverage.matureOutcomeEvaluations + " / " + coverage.researchSnapshots, "待成熟 " + Number(coverage.pendingOutcomeEvaluations || 0), "outcomes"),
+    renderResearchQualityMetric("REVIEW BACKLOG", review.needsAttention, "未审核 " + Number(review.unreviewed || 0), Number(review.needsAttention || 0) ? "review is-attention" : "review"),
+    '</div>',
+    '<div class="research-quality-notes">',
+    '<article class="research-quality-ledger"><span>TASK LEDGER</span><strong class="' + (ledgerReady ? "is-ready" : "") + '">' + (ledgerReady ? "Recording real stages" : "Waiting for next close") + '</strong><p>' + (ledgerReady ? Number(operations.taskRunCount || 0) + " 条真实阶段运行已追加，不会从旧日志合成。" : "下一次完整收盘采集后才会写入真实阶段记录，历史运行不会被猜测性补齐。") + '</p></article>',
+    '<article class="research-quality-limitations"><span>LIMITATIONS</span><ul>' + (Array.isArray(quality.limitations) ? quality.limitations.slice(0, 3) : []).map(function (item) { return "<li>" + escapeHtml(String(item)) + "</li>"; }).join("") + '</ul></article>',
+    '</div>'
+  ].join("");
+}
+
+function renderResearchQualityMetric(label, value, note, tone) {
+  return '<article class="research-quality-metric ' + escapeHtml(String(tone || "")) + '"><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(String(value ?? "--")) + '</strong><small>' + escapeHtml(String(note || "--")) + '</small></article>';
 }
 
 const researchTaskLabels = {

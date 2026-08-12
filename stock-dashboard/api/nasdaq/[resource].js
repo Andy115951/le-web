@@ -22,6 +22,7 @@ const { getResearchHealth } = require("../../lib/research-health");
 const { getDailyResearchReports } = require("../../lib/daily-research-reports");
 const { getWeeklyResearchReports } = require("../../lib/weekly-research-reports");
 const { getResearchTaskRuns } = require("../../lib/research-task-runs");
+const { getResearchQuality } = require("../../lib/research-quality");
 const { getCandidatePromotionReviews, getLogisticPromotionReview, getTreePromotionReview } = require("../../lib/evaluation-promotion-report");
 
 function sendJson(res, statusCode, payload) {
@@ -47,6 +48,13 @@ function sendFailure(res, message, error) {
 }
 
 const resources = {
+  async "research-quality"(_req, res) {
+    try {
+      const quality = await getResearchQuality({ config: getSupabaseConfig() });
+      res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=900");
+      sendJson(res, 200, { ok: true, researchOnly: true, quality });
+    } catch (error) { sendFailure(res, "Failed to load research quality coverage", error); }
+  },
   async "research-health"(_req, res) {
     try {
       const health = await getResearchHealth();
