@@ -67,6 +67,7 @@
 - 特征查询接口：`GET /api/nasdaq/features?symbol=QQQ&limit=365`，支持 `date=YYYY-MM-DD` 精确读取
 - 历史相似日基线：按目标日之前的特征分布匹配非连续历史阶段，并展示已成熟的后续表现
 - 相似日查询接口：`GET /api/nasdaq/similar-days?date=YYYY-MM-DD&limit=5`，已嵌入日历单日详情
+- SEC EDGAR filings 骨架：可将核心标的的 `10-K / 10-Q / 8-K / 20-F / 40-F / 6-K` 以官方归档链接、接受时间和 CIK 写入统一事件层；配置合规 `SEC_USER_AGENT` 后启用
 
 ### 当前版本重点
 
@@ -80,7 +81,7 @@
 
 ### 下一阶段
 
-1. 扩展 SEC、FRED、公司 IR 等官方事件源
+1. 配置并验证 SEC EDGAR 生产采集，再扩展 FRED、公司 IR 等官方事件源
 2. 为相似日增加宏观、行业和官方公司事件特征，再形成按样本分布的情景统计
 3. 汇总相似日候选的样本量、胜率与收益/回撤分布
 
@@ -126,6 +127,8 @@
 - `lib/daily-feature-store.js`: 日度特征的幂等重算、存储和查询
 - `lib/similar-days.js`: 无未来数据泄漏的相似度基线纯计算
 - `lib/similar-day-store.js`: 相似日结果的重算、物化和查询
+- `lib/sec-edgar.js`: SEC 公司映射、filings 采集、接受时间处理与统一事件记录构建
+- `scripts/capture-sec-filings.js`: 手动采集核心标的 SEC filings 的受控入口
 - `data/ndx/`: 经校验且保留官方来源日期的 NDX 结构化快照
 - `lib/cron-auth.js`: Cron/运维接口统一鉴权与 JSON 响应
 - `vercel.json`: 每个工作日一次的收盘后 Cron 配置

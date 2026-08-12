@@ -3,6 +3,7 @@ const { getDailyMarketEvents, isAfterUsMarketClose, marketDate } = require("./da
 const { NASDAQ_FOCUS_INSTRUMENTS, NASDAQ_UNIVERSE_AS_OF } = require("./nasdaq-universe");
 const { getSupabaseConfig, requestSupabase } = require("./supabase-server");
 const { persistUnifiedMarketEvents } = require("./unified-market-events");
+const { captureRecentSecFilings, isSecEdgarConfigured } = require("./sec-edgar");
 
 const RUNS_TABLE = "market_capture_runs";
 const PUBLIC_HISTORY_TABLE = "nasdaq_market_event_history";
@@ -213,6 +214,25 @@ async function captureMarketHistory(input) {
     await upsertRows(config, PUBLIC_HISTORY_TABLE, "market_date,symbol", publicRows);
     const publicSavedEvents = publicRows.length;
     const unifiedResult = await persistUnifiedMarketEvents(config, publicSnapshot.events, now);
+    let secFilingResult = {
+      status: isSecEdgarConfigured() ? "pending" : "disabled",
+      eventsWritten: 0,
+      sourcesWritten: 0,
+      fetchedCompanies: [],
+      skippedSymbols: [],
+      error: null
+    };
+    if (isSecEdgarConfigured()) {
+      try {
+        const secSymbols = (publicSnapshot.universe?.instruments || NASDAQ_FOCUS_INSTRUMENTS)
+          .map(function (instrument) { return instrument.symbol; });
+        const captured = await captureRecentSecFilings(config, secSymbols, { now });
+        secFilingResult = { status: "succeeded", error: null, ...captured };
+      } catch (error) {
+        // SEC outages and configuration issues must not discard the completed market close snapshot.
+        secFilingResult = { ...secFilingResult, status: "failed", error: errorMessage(error) };
+      }
+    }
 
     const states = await requestSupabase(config, "/rest/v1/watchlist_states?select=user_id,items", {
       headers: { Range: "0-999" }
@@ -280,6 +300,9 @@ async function captureMarketHistory(input) {
       publicSavedEvents,
       unifiedSavedEvents: unifiedResult.eventsWritten,
       unifiedSavedSources: unifiedResult.sourcesWritten,
+      secFilingStatus: secFilingResult.status,
+      secFilingEvents: secFilingResult.eventsWritten,
+      secFilingSources: secFilingResult.sourcesWritten,
       personalSavedEvents,
       skippedUsers,
       failedUsers,
@@ -298,6 +321,12 @@ async function captureMarketHistory(input) {
           publicSavedEvents,
           unifiedSavedEvents: result.unifiedSavedEvents,
           unifiedSavedSources: result.unifiedSavedSources,
+          secFilingStatus: secFilingResult.status,
+          secFilingEvents: secFilingResult.eventsWritten,
+          secFilingSources: secFilingResult.sourcesWritten,
+          secFilingFetchedCompanies: secFilingResult.fetchedCompanies,
+          secFilingSkippedSymbols: secFilingResult.skippedSymbols,
+          secFilingError: secFilingResult.error,
           personalSavedEvents,
           publicUniverseAsOf: publicSnapshot.universe?.asOf || NASDAQ_UNIVERSE_AS_OF,
           publicUniverseSource: publicSnapshot.universe?.source || null

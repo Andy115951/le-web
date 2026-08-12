@@ -34,6 +34,7 @@
 - [x] `daily_market_features` 已通过 Management API 应用并完成 1,254 行 QQQ 回填
 - [x] `similar_day_matches` 已通过 Management API 应用并完成 5,848 条 QQQ 相似日回填
 - [x] `ndx_constituent_changes` 已通过 Management API 应用；首份快照没有前序版本，因此当前尚无变更行
+- [x] SEC EDGAR filings 采集器、统一事件写入和离线测试已实现；当前未配置真实 `SEC_USER_AGENT`，生产采集保持禁用
 - [x] Cron 运行日志、失败诊断、手动重跑和最近运行记录接口
 - [x] Nasdaq 核心行情/新闻入口已与个人自选解耦，无登录也可运行
 
@@ -287,6 +288,7 @@ $cronSecret
 npx vercel --global-config $vercelConfigDir env add SUPABASE_URL production
 npx vercel --global-config $vercelConfigDir env add SUPABASE_SECRET_KEY production
 npx vercel --global-config $vercelConfigDir env add CRON_SECRET production
+npx vercel --global-config $vercelConfigDir env add SEC_USER_AGENT production
 ```
 
 每条命令出现提示后再粘贴对应值。检查变量名：
@@ -298,6 +300,8 @@ npx vercel --global-config $vercelConfigDir env ls
 如果没有遇到 EXDEV、没有定义 `$vercelConfigDir`，去掉每条命令中的 `--global-config $vercelConfigDir` 即可。
 
 修改环境变量后必须重新部署，新部署才会使用新值。
+
+`SEC_USER_AGENT` 不是 API Key，但 SEC 要求其包含应用名称和可联系邮箱，例如 `StockDashboard your-monitored-email@example.com`。不能填写假的联系人，也不能将其写进仓库。未配置时收盘任务不会请求 SEC；配置错误或 SEC 暂时不可用时，任务会记录 `secFilingStatus: failed`，但不会丢弃已完成的行情快照。
 
 ### 6.2 本地 `.env.local`
 
@@ -429,6 +433,27 @@ GET /api/nasdaq/events?days=30|90|180
 ```
 
 响应中每条事件包含 `sources` 和 `entities`，便于 UI 和 Agent 直接展示证据链接及相关标的。浏览器不能直接访问四张 RLS 表。
+
+#### SEC EDGAR filings
+
+SEC collector 使用公司 ticker 映射和 `https://data.sec.gov/submissions/CIK##########.json`，只处理 `10-K`、`10-Q`、`8-K`、`20-F`、`40-F`、`6-K`。事件的可知时间严格采用 EDGAR 的 `acceptanceDateTime`，不是本系统的抓取时间；每个事件的 primary source 指向 SEC Archive 原始文档。
+
+手动验证前，需先在当前 shell 安全加载包含真实 `SEC_USER_AGENT` 的 `.env.local`：
+
+```bash
+set -a
+. ./.env.local
+set +a
+npm run sec:filings
+```
+
+可选地只采集指定标的：
+
+```bash
+npm run sec:filings -- NVDA,AAPL,MSFT
+```
+
+运行结果只会输出数量、标的和日期，不会回显 User-Agent。官方 API 不需要 API Key，但必须遵守 SEC 的公平访问规范：声明 User-Agent、总请求速率不超过 10 次/秒、只拉取必要数据。实现当前以 125ms 间隔串行请求，且只回看最近 7 个自然日。参考：[SEC EDGAR APIs](https://www.sec.gov/search-filings/edgar-application-programming-interfaces) 和 [SEC Developer Resources](https://www.sec.gov/about/developer-resources)。
 
 ### 8.3 NDX 成分与权重快照
 

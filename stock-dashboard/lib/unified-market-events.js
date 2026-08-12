@@ -153,17 +153,31 @@ async function upsertMinimal(config, table, conflictColumns, rows) {
   }
 }
 
-async function persistUnifiedMarketEvents(config, events, now = new Date()) {
-  const records = buildUnifiedEventRecords(events, now);
+async function insertMissing(config, table, conflictColumns, rows) {
+  if (!rows.length) return;
+  await requestSupabase(config, "/rest/v1/" + table + "?on_conflict=" + conflictColumns, {
+    method: "POST",
+    headers: { Prefer: "resolution=ignore-duplicates,return=minimal" },
+    body: rows
+  });
+}
+
+async function persistUnifiedRecords(config, records, now = new Date()) {
   if (!records.events.length) return { eventsWritten: 0, sourcesWritten: 0 };
 
-  await upsertMinimal(config, "market_days", "market_date", records.marketDates.map(function (marketDate) {
+  const marketDays = Array.isArray(records.marketDays)
+    ? records.marketDays
+    : (records.marketDates || []).map(function (marketDate) {
+      return { marketDate, isTradingDay: true, source: "Yahoo Finance daily event capture" };
+    });
+  // Events may arrive after a price/calendar source has established the day; never overwrite that source metadata.
+  await insertMissing(config, "market_days", "market_date", marketDays.map(function (day) {
     return {
-      market_date: marketDate,
+      market_date: day.marketDate,
       exchange: "XNAS",
-      is_trading_day: true,
+      is_trading_day: Boolean(day.isTradingDay),
       session_status: "closed",
-      source: "Yahoo Finance daily event capture",
+      source: day.source || "Market event capture",
       updated_at: now.toISOString()
     };
   }));
@@ -200,6 +214,10 @@ async function persistUnifiedMarketEvents(config, events, now = new Date()) {
   }));
 
   return { eventsWritten: eventRows.length, sourcesWritten: sourceRows.length };
+}
+
+async function persistUnifiedMarketEvents(config, events, now = new Date()) {
+  return persistUnifiedRecords(config, buildUnifiedEventRecords(events, now), now);
 }
 
 function normalizeHistoryDays(value) {
@@ -274,6 +292,8 @@ module.exports = {
   getUnifiedMarketEvents,
   getUnifiedMarketEventsRange,
   normalizeHistoryDays,
+  insertMissing,
+  persistUnifiedRecords,
   persistUnifiedMarketEvents,
   sourceFingerprint
 };

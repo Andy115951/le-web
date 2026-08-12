@@ -200,6 +200,18 @@ with check (auth.uid() = user_id);
 
 新快照必须放入 `data/ndx/candidates/`，运行 `npm run ndx:discover` 检查候选，再用 `npm run ndx:review -- data/ndx/candidates/<file>.json --output data/ndx/reviews/<date>.json` 生成并人工检查差异。只有确认后才能执行 `npm run ndx:import -- data/ndx/candidates/<file>.json --approve`。首次快照没有前序快照，因此 `ndx_constituent_changes` 为空；第二份及以后快照会自动物化变更事件。
 
+### SEC EDGAR 官方披露事件
+
+SEC filings 复用 `sources / events / event_sources / event_entities`，不新增平行表。来源的 `source_kind` 是 `filing`，事件的 `event_type` 是 `sec_filing`，并保留 CIK、accession number、表单、接受时间、报告日和原始归档 URL。
+
+由于 SEC 要求自动访问声明可联系的 User-Agent，必须仅在服务端环境配置：
+
+```text
+SEC_USER_AGENT=StockDashboard your-monitored-email@example.com
+```
+
+不要把这个值放到浏览器代码或提交到 Git。它不是密码，但应使用真实、受监控的邮箱。配置后，收盘任务会在市场快照写入成功后，以最近 7 天窗口抓取核心雷达中可映射到 CIK 的公司。SEC 请求顺序执行并在公司请求间隔至少 125ms，低于 SEC 当前的 10 requests/sec 公平访问上限。未配置时该功能明确显示为 `disabled`，不会发出任何 SEC 请求。
+
 ## 2. 打开邮箱登录
 
 在 Supabase Dashboard:
