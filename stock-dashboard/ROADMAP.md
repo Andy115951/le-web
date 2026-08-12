@@ -380,11 +380,13 @@ CRON_SECRET
 - [x] Vercel Cron 配置文件
 - [x] 新版 Secret Key 请求方式
 - [x] Supabase CLI 安装、登录、init 和 link
-- [ ] 创建正式 migration
+- [x] 创建正式 migration
 - [ ] `supabase db push`
-- [ ] Vercel link
-- [ ] Vercel Production 环境变量
-- [ ] 生产部署
+- [x] 远程 Schema 已通过 Management API 应用并验证
+- [x] Vercel link
+- [x] Vercel Production 环境变量
+- [x] 生产部署
+- [x] 验证 Cron 鉴权和任务执行
 - [ ] 验证 Cron 写入
 - [ ] 失败日志和补抓方式
 
@@ -455,18 +457,14 @@ CRON_SECRET
 
 严格按顺序：
 
-1. 从 `SUPABASE_SETUP.md` 创建首个 migration。
-2. 审查 migration 的幂等性、RLS 和唯一约束。
-3. 执行 `supabase db push`。
-4. 关联 Vercel 项目。
-5. 配置三项 Production 环境变量。
-6. 部署并验证 Cron。
-7. 增加 Cron 运行记录和失败诊断。
-8. 建立 `market_days`、`instruments`、`price_bars_daily`。
-9. 选择 QQQ 价格供应商并完成回填脚本。
-10. 实现第一个动态日历页面。
+1. 在可直连数据库的网络中执行 `supabase db push`，登记已应用的 migration 历史。
+2. 登录看板并同步首份 `watchlist_states`，验证下一次 Cron 实际写入历史表。
+3. 增加 Cron 运行记录和失败诊断。
+4. 建立 `market_days`、`instruments`、`price_bars_daily`。
+5. 选择 QQQ 价格供应商并完成回填脚本。
+6. 实现第一个动态日历页面。
 
-前六项完成前不开始 AI 预测；价格、事件和时间戳质量稳定前不开始复杂机器学习。
+Cron 实际写入验证完成前不开始 AI 预测；价格、事件和时间戳质量稳定前不开始复杂机器学习。
 
 ## 20. 完成定义
 

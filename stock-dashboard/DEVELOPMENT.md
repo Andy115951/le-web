@@ -16,17 +16,24 @@
 - `supabase/.temp` 已被忽略，不会提交本机链接信息
 - 服务端归档代码已迁移到新版 `SUPABASE_SECRET_KEY`
 
-开始完整云端联调前仍需完成：
+当前 Mac 开发机已经完成：
 
-- [ ] 将现有建表 SQL 整理成 `supabase/migrations/` 中的正式 migration
-- [ ] 执行 `supabase db push`，确认远程表、约束和 RLS 已创建
-- [ ] 在当前电脑关联 Vercel 的 `stock-dashboard` 项目
-- [ ] 在 Vercel Production 配置 `SUPABASE_URL`
-- [ ] 在 Vercel Production 配置 `SUPABASE_SECRET_KEY`
-- [ ] 生成并配置 `CRON_SECRET`
-- [ ] 重新部署并验证 Vercel Cron 与 `market_event_history` 写入
+- Node.js `22.22.2` 通过 NVM 管理，项目内 `.nvmrc` 和 `package.json` 固定为 Node 22
+- Vercel CLI `54.18.7` 已登录并关联 `stock-dashboard`
+- Supabase CLI 已升级到 `2.113.0` 并关联项目 `ougpvpolmzsmaljscruo`
+- Docker Desktop `29.2.1` 已启动
+- 正式 migration 已创建，远程表、约束、Data API 权限和 RLS 已通过 Management API 应用并验证
+- Vercel Production 已配置 `SUPABASE_URL`、`SUPABASE_SECRET_KEY` 和 `CRON_SECRET`
+- 本机 `.env.local` 已配置为仅当前用户可读，并被 Git 忽略
+- 生产部署和 Cron 鉴权已验证，固定地址为 `https://stock-dashboard-psi-henna.vercel.app`
 
-页面、API 和事件规则开发现在即可进行；只有每日云端归档闭环依赖上述未完成事项。
+当前剩余环境事项：
+
+- [ ] 当前网络没有公网 IPv6，`supabase db push --linked` 无法直连数据库；Schema 已通过 `supabase db query --linked --file` 应用，但仍需在具备 IPv6 或 Pooler 数据库密码时登记 migration 历史
+- [ ] 云端目前没有 `watchlist_states` 用户记录；待首次登录同步自选列表后，再验证 Cron 实际写入 `market_event_history`
+- [ ] 增加 Cron 运行日志和补抓入口
+
+页面、API、事件规则和数据库开发现在都可进行；当前未完成项不会阻塞下一批代码开发。
 
 ## 1. 当前系统边界
 
