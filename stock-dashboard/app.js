@@ -134,8 +134,12 @@ const state = {
     detailLoading: false,
     detailError: "",
     detail: null,
+    similarityLoading: false,
+    similarityError: "",
+    similarity: null,
     requestId: 0,
-    detailRequestId: 0
+    detailRequestId: 0,
+    similarityRequestId: 0
   },
   targetHits: new Set(),
   dropAlerted: new Set(),
@@ -939,6 +943,8 @@ async function refreshMarketCalendar() {
     calendar.loading = false;
     calendar.detail = null;
     calendar.detailError = "";
+    calendar.similarity = null;
+    calendar.similarityError = "";
     renderMarketCalendar();
     if (calendar.selectedDate) await refreshMarketDayDetail(calendar.selectedDate);
   } catch (error) {
@@ -963,10 +969,34 @@ async function refreshMarketDayDetail(date) {
     calendar.detail = payload;
     calendar.detailLoading = false;
     renderMarketDayDetail();
+    void refreshSimilarDays(date);
   } catch (error) {
     if (requestId !== calendar.detailRequestId || date !== calendar.selectedDate) return;
     calendar.detailLoading = false;
     calendar.detailError = error?.message || "读取单日详情失败";
+    renderMarketDayDetail();
+  }
+}
+
+async function refreshSimilarDays(date) {
+  const calendar = state.marketCalendar;
+  const requestId = ++calendar.similarityRequestId;
+  calendar.similarityLoading = true;
+  calendar.similarityError = "";
+  calendar.similarity = null;
+  renderMarketDayDetail();
+  try {
+    const response = await fetch("./api/nasdaq/similar-days?date=" + encodeURIComponent(date) + "&limit=5");
+    const payload = await response.json().catch(function () { return {}; });
+    if (!response.ok) throw new Error(payload?.error || "读取历史相似日失败");
+    if (requestId !== calendar.similarityRequestId || date !== calendar.selectedDate) return;
+    calendar.similarity = payload;
+    calendar.similarityLoading = false;
+    renderMarketDayDetail();
+  } catch (error) {
+    if (requestId !== calendar.similarityRequestId || date !== calendar.selectedDate) return;
+    calendar.similarityLoading = false;
+    calendar.similarityError = error?.message || "读取历史相似日失败";
     renderMarketDayDetail();
   }
 }
@@ -2290,8 +2320,52 @@ function renderMarketDayDetail() {
     qqq ? renderDayMarketMetrics(qqq, day.eventSummary) : '<div class="day-no-session"><strong>没有确认的 QQQ 交易数据</strong><p>周末会明确标记；工作日缺失不会被自动宣称为法定休市。</p></div>',
     events.length ? '<div class="day-timeline"><div class="day-section-title"><strong>事件时间线</strong><span>' + events.length + " 条</span></div>" + events.map(renderUnifiedDayEvent).join("") + "</div>" : '<div class="day-empty-block"><strong>暂无结构化事件</strong><p>价格存在不代表已经找到可靠原因；系统不会无证据补写归因。</p></div>',
     renderResearchOutcome(outcome),
+    renderSimilarDays(),
     renderNdxSnapshotSummary(detail.ndxSnapshot),
     "<p class=\"calendar-time-note\">市场日期按美东归属；事件时间同时显示美东和北京时间。事后标签不会作为当天判断输入。</p>"
+  ].join("");
+}
+
+function renderSimilarDays() {
+  const calendar = state.marketCalendar;
+  if (calendar.similarityLoading) {
+    return '<div class="similar-days"><div class="day-section-title"><strong>历史相似日</strong><span>RESEARCH ONLY</span></div><p>正在读取严格按当时可知信息生成的历史样本…</p></div>';
+  }
+  if (calendar.similarityError) {
+    return '<div class="similar-days is-error"><div class="day-section-title"><strong>历史相似日暂不可用</strong><span>RESEARCH ONLY</span></div><p>' + escapeHtml(calendar.similarityError) + "</p></div>";
+  }
+  const result = calendar.similarity;
+  if (!result) return "";
+  const matches = Array.isArray(result.matches) ? result.matches : [];
+  if (!matches.length) {
+    const message = result.target
+      ? "该日期可用历史样本不足，或没有已成熟且不重复的候选日。"
+      : "该日期不是已入库的 QQQ 交易日，无法建立价格状态匹配。";
+    return '<div class="similar-days"><div class="day-section-title"><strong>历史相似日</strong><span>RESEARCH ONLY</span></div><p>' + escapeHtml(message) + "</p></div>";
+  }
+  return [
+    '<div class="similar-days">',
+    '<div class="day-section-title"><strong>历史相似日</strong><span>RESEARCH ONLY</span></div>',
+    '<p>使用目标日之前的价格、风险与成交量状态拟合；候选日的后续表现仅作历史研究，不构成预测。</p>',
+    '<div class="similar-day-list">',
+    matches.map(function (match) {
+      const score = Number(match.similarity_score);
+      const outcome5d = Number(match.candidate_return_5d_percent);
+      const outcome20d = Number(match.candidate_return_20d_percent);
+      const scoreText = Number.isFinite(score) ? score.toFixed(0) + " 分" : "--";
+      const outcome5dText = Number.isFinite(outcome5d) ? formatSigned(outcome5d) + "%" : "待成熟";
+      const outcome20dText = Number.isFinite(outcome20d) ? formatSigned(outcome20d) + "%" : "待成熟";
+      const tone5d = outcome5d > 0 ? "positive" : outcome5d < 0 ? "negative" : "neutral";
+      const tone20d = outcome20d > 0 ? "positive" : outcome20d < 0 ? "negative" : "neutral";
+      return [
+        '<article class="similar-day-card">',
+        '<div class="similar-day-head"><span>#' + Number(match.rank || 0) + " · " + escapeHtml(formatMarketDate(match.candidate_market_date)) + '</span><strong>' + escapeHtml(scoreText) + "</strong></div>",
+        '<div class="similar-day-outcomes"><span>后 5 日 <b class="' + tone5d + '">' + escapeHtml(outcome5dText) + '</b></span><span>后 20 日 <b class="' + tone20d + '">' + escapeHtml(outcome20dText) + "</b></span></div>",
+        '</article>'
+      ].join("");
+    }).join(""),
+    "</div>",
+    "</div>"
   ].join("");
 }
 

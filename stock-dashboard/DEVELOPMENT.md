@@ -32,6 +32,8 @@
 - [ ] 当前网络没有公网 IPv6，`supabase db push --linked` 无法直连数据库；Schema 已通过 `supabase db query --linked --file` 应用，但仍需在具备 IPv6 或 Pooler 数据库密码时登记 migration 历史
 - [x] 公共 `nasdaq_market_event_history` 已建表并完成 14 个核心标的真实写入
 - [x] `daily_market_features` 已通过 Management API 应用并完成 1,254 行 QQQ 回填
+- [x] `similar_day_matches` 已通过 Management API 应用并完成 5,848 条 QQQ 相似日回填
+- [x] `ndx_constituent_changes` 已通过 Management API 应用；首份快照没有前序版本，因此当前尚无变更行
 - [x] Cron 运行日志、失败诊断、手动重跑和最近运行记录接口
 - [x] Nasdaq 核心行情/新闻入口已与个人自选解耦，无登录也可运行
 
@@ -63,7 +65,7 @@ stock-dashboard/
 │  ├─ a-share/detail.js              A 股分析接口
 │  ├─ global-stock/detail.js         美股分析接口
 │  ├─ global-stock/daily-events.js   当日市场事件接口
-│  ├─ nasdaq/history.js              公共 Nasdaq 历史读取接口
+│  ├─ nasdaq/[resource].js           公共 Nasdaq 查询入口（保留各资源 URL）
 │  └─ cron/capture-market-history.js 收盘后历史归档入口
 ├─ lib/
 │  ├─ a-share-data.js                A 股数据层
@@ -77,6 +79,8 @@ stock-dashboard/
 ├─ .env.example                      服务端环境变量模板
 └─ SUPABASE_SETUP.md                 建表、RLS 与登录配置
 ```
+
+Vercel Hobby 对单次部署的 Serverless Function 数量有限制。Nasdaq 的 `calendar`、`prices`、`labels`、`features`、`similar-days` 等只读资源统一由 `api/nasdaq/[resource].js` 分发，外部 URL 保持不变，例如 `/api/nasdaq/calendar`。新增 Nasdaq 只读接口时优先扩展这个入口，避免重新触发函数数量限制。
 
 当前公共雷达的数据流：
 
@@ -211,12 +215,14 @@ supabase projects list --agent no --output-format text
 - `price_bars_daily`
 - `market_forward_labels`
 - `daily_market_features`
+- `similar_day_matches`
 - `sources`
 - `events`
 - `event_sources`
 - `event_entities`
 - `ndx_constituent_snapshots`
 - `ndx_constituent_members`
+- `ndx_constituent_changes`
 - 对应索引、唯一约束和 RLS Policies
 
 当前市场数据 migrations：
@@ -227,6 +233,8 @@ supabase/migrations/20260812200000_add_market_forward_labels.sql
 supabase/migrations/20260812210000_add_unified_market_events.sql
 supabase/migrations/20260812220000_add_ndx_constituent_snapshots.sql
 supabase/migrations/20260812230000_add_daily_market_features.sql
+supabase/migrations/20260812240000_add_similar_day_matches.sql
+supabase/migrations/20260812250000_add_ndx_constituent_changes.sql
 ```
 
 ### 5.3 配置登录回调
@@ -432,14 +440,20 @@ data/ndx/2026-05-01.json
 
 来源是 Nasdaq 官方 NDX UCITS 成分 PDF。官方说明权重是指示性数值并四舍五入到两位小数，因此 101 个证券权重合计为 `99.96%`，不应强行归一化成 100%。Alphabet 的两类证券分别计数，所以证券数可以大于公司数 100。
 
-导入或幂等重导：
+候选快照流程：
 
 ```bash
 set -a
 . ./.env.local
 set +a
-npm run ndx:import
+npm run ndx:discover
+npm run ndx:review -- data/ndx/candidates/<official-date>.json --output data/ndx/reviews/<official-date>.json
+npm run ndx:import -- data/ndx/candidates/<official-date>.json --approve
 ```
+
+候选文件必须来自官方来源，并保留其 `sourceUrl`、`effectiveDate` 与 `publishedAt`。`ndx:review` 会与 `data/ndx/` 中最新的已审核快照比较，输出加入/移除、权重变化、总权重变化和来源元数据。导入命令没有 `--approve` 时会主动拒绝写库。
+
+导入不会覆盖旧 `effective_date`：相同生效日只有在来源、发布时间、成分、名称和权重完全一致时才允许幂等重导；任何差异都会被拒绝。对于第二份及以后的快照，服务端还会把差异写入 `ndx_constituent_changes`：`membership_added`、`membership_removed` 和 `weight_changed`。这些行带前后快照、前后权重和生成时间，供后续历史成分回放与 Agent 追溯使用。
 
 导入器校验：
 
@@ -460,7 +474,7 @@ GET /api/nasdaq/constituents?asOf=2026-08-12
 
 默认市场雷达会从数据库最新完整快照选择权重前 12，再加 `QQQ / MAGS`，总请求量保持在 16 以下。数据库或服务端环境变量不可用时，回退到代码内有明确来源日期的小型雷达，不阻断页面。
 
-当前远程验证：1 个快照、101 个唯一成员、101 个唯一排名、权重 `99.96%`、0 个缺失 instrument。后续新增快照只能追加新的 `effective_date`，不得覆盖旧日期来伪造历史。
+当前远程验证：1 个快照、101 个唯一成员、101 个唯一排名、权重 `99.96%`、0 个缺失 instrument；`ndx_constituent_changes` 表已建但因还没有第二份快照而为 0 行。后续新增快照只能追加新的 `effective_date`，不得覆盖旧日期来伪造历史。
 
 ### 8.4 Nasdaq 动态日历与单日详情
 
@@ -522,7 +536,41 @@ GET /api/nasdaq/features?symbol=QQQ&date=2026-08-11
 - `1,234` 行具备成熟 20 日前瞻研究标签，标签不参与特征
 - 当前可用事件天数为 `0`，因为现有 14 条统一事件都在对应交易日收盘后才被本系统获得
 
-### 8.6 收盘归档验证
+### 8.6 历史相似日研究基线
+
+相似日结果用于回看历史市场状态，不构成买卖建议或对未来的预测。当前方法版本为 `qqq-price-state-v1`，只比较 QQQ 收盘时已知的四组输入：
+
+- 动量：1 / 5 / 20 日收益与当日跳空
+- 风险：过去 20 个交易日的年化波动率与回撤
+- 参与度：当日成交量相对过去 20 日均量
+- 已知事件：截至当日美东 `16:00` 已获得的统一事件；当前事件样本尚未满足该时间规则，因此该项不参与实际区分
+
+标准化参数只由目标日期之前的至少 60 个交易日拟合。候选日必须早于目标日，且其未来 20 个交易日研究结果在目标日当时已经成熟；不同候选日之间至少相隔 20 个交易日。这样候选与分数不会读取目标日之后的信息。
+
+重建全部历史匹配：
+
+```bash
+set -a
+. ./.env.local
+set +a
+npm run similar-days:qqq
+```
+
+公开查询：
+
+```text
+GET /api/nasdaq/similar-days?date=2026-08-11&limit=5
+```
+
+响应会返回相似度总分、动量/风险/成交量/事件分项、候选日以及该候选日后续 1 / 3 / 5 / 20 日收益、20 日最大回撤和实现波动率。历史候选结果仅用于研究验证，不能直接当成当前市场的预期收益。
+
+当前真实回填基线：
+
+- `1,193` 个具备可用相似日的目标交易日
+- `5,848` 条匹配，覆盖 `2021-11-08` 至 `2026-08-11`
+- 每个目标日最多返回 5 个候选日；历史不足时明确返回空结果而不是伪造分数
+
+### 8.7 收盘归档验证
 
 定时任务使用 `GET`，手动重跑使用 `POST`。两个入口都要求：
 

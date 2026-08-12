@@ -1918,7 +1918,8 @@ body {
 .day-no-session,
 .day-empty-block,
 .research-outcome,
-.day-snapshot { margin-top: 10px; padding: 11px; border: 1px solid rgba(178, 199, 233, 0.14); border-radius: 11px; background: rgba(255, 255, 255, 0.045); }
+.day-snapshot,
+.similar-days { margin-top: 10px; padding: 11px; border: 1px solid rgba(178, 199, 233, 0.14); border-radius: 11px; background: rgba(255, 255, 255, 0.045); }
 .day-no-session strong,
 .day-empty-block strong { color: #f1f5fc; font-size: 0.8rem; }
 .day-no-session p,
@@ -1926,6 +1927,18 @@ body {
 .research-outcome > p,
 .day-snapshot > p { margin: 5px 0 0; color: #9faec5; font-size: 0.68rem; line-height: 1.5; }
 .research-outcome { background: rgba(44, 96, 191, 0.12); }
+.similar-days { background: linear-gradient(135deg, rgba(115, 80, 190, 0.18), rgba(38, 94, 181, 0.1)); }
+.similar-days.is-error { background: rgba(191, 66, 85, 0.12); }
+.similar-day-list { display: grid; gap: 6px; margin-top: 9px; }
+.similar-day-card { display: grid; gap: 5px; padding: 8px; border: 1px solid rgba(189, 202, 238, 0.15); border-radius: 9px; background: rgba(6, 16, 36, 0.16); }
+.similar-day-head,
+.similar-day-outcomes { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.similar-day-head span { color: #cbd8ef; font-size: 0.66rem; font-weight: 750; }
+.similar-day-head strong { color: #b9d0ff; font-size: 0.72rem; }
+.similar-day-outcomes { color: #93a6c3; font-size: 0.6rem; }
+.similar-day-outcomes b { margin-left: 3px; color: #dce6f7; font-size: 0.66rem; }
+.similar-day-outcomes b.positive { color: #70dfaf; }
+.similar-day-outcomes b.negative { color: #ff8f9d; }
 .outcome-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; margin-top: 9px; }
 .outcome-grid > div { display: grid; gap: 3px; min-width: 0; }
 .outcome-grid span { color: #94a6c2; font-size: 0.57rem; }

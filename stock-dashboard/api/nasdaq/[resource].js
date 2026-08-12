@@ -1,0 +1,182 @@
+const { getMarketCalendar, getMarketDayDetail } = require("../../lib/market-calendar");
+const { getNdxSnapshot } = require("../../lib/ndx-snapshots");
+const { getUnifiedMarketEvents } = require("../../lib/unified-market-events");
+const { getStoredDailyFeatures, normalizeFeatureDate } = require("../../lib/daily-feature-store");
+const { getNasdaqMarketHistory } = require("../../lib/market-history-capture");
+const { getStoredForwardLabels } = require("../../lib/market-label-store");
+const { getStoredDailyPrices } = require("../../lib/price-history-store");
+const { getStoredSimilarDays } = require("../../lib/similar-day-store");
+
+function sendJson(res, statusCode, payload) {
+  res.statusCode = statusCode;
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.end(JSON.stringify(payload));
+}
+
+function sendMethodNotAllowed(res) {
+  res.setHeader("Allow", "GET");
+  sendJson(res, 405, { error: "Method not allowed" });
+}
+
+function sendInvalidQuery(res, error) {
+  res.setHeader("Cache-Control", "no-store");
+  sendJson(res, 400, { ok: false, error });
+}
+
+function sendFailure(res, message, error) {
+  console.error(message, error);
+  res.setHeader("Cache-Control", "no-store");
+  sendJson(res, 500, { ok: false, error: message });
+}
+
+const resources = {
+  async calendar(req, res) {
+    try {
+      const date = String(req.query?.date || "").trim();
+      const result = date ? await getMarketDayDetail(date) : await getMarketCalendar(req.query?.month);
+      res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=1800");
+      sendJson(res, 200, { ok: true, mode: date ? "day" : "month", ...result });
+    } catch (error) {
+      if (/Invalid calendar/.test(error?.message || "")) {
+        sendInvalidQuery(res, error.message);
+        return;
+      }
+      sendFailure(res, "Failed to load market calendar", error);
+    }
+  },
+
+  async constituents(req, res) {
+    try {
+      const snapshot = await getNdxSnapshot(req.query?.asOf);
+      if (!snapshot) {
+        sendJson(res, 404, { ok: false, error: "No NDX snapshot available for the requested date" });
+        return;
+      }
+      res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=86400");
+      sendJson(res, 200, { ok: true, snapshot });
+    } catch (error) {
+      if (/Invalid as-of date/.test(error?.message || "")) {
+        sendInvalidQuery(res, "Invalid asOf date; expected YYYY-MM-DD");
+        return;
+      }
+      sendFailure(res, "Failed to load NDX constituents", error);
+    }
+  },
+
+  async events(req, res) {
+    try {
+      const events = await getUnifiedMarketEvents(req.query?.days);
+      res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=900");
+      sendJson(res, 200, { ok: true, count: events.length, events });
+    } catch (error) {
+      sendFailure(res, "Failed to load unified market events", error);
+    }
+  },
+
+  async features(req, res) {
+    try {
+      const result = await getStoredDailyFeatures(req.query?.symbol || "QQQ", req.query?.limit, normalizeFeatureDate(req.query?.date));
+      res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=900");
+      sendJson(res, 200, {
+        ok: true,
+        timezone: "America/New_York",
+        instrument: result.instrument,
+        count: result.features.length,
+        features: result.features
+      });
+    } catch (error) {
+      if (/Invalid feature date|Unsupported market symbol|Instrument is not registered/.test(error?.message || "")) {
+        sendInvalidQuery(res, "Invalid feature query");
+        return;
+      }
+      sendFailure(res, "Failed to load daily market features", error);
+    }
+  },
+
+  async history(req, res) {
+    try {
+      const history = await getNasdaqMarketHistory(req.query?.days);
+      res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=900");
+      sendJson(res, 200, { ok: true, count: history.length, history });
+    } catch (error) {
+      sendFailure(res, "Failed to load Nasdaq history", error);
+    }
+  },
+
+  async labels(req, res) {
+    try {
+      const result = await getStoredForwardLabels(req.query?.symbol || "QQQ", req.query?.limit);
+      res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=900");
+      sendJson(res, 200, {
+        ok: true,
+        researchOnly: true,
+        instrument: result.instrument,
+        count: result.labels.length,
+        labels: result.labels
+      });
+    } catch (error) {
+      if (/Unsupported market symbol|Instrument is not registered/.test(error?.message || "")) {
+        sendInvalidQuery(res, "Unsupported market symbol");
+        return;
+      }
+      sendFailure(res, "Failed to load forward labels", error);
+    }
+  },
+
+  async prices(req, res) {
+    try {
+      const result = await getStoredDailyPrices(req.query?.symbol || "QQQ", req.query?.limit);
+      res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=900");
+      sendJson(res, 200, {
+        ok: true,
+        instrument: result.instrument,
+        count: result.prices.length,
+        prices: result.prices
+      });
+    } catch (error) {
+      if (/Unsupported market symbol|Instrument is not registered/.test(error?.message || "")) {
+        sendInvalidQuery(res, "Unsupported market symbol");
+        return;
+      }
+      sendFailure(res, "Failed to load daily prices", error);
+    }
+  },
+
+  async "similar-days"(req, res) {
+    try {
+      const result = await getStoredSimilarDays(req.query?.symbol || "QQQ", req.query?.date, req.query?.limit);
+      res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=900");
+      sendJson(res, 200, {
+        ok: true,
+        researchOnly: true,
+        timezone: "America/New_York",
+        instrument: result.instrument,
+        target: result.target,
+        count: result.matches.length,
+        methodVersion: result.methodVersion,
+        matches: result.matches
+      });
+    } catch (error) {
+      if (/Invalid feature date|Unsupported market symbol|Instrument is not registered/.test(error?.message || "")) {
+        sendInvalidQuery(res, "Invalid similar-day query");
+        return;
+      }
+      sendFailure(res, "Failed to load similar days", error);
+    }
+  }
+};
+
+module.exports = async function handler(req, res) {
+  if (req.method !== "GET") {
+    sendMethodNotAllowed(res);
+    return;
+  }
+
+  const resource = Array.isArray(req.query?.resource) ? req.query.resource[0] : req.query?.resource;
+  const resourceHandler = resources[resource];
+  if (!resourceHandler) {
+    sendJson(res, 404, { ok: false, error: "Unknown Nasdaq resource" });
+    return;
+  }
+  await resourceHandler(req, res);
+};

@@ -1,47 +1,7 @@
-const { canonicalizeSourceUrl, sourceFingerprint } = require("./unified-market-events");
+const { sourceFingerprint } = require("./unified-market-events");
 const { getSupabaseConfig, requestSupabase } = require("./supabase-server");
-
-function round(value, digits = 6) {
-  return Number(Number(value).toFixed(digits));
-}
-
-function validateSnapshot(input) {
-  const snapshot = input && typeof input === "object" ? input : {};
-  const indexSymbol = String(snapshot.indexSymbol || "").trim().toUpperCase();
-  const effectiveDate = String(snapshot.effectiveDate || "").trim();
-  const constituents = Array.isArray(snapshot.constituents) ? snapshot.constituents : [];
-  if (indexSymbol !== "NDX") throw new Error("Only NDX snapshots are supported");
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveDate)) throw new Error("Invalid snapshot effective date");
-  if (constituents.length < 100 || constituents.length > 110) throw new Error("NDX snapshot must contain 100-110 securities");
-  const symbols = new Set();
-  const normalized = constituents.map(function (item) {
-    const symbol = String(item?.symbol || "").trim().toUpperCase();
-    const name = String(item?.name || "").trim();
-    const weightPercent = Number(item?.weightPercent);
-    if (!/^[A-Z][A-Z0-9.-]{0,9}$/.test(symbol)) throw new Error("Invalid NDX symbol: " + symbol);
-    if (symbols.has(symbol)) throw new Error("Duplicate NDX symbol: " + symbol);
-    if (!name) throw new Error("Missing NDX security name: " + symbol);
-    if (!Number.isFinite(weightPercent) || weightPercent < 0 || weightPercent > 25) {
-      throw new Error("Invalid NDX weight: " + symbol);
-    }
-    symbols.add(symbol);
-    return { symbol, name, weightPercent: round(weightPercent) };
-  });
-  const totalWeightPercent = round(normalized.reduce(function (sum, item) { return sum + item.weightPercent; }, 0));
-  if (totalWeightPercent < 99 || totalWeightPercent > 101) {
-    throw new Error("NDX weights must total approximately 100%, received " + totalWeightPercent);
-  }
-  return {
-    indexSymbol,
-    effectiveDate,
-    publishedAt: snapshot.publishedAt || null,
-    sourceUrl: canonicalizeSourceUrl(snapshot.sourceUrl),
-    weightPrecision: Number(snapshot.weightPrecision) || 2,
-    isProForma: Boolean(snapshot.isProForma),
-    constituents: normalized,
-    totalWeightPercent
-  };
-}
+const { compareNdxSnapshots, snapshotsEquivalent, toConstituentChangeRows } = require("./ndx-snapshot-review");
+const { validateSnapshot } = require("./ndx-snapshot-validation");
 
 async function upsertReturning(config, table, conflict, body) {
   const rows = await requestSupabase(config, "/rest/v1/" + table + "?on_conflict=" + conflict, {
@@ -62,10 +22,103 @@ async function upsertMinimal(config, table, conflict, rows) {
   }
 }
 
+async function getPriorSnapshot(config, indexSymbol, effectiveDate) {
+  const snapshots = await requestSupabase(
+    config,
+    "/rest/v1/ndx_constituent_snapshots?select=id,index_symbol,effective_date,published_at,source_url,weight_precision,is_pro_forma"
+      + "&index_symbol=eq." + encodeURIComponent(indexSymbol)
+      + "&effective_date=lt." + effectiveDate
+      + "&order=effective_date.desc&limit=1"
+  );
+  const snapshot = Array.isArray(snapshots) ? snapshots[0] : null;
+  if (!snapshot) return null;
+  const members = await requestSupabase(
+    config,
+    "/rest/v1/ndx_constituent_members?select=instrument_id,security_name,weight_percent,instruments(symbol)"
+      + "&snapshot_id=eq." + snapshot.id
+      + "&order=rank.asc&limit=110"
+  );
+  return {
+    id: snapshot.id,
+    snapshot: {
+      indexSymbol: snapshot.index_symbol,
+      effectiveDate: snapshot.effective_date,
+      publishedAt: snapshot.published_at,
+      sourceUrl: snapshot.source_url,
+      weightPrecision: snapshot.weight_precision,
+      isProForma: snapshot.is_pro_forma,
+      constituents: (members || []).map(function (member) {
+        return {
+          symbol: member.instruments?.symbol,
+          name: member.security_name,
+          weightPercent: Number(member.weight_percent)
+        };
+      })
+    },
+    instrumentIdBySymbol: new Map((members || []).map(function (member) {
+      return [member.instruments?.symbol, member.instrument_id];
+    }).filter(function (entry) { return Boolean(entry[0] && entry[1]); }))
+  };
+}
+
+async function getSnapshotAtEffectiveDate(config, indexSymbol, effectiveDate) {
+  const snapshots = await requestSupabase(
+    config,
+    "/rest/v1/ndx_constituent_snapshots?select=id,index_symbol,effective_date,published_at,source_url,weight_precision,is_pro_forma"
+      + "&index_symbol=eq." + encodeURIComponent(indexSymbol)
+      + "&effective_date=eq." + effectiveDate
+      + "&limit=1"
+  );
+  const snapshot = Array.isArray(snapshots) ? snapshots[0] : null;
+  if (!snapshot) return null;
+  const members = await requestSupabase(
+    config,
+    "/rest/v1/ndx_constituent_members?select=instrument_id,security_name,weight_percent,instruments(symbol)"
+      + "&snapshot_id=eq." + snapshot.id
+      + "&order=rank.asc&limit=110"
+  );
+  return {
+    id: snapshot.id,
+    snapshot: {
+      indexSymbol: snapshot.index_symbol,
+      effectiveDate: snapshot.effective_date,
+      publishedAt: snapshot.published_at,
+      sourceUrl: snapshot.source_url,
+      weightPrecision: snapshot.weight_precision,
+      isProForma: snapshot.is_pro_forma,
+      constituents: (members || []).map(function (member) {
+        return {
+          symbol: member.instruments?.symbol,
+          name: member.security_name,
+          weightPercent: Number(member.weight_percent)
+        };
+      })
+    }
+  };
+}
+
 async function importNdxSnapshot(input, now = new Date()) {
   const snapshot = validateSnapshot(input);
   const config = getSupabaseConfig();
   const capturedAt = now.toISOString();
+  const existingAtDate = await getSnapshotAtEffectiveDate(config, snapshot.indexSymbol, snapshot.effectiveDate);
+  if (existingAtDate) {
+    if (!snapshotsEquivalent(existingAtDate.snapshot, snapshot)) {
+      throw new Error("Refusing to overwrite an existing NDX snapshot with different historical content");
+    }
+    return {
+      snapshotId: existingAtDate.id,
+      indexSymbol: snapshot.indexSymbol,
+      effectiveDate: snapshot.effectiveDate,
+      constituentCount: snapshot.constituents.length,
+      totalWeightPercent: snapshot.totalWeightPercent,
+      sourceUrl: snapshot.sourceUrl,
+      priorSnapshotId: null,
+      changeSummary: null,
+      idempotent: true
+    };
+  }
+  const prior = await getPriorSnapshot(config, snapshot.indexSymbol, snapshot.effectiveDate);
   const sourceRows = await upsertReturning(config, "sources", "canonical_url", [{
     source_kind: "index_provider",
     provider: "Nasdaq",
@@ -87,6 +140,9 @@ async function importNdxSnapshot(input, now = new Date()) {
     }).join(",") + ")"
   );
   const instrumentBySymbol = new Map((existing || []).map(function (item) { return [item.symbol, item.id]; }));
+  prior?.instrumentIdBySymbol.forEach(function (instrumentId, symbol) {
+    if (!instrumentBySymbol.has(symbol)) instrumentBySymbol.set(symbol, instrumentId);
+  });
   const missing = snapshot.constituents.filter(function (item) { return !instrumentBySymbol.has(item.symbol); });
   if (missing.length) {
     const inserted = await upsertReturning(config, "instruments", "symbol", missing.map(function (item) {
@@ -136,13 +192,27 @@ async function importNdxSnapshot(input, now = new Date()) {
     };
   }));
 
+  let changeSummary = null;
+  if (prior) {
+    const review = compareNdxSnapshots(prior.snapshot, snapshot);
+    const changes = toConstituentChangeRows(review, snapshotId, prior.id, instrumentBySymbol, capturedAt);
+    await requestSupabase(config, "/rest/v1/ndx_constituent_changes?snapshot_id=eq." + snapshotId, { method: "DELETE" });
+    if (changes.length) {
+      await upsertMinimal(config, "ndx_constituent_changes", "snapshot_id,instrument_id,change_kind", changes);
+    }
+    changeSummary = review.summary;
+  }
+
   return {
     snapshotId,
     indexSymbol: snapshot.indexSymbol,
     effectiveDate: snapshot.effectiveDate,
     constituentCount: snapshot.constituents.length,
     totalWeightPercent: snapshot.totalWeightPercent,
-    sourceUrl: snapshot.sourceUrl
+    sourceUrl: snapshot.sourceUrl,
+    priorSnapshotId: prior?.id || null,
+    changeSummary,
+    idempotent: false
   };
 }
 
@@ -171,4 +241,4 @@ async function getNdxSnapshot(asOf) {
   return { ...snapshot, asOf: normalizedAsOf, members: Array.isArray(members) ? members : [] };
 }
 
-module.exports = { getNdxSnapshot, importNdxSnapshot, normalizeAsOf, validateSnapshot };
+module.exports = { getNdxSnapshot, getPriorSnapshot, getSnapshotAtEffectiveDate, importNdxSnapshot, normalizeAsOf, validateSnapshot };

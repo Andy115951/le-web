@@ -163,6 +163,16 @@ with check (auth.uid() = user_id);
 
 当前远程回填基线：`QQQ` 1,254 行，覆盖 `2021-08-12` 至 `2026-08-11`；其中 1,234 行有成熟 20 日研究标签。现有统一事件均在相关交易日收盘后才被系统采集，因此严格过滤后当前特征中的 `available_event_count` 全为 `0`，不能把它误解为当时没有新闻。
 
+### 历史相似日匹配表
+
+`20260812240000_add_similar_day_matches.sql` 新增 `similar_day_matches`，保存由当前特征版本物化得到的候选日，而不是让浏览器临时计算并失去审计信息。
+
+每一行保存目标日、候选日、方法版本、排名、总体与分项相似度、实际参与的特征字段、标准化样本日期范围/数量，以及候选日成熟后的 1/3/5/20 日收益、20 日最大回撤和实现波动率。唯一约束同时限制目标日的排名与候选日，防止重复结果。
+
+匹配规则当前为 `qqq-price-state-v1`：标准化参数只用目标日前的特征拟合；候选日必须早于目标日至少 20 个交易日，保证其 20 日事后结果在目标日已经成熟；候选样本之间至少间隔 20 个交易日，避免连续相邻日期代表同一市场阶段。该表启用 RLS，仅服务端读取，浏览器通过 `GET /api/nasdaq/similar-days` 获取结果。
+
+当前远程回填：1,193 个目标日、5,848 条匹配，范围 `2021-11-08` 至 `2026-08-11`。前 60 个交易日因标准化样本不足不生成候选，这属于明确的样本不足状态，不会伪造相似度。
+
 ### 统一事件和来源表
 
 `20260812210000_add_unified_market_events.sql` 新增：
@@ -182,10 +192,13 @@ with check (auth.uid() = user_id);
 
 - `ndx_constituent_snapshots`：指数代码、生效日、发布时间、官方来源、证券数、权重总和和版本元数据
 - `ndx_constituent_members`：快照、instrument、原始证券名、权重和排名
+- `ndx_constituent_changes`：相对上一份快照的加入、移除和权重变化；保存前后权重、相关 instrument、快照关系和审核方法版本
 
-两张表启用 RLS，仅服务端 Secret Key 直接读写。唯一键保证同一指数和生效日只有一个快照，同一快照内 instrument 与排名均唯一。
+三张表启用 RLS，仅服务端 Secret Key 直接读写。唯一键保证同一指数和生效日只有一个快照，同一快照内 instrument 与排名均唯一；变更表以 `(snapshot_id, instrument_id, change_kind)` 去重，不能重复写入同一次审核结果。
 
 首个远程快照来自 Nasdaq 官方 `2026-05-01` NDX 成分 PDF：101 个证券、权重合计 `99.96%`。权重是官方两位小数指示值，不进行二次归一化。浏览器通过 `GET /api/nasdaq/constituents?asOf=YYYY-MM-DD` 查询当时可用的最近快照。
+
+新快照必须放入 `data/ndx/candidates/`，运行 `npm run ndx:discover` 检查候选，再用 `npm run ndx:review -- data/ndx/candidates/<file>.json --output data/ndx/reviews/<date>.json` 生成并人工检查差异。只有确认后才能执行 `npm run ndx:import -- data/ndx/candidates/<file>.json --approve`。首次快照没有前序快照，因此 `ndx_constituent_changes` 为空；第二份及以后快照会自动物化变更事件。
 
 ## 2. 打开邮箱登录
 

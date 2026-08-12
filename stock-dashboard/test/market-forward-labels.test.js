@@ -49,8 +49,9 @@ test("unmatured horizons remain null instead of inventing future data", function
 
 test("a label only depends on prices inside its declared future horizon", function () {
   const base = Array.from({ length: 21 }, function (_, index) { return 100 + index; });
-  const first = calculateForwardLabels(rowsFromPrices(base))[0];
-  const withLaterShock = calculateForwardLabels(rowsFromPrices(base.concat([1])))[0];
+  const computedAt = "2026-02-01T00:00:00.000Z";
+  const first = calculateForwardLabels(rowsFromPrices(base), computedAt)[0];
+  const withLaterShock = calculateForwardLabels(rowsFromPrices(base.concat([1])), computedAt)[0];
   assert.deepEqual(withLaterShock, first);
 });
 
