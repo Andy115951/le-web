@@ -404,8 +404,8 @@ CRON_SECRET
 
 ### Phase 1：QQQ 市场记忆 MVP
 
-- [ ] 建立 `market_days`、`instruments`、`price_bars_daily`
-- [ ] 回填至少 5 年 QQQ 日线
+- [x] 建立 `market_days`、`instruments`、`price_bars_daily`
+- [x] 回填至少 5 年 QQQ 日线
 - [ ] 保存未来 1/3/5/20 日收益标签
 - [ ] 建立统一 `sources` 和 `events`
 - [ ] 做月历和单日详情页
@@ -467,11 +467,11 @@ CRON_SECRET
 
 严格按顺序：
 
-1. 在可直连数据库的网络中执行 `supabase db push`，登记已应用的 migration 历史。
-2. 建立 `market_days`、`instruments`、`price_bars_daily`，补齐标准 OHLCV 数据层。
-3. 选择 QQQ 价格供应商并完成至少 5 年回填。
-4. 建立 Nasdaq-100 成分和权重快照，替换代码中的固定核心名单。
-5. 将收盘 Cron 改为公共市场采集，并实现第一个动态日历页面。
+1. 基于标准日线计算未来 1/3/5/20 个交易日收益、区间回撤和波动标签。
+2. 建立统一 `sources` 与 `events`，把新闻、公告和宏观事件与交易日可靠对齐。
+3. 建立 Nasdaq-100 成分和权重快照，替换代码中的固定核心名单。
+4. 实现第一个动态日历和单日详情页，展示 QQQ、核心成分、事件和后续验证结果。
+5. 为后续 DeepSeek 归因摘要准备严格引用来源的输入输出契约，不让模型修改原始数据或生成未经回测的概率。
 
 公共市场表和 Cron 实际写入验证完成前不开始 AI 预测；价格、事件和时间戳质量稳定前不开始复杂机器学习。
 

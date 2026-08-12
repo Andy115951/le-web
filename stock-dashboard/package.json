@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
+    "backfill:qqq": "node scripts/backfill-market-prices.js QQQ 5y",
     "test": "node --test"
   },
   "engines": {

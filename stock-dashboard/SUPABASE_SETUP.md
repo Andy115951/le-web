@@ -125,6 +125,18 @@ with check (auth.uid() = user_id);
 
 浏览器通过 `GET /api/nasdaq/history?days=30|90|180` 读取服务端筛选后的公共记录，不需要 Supabase 登录，也不会获得 Secret Key。
 
+### 标准日线价格表
+
+`20260812190000_add_market_price_data.sql` 新增：
+
+- `instruments`：标的主数据与市场角色
+- `market_days`：交易日主键和市场状态
+- `price_bars_daily`：按标的和交易日唯一的 OHLCV、调整收盘价、涨跌幅、来源和采集时间
+
+三张表均启用 RLS，并撤销 `anon` / `authenticated` 权限；浏览器只能通过 `GET /api/nasdaq/prices` 读取经过服务端约束的数据。`SUPABASE_SECRET_KEY` 不能进入前端。
+
+当前已执行并验证 `QQQ` 五年回填：1,254 个唯一交易日，覆盖 `2021-08-12` 至 `2026-08-11`。重复执行使用 upsert，不产生重复记录。
+
 ## 2. 打开邮箱登录
 
 在 Supabase Dashboard:

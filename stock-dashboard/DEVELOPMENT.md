@@ -203,7 +203,18 @@ supabase projects list --agent no --output-format text
 - `watchlist_states`
 - `watchlist_states.market_events`
 - `market_event_history`
+- `nasdaq_market_event_history`
+- `market_capture_runs`
+- `instruments`
+- `market_days`
+- `price_bars_daily`
 - 对应索引、唯一约束和 RLS Policies
+
+最新标准行情 migration：
+
+```text
+supabase/migrations/20260812190000_add_market_price_data.sql
+```
 
 ### 5.3 配置登录回调
 
@@ -304,6 +315,40 @@ npx vercel dev
 6. 历史页面可以读取 `market_event_history`。
 
 ## 8. Cron 本地验证
+
+### 8.1 QQQ 历史日线回填
+
+先确保 `.env.local` 中有 `SUPABASE_URL` 和 `SUPABASE_SECRET_KEY`。macOS / Linux：
+
+```bash
+set -a
+. ./.env.local
+set +a
+npm run backfill:qqq
+```
+
+Windows PowerShell 可先执行 `vercel env pull .env.local`，再把两个服务端变量只加载到当前终端后运行：
+
+```powershell
+node scripts/backfill-market-prices.js QQQ 5y
+```
+
+脚本按 `(instrument_id, market_date)` upsert，可安全重跑，不会累积重复交易日。当前已验证基线为：
+
+- `QQQ`
+- 1,254 个唯一交易日
+- `2021-08-12` 至 `2026-08-11`
+- 调整收盘价和成交量无缺失
+
+启动 `vercel dev` 后可公开读取：
+
+```text
+GET /api/nasdaq/prices?symbol=QQQ&limit=1254
+```
+
+接口只允许查询 `instruments` 中已登记的标的，返回按市场日期升序排列的 OHLCV、调整收盘价、涨跌幅、来源与采集时间。
+
+### 8.2 收盘归档验证
 
 定时任务使用 `GET`，手动重跑使用 `POST`。两个入口都要求：
 

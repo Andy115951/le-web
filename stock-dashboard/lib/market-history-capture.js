@@ -1,37 +1,13 @@
 const crypto = require("crypto");
 const { getDailyMarketEvents, isAfterUsMarketClose, marketDate } = require("./daily-market-events");
 const { NASDAQ_FOCUS_INSTRUMENTS, NASDAQ_UNIVERSE_AS_OF } = require("./nasdaq-universe");
+const { getSupabaseConfig, requestSupabase } = require("./supabase-server");
 
 const RUNS_TABLE = "market_capture_runs";
 const PUBLIC_HISTORY_TABLE = "nasdaq_market_event_history";
 const INSTRUMENT_ROLES = new Map(NASDAQ_FOCUS_INSTRUMENTS.map(function (item) {
   return [item.symbol, item.role];
 }));
-
-function getConfig() {
-  const url = String(process.env.SUPABASE_URL || "").trim().replace(/\/$/, "");
-  const secretKey = String(process.env.SUPABASE_SECRET_KEY || "").trim();
-  if (!url || !secretKey) {
-    throw new Error("Missing SUPABASE_URL or SUPABASE_SECRET_KEY");
-  }
-  return { url, secretKey };
-}
-
-async function requestSupabase(config, path, options) {
-  const response = await fetch(config.url + path, {
-    method: options?.method || "GET",
-    headers: {
-      // New sb_secret_ keys are opaque API keys, not JWT bearer tokens.
-      apikey: config.secretKey,
-      "Content-Type": "application/json",
-      ...(options?.headers || {})
-    },
-    body: options?.body ? JSON.stringify(options.body) : undefined
-  });
-  const text = await response.text();
-  if (!response.ok) throw new Error("Supabase " + response.status + ": " + text.slice(0, 300));
-  return text ? JSON.parse(text) : null;
-}
 
 function isGlobalStockSymbol(symbol) {
   return /^[A-Z][A-Z0-9.-]{0,9}$/.test(String(symbol || "").trim().toUpperCase());
@@ -154,7 +130,7 @@ async function captureMarketHistory(input) {
   const now = options.now;
   const startedAt = new Date();
   const runId = crypto.randomUUID();
-  const config = getConfig();
+  const config = getSupabaseConfig();
   let loggingError = null;
 
   try {
@@ -341,7 +317,7 @@ function normalizeHistoryDays(days) {
 }
 
 async function getNasdaqMarketHistory(days) {
-  const config = getConfig();
+  const config = getSupabaseConfig();
   const normalizedDays = normalizeHistoryDays(days);
   const start = new Date();
   start.setUTCDate(start.getUTCDate() - normalizedDays + 1);
@@ -373,7 +349,7 @@ async function getNasdaqMarketHistory(days) {
 }
 
 async function getRecentCaptureRuns(limit) {
-  const config = getConfig();
+  const config = getSupabaseConfig();
   const normalizedLimit = Math.min(50, Math.max(1, Number(limit) || 20));
   const columns = [
     "id",
