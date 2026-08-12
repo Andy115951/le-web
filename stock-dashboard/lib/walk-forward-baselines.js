@@ -153,5 +153,6 @@ module.exports = {
   buildBaselineEvaluation,
   evaluateBaselineFold,
   fitMomentumBaseline,
+  mergeFeatureLabels,
   metricSummary
 };

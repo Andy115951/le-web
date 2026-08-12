@@ -1,0 +1,1204 @@
+{
+  "evaluationVersion": "qqq-logistic-evaluation-v1",
+  "modelVersion": "logistic-regression-l2-v1",
+  "deploymentStatus": "research_only_not_selected",
+  "deploymentReason": "This offline candidate is not wired to the market runtime; promotion requires predefined out-of-sample improvement and calibration review.",
+  "splitVersion": "qqq-walk-forward-v1",
+  "instrument": "QQQ",
+  "featureVersion": "qqq-daily-state-v1",
+  "labelVersion": "adjusted-close-forward-v1",
+  "outcome": {
+    "horizonTradingDays": 20,
+    "definition": "return_20d_percent > 0"
+  },
+  "folds": [
+    {
+      "id": "fold-01",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2022-08-11",
+        "observationCount": 252
+      },
+      "embargo": {
+        "startDate": "2022-08-12",
+        "endDate": "2022-09-09",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2022-09-12",
+        "endDate": "2022-12-08",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "logistic-regression-l2-v1",
+        "trainingSampleCount": 252,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent"
+        ],
+        "featureMeans": {
+          "return_1d_percent": -0.032307,
+          "return_5d_percent": -0.180384,
+          "return_20d_percent": -1.309921,
+          "gap_percent": -0.037473,
+          "trailing_volatility_20d_percent": 26.35575,
+          "trailing_drawdown_20d_percent": -7.181069,
+          "volume_ratio_20d_percent": 4.753591
+        },
+        "featureStandardDeviations": {
+          "return_1d_percent": 1.766992,
+          "return_5d_percent": 3.77587,
+          "return_20d_percent": 6.987773,
+          "gap_percent": 0.90472,
+          "trailing_volatility_20d_percent": 9.544756,
+          "trailing_drawdown_20d_percent": 4.248809,
+          "volume_ratio_20d_percent": 38.842121
+        },
+        "coefficients": {
+          "intercept": -0.361675,
+          "return_1d_percent": 0.093356,
+          "return_5d_percent": -0.186882,
+          "return_20d_percent": -0.242092,
+          "gap_percent": -0.00116,
+          "trailing_volatility_20d_percent": -0.278664,
+          "trailing_drawdown_20d_percent": -0.039248,
+          "volume_ratio_20d_percent": -0.09955
+        },
+        "options": {
+          "iterations": 700,
+          "learningRate": 0.06,
+          "l2Penalty": 0.08
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.555556,
+        "balancedAccuracy": 0.527383,
+        "brierScore": 0.235908,
+        "actualUpRate": 0.460317
+      }
+    },
+    {
+      "id": "fold-02",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2022-11-09",
+        "observationCount": 315
+      },
+      "embargo": {
+        "startDate": "2022-11-10",
+        "endDate": "2022-12-08",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2022-12-09",
+        "endDate": "2023-03-13",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "logistic-regression-l2-v1",
+        "trainingSampleCount": 315,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent"
+        ],
+        "featureMeans": {
+          "return_1d_percent": -0.087743,
+          "return_5d_percent": -0.439386,
+          "return_20d_percent": -1.857758,
+          "gap_percent": -0.059852,
+          "trailing_volatility_20d_percent": 26.869199,
+          "trailing_drawdown_20d_percent": -7.603719,
+          "volume_ratio_20d_percent": 4.699889
+        },
+        "featureStandardDeviations": {
+          "return_1d_percent": 1.791387,
+          "return_5d_percent": 3.746186,
+          "return_20d_percent": 7.041329,
+          "gap_percent": 0.937772,
+          "trailing_volatility_20d_percent": 8.64333,
+          "trailing_drawdown_20d_percent": 4.096228,
+          "volume_ratio_20d_percent": 35.960504
+        },
+        "coefficients": {
+          "intercept": -0.332587,
+          "return_1d_percent": 0.075575,
+          "return_5d_percent": -0.156984,
+          "return_20d_percent": -0.276916,
+          "gap_percent": 0.084151,
+          "trailing_volatility_20d_percent": -0.041647,
+          "trailing_drawdown_20d_percent": 0.139544,
+          "volume_ratio_20d_percent": -0.069224
+        },
+        "options": {
+          "iterations": 700,
+          "learningRate": 0.06,
+          "l2Penalty": 0.08
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.333333,
+        "balancedAccuracy": 0.533333,
+        "brierScore": 0.275309,
+        "actualUpRate": 0.714286
+      }
+    },
+    {
+      "id": "fold-03",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2023-02-10",
+        "observationCount": 378
+      },
+      "embargo": {
+        "startDate": "2023-02-13",
+        "endDate": "2023-03-13",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2023-03-14",
+        "endDate": "2023-06-12",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "logistic-regression-l2-v1",
+        "trainingSampleCount": 378,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent"
+        ],
+        "featureMeans": {
+          "return_1d_percent": -0.03542,
+          "return_5d_percent": -0.167486,
+          "return_20d_percent": -1.024569,
+          "gap_percent": -0.048709,
+          "trailing_volatility_20d_percent": 27.006496,
+          "trailing_drawdown_20d_percent": -7.346301,
+          "volume_ratio_20d_percent": 3.66499
+        },
+        "featureStandardDeviations": {
+          "return_1d_percent": 1.796425,
+          "return_5d_percent": 3.768573,
+          "return_20d_percent": 7.269125,
+          "gap_percent": 0.978859,
+          "trailing_volatility_20d_percent": 8.252669,
+          "trailing_drawdown_20d_percent": 3.958403,
+          "volume_ratio_20d_percent": 34.535988
+        },
+        "coefficients": {
+          "intercept": -0.318813,
+          "return_1d_percent": 0.082613,
+          "return_5d_percent": -0.066695,
+          "return_20d_percent": -0.525441,
+          "gap_percent": -0.021972,
+          "trailing_volatility_20d_percent": -0.348156,
+          "trailing_drawdown_20d_percent": 0.018251,
+          "volume_ratio_20d_percent": -0.191359
+        },
+        "options": {
+          "iterations": 700,
+          "learningRate": 0.06,
+          "l2Penalty": 0.08
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.253968,
+        "balancedAccuracy": 0.614754,
+        "brierScore": 0.324352,
+        "actualUpRate": 0.968254
+      }
+    },
+    {
+      "id": "fold-04",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2023-05-12",
+        "observationCount": 441
+      },
+      "embargo": {
+        "startDate": "2023-05-15",
+        "endDate": "2023-06-12",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2023-06-13",
+        "endDate": "2023-09-12",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "logistic-regression-l2-v1",
+        "trainingSampleCount": 441,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent"
+        ],
+        "featureMeans": {
+          "return_1d_percent": -0.010616,
+          "return_5d_percent": -0.062638,
+          "return_20d_percent": -0.445943,
+          "gap_percent": -0.042708,
+          "trailing_volatility_20d_percent": 25.879794,
+          "trailing_drawdown_20d_percent": -6.860955,
+          "volume_ratio_20d_percent": 2.931047
+        },
+        "featureStandardDeviations": {
+          "return_1d_percent": 1.718852,
+          "return_5d_percent": 3.600791,
+          "return_20d_percent": 7.012663,
+          "gap_percent": 0.941782,
+          "trailing_volatility_20d_percent": 8.198837,
+          "trailing_drawdown_20d_percent": 3.894634,
+          "volume_ratio_20d_percent": 33.271912
+        },
+        "coefficients": {
+          "intercept": -0.019984,
+          "return_1d_percent": 0.088725,
+          "return_5d_percent": -0.069048,
+          "return_20d_percent": -0.55101,
+          "gap_percent": -0.025967,
+          "trailing_volatility_20d_percent": -0.536429,
+          "trailing_drawdown_20d_percent": 0.138111,
+          "volume_ratio_20d_percent": -0.238217
+        },
+        "options": {
+          "iterations": 700,
+          "learningRate": 0.06,
+          "l2Penalty": 0.08
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.492063,
+        "balancedAccuracy": 0.458418,
+        "brierScore": 0.273782,
+        "actualUpRate": 0.539683
+      }
+    },
+    {
+      "id": "fold-05",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2023-08-14",
+        "observationCount": 504
+      },
+      "embargo": {
+        "startDate": "2023-08-15",
+        "endDate": "2023-09-12",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2023-09-13",
+        "endDate": "2023-12-11",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "logistic-regression-l2-v1",
+        "trainingSampleCount": 504,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent"
+        ],
+        "featureMeans": {
+          "return_1d_percent": 0.017628,
+          "return_5d_percent": 0.079801,
+          "return_20d_percent": 0.31865,
+          "gap_percent": -0.026287,
+          "trailing_volatility_20d_percent": 24.599469,
+          "trailing_drawdown_20d_percent": -6.333652,
+          "volume_ratio_20d_percent": 2.664243
+        },
+        "featureStandardDeviations": {
+          "return_1d_percent": 1.650003,
+          "return_5d_percent": 3.479843,
+          "return_20d_percent": 6.953051,
+          "gap_percent": 0.908547,
+          "trailing_volatility_20d_percent": 8.341046,
+          "trailing_drawdown_20d_percent": 3.911135,
+          "volume_ratio_20d_percent": 32.134341
+        },
+        "coefficients": {
+          "intercept": 0.123353,
+          "return_1d_percent": 0.088671,
+          "return_5d_percent": -0.076841,
+          "return_20d_percent": -0.427155,
+          "gap_percent": -0.052823,
+          "trailing_volatility_20d_percent": -0.575718,
+          "trailing_drawdown_20d_percent": 0.136635,
+          "volume_ratio_20d_percent": -0.221514
+        },
+        "options": {
+          "iterations": 700,
+          "learningRate": 0.06,
+          "l2Penalty": 0.08
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.761905,
+        "balancedAccuracy": 0.489796,
+        "brierScore": 0.209706,
+        "actualUpRate": 0.777778
+      }
+    },
+    {
+      "id": "fold-06",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2023-11-10",
+        "observationCount": 567
+      },
+      "embargo": {
+        "startDate": "2023-11-13",
+        "endDate": "2023-12-11",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2023-12-12",
+        "endDate": "2024-03-13",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "logistic-regression-l2-v1",
+        "trainingSampleCount": 567,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent"
+        ],
+        "featureMeans": {
+          "return_1d_percent": 0.020425,
+          "return_5d_percent": 0.085159,
+          "return_20d_percent": 0.141364,
+          "gap_percent": -0.018456,
+          "trailing_volatility_20d_percent": 23.699497,
+          "trailing_drawdown_20d_percent": -6.214056,
+          "volume_ratio_20d_percent": 2.491208
+        },
+        "featureStandardDeviations": {
+          "return_1d_percent": 1.600229,
+          "return_5d_percent": 3.40826,
+          "return_20d_percent": 6.618793,
+          "gap_percent": 0.875166,
+          "trailing_volatility_20d_percent": 8.248686,
+          "trailing_drawdown_20d_percent": 3.744904,
+          "volume_ratio_20d_percent": 31.130746
+        },
+        "coefficients": {
+          "intercept": 0.133992,
+          "return_1d_percent": 0.068407,
+          "return_5d_percent": -0.071041,
+          "return_20d_percent": -0.284364,
+          "gap_percent": -0.051075,
+          "trailing_volatility_20d_percent": -0.520645,
+          "trailing_drawdown_20d_percent": 0.014293,
+          "volume_ratio_20d_percent": -0.166995
+        },
+        "options": {
+          "iterations": 700,
+          "learningRate": 0.06,
+          "l2Penalty": 0.08
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.904762,
+        "balancedAccuracy": 0.5,
+        "brierScore": 0.154366,
+        "actualUpRate": 0.904762
+      }
+    },
+    {
+      "id": "fold-07",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2024-02-13",
+        "observationCount": 630
+      },
+      "embargo": {
+        "startDate": "2024-02-14",
+        "endDate": "2024-03-13",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2024-03-14",
+        "endDate": "2024-06-12",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "logistic-regression-l2-v1",
+        "trainingSampleCount": 630,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent"
+        ],
+        "featureMeans": {
+          "return_1d_percent": 0.038959,
+          "return_5d_percent": 0.201457,
+          "return_20d_percent": 0.69067,
+          "gap_percent": -0.012352,
+          "trailing_volatility_20d_percent": 22.685616,
+          "trailing_drawdown_20d_percent": -5.844976,
+          "volume_ratio_20d_percent": 1.915589
+        },
+        "featureStandardDeviations": {
+          "return_1d_percent": 1.542934,
+          "return_5d_percent": 3.305314,
+          "return_20d_percent": 6.529823,
+          "gap_percent": 0.849107,
+          "trailing_volatility_20d_percent": 8.404901,
+          "trailing_drawdown_20d_percent": 3.743734,
+          "volume_ratio_20d_percent": 30.589828
+        },
+        "coefficients": {
+          "intercept": 0.340066,
+          "return_1d_percent": 0.063779,
+          "return_5d_percent": -0.062109,
+          "return_20d_percent": -0.222771,
+          "gap_percent": -0.057172,
+          "trailing_volatility_20d_percent": -0.693599,
+          "trailing_drawdown_20d_percent": -0.003407,
+          "volume_ratio_20d_percent": -0.195982
+        },
+        "options": {
+          "iterations": 700,
+          "learningRate": 0.06,
+          "l2Penalty": 0.08
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.698413,
+        "balancedAccuracy": 0.5,
+        "brierScore": 0.213751,
+        "actualUpRate": 0.698413
+      }
+    },
+    {
+      "id": "fold-08",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2024-05-14",
+        "observationCount": 693
+      },
+      "embargo": {
+        "startDate": "2024-05-15",
+        "endDate": "2024-06-12",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2024-06-13",
+        "endDate": "2024-09-12",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "logistic-regression-l2-v1",
+        "trainingSampleCount": 693,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent"
+        ],
+        "featureMeans": {
+          "return_1d_percent": 0.041832,
+          "return_5d_percent": 0.201113,
+          "return_20d_percent": 0.6746,
+          "gap_percent": 0.003611,
+          "trailing_volatility_20d_percent": 22.083211,
+          "trailing_drawdown_20d_percent": -5.650432,
+          "volume_ratio_20d_percent": 1.495543
+        },
+        "featureStandardDeviations": {
+          "return_1d_percent": 1.503505,
+          "return_5d_percent": 3.20368,
+          "return_20d_percent": 6.277351,
+          "gap_percent": 0.835743,
+          "trailing_volatility_20d_percent": 8.243458,
+          "trailing_drawdown_20d_percent": 3.662656,
+          "volume_ratio_20d_percent": 30.317289
+        },
+        "coefficients": {
+          "intercept": 0.34471,
+          "return_1d_percent": 0.032429,
+          "return_5d_percent": -0.042069,
+          "return_20d_percent": -0.15915,
+          "gap_percent": -0.057826,
+          "trailing_volatility_20d_percent": -0.671542,
+          "trailing_drawdown_20d_percent": -0.107877,
+          "volume_ratio_20d_percent": -0.165232
+        },
+        "options": {
+          "iterations": 700,
+          "learningRate": 0.06,
+          "l2Penalty": 0.08
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.555556,
+        "balancedAccuracy": 0.484407,
+        "brierScore": 0.301428,
+        "actualUpRate": 0.587302
+      }
+    },
+    {
+      "id": "fold-09",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2024-08-14",
+        "observationCount": 756
+      },
+      "embargo": {
+        "startDate": "2024-08-15",
+        "endDate": "2024-09-12",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2024-09-13",
+        "endDate": "2024-12-11",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "logistic-regression-l2-v1",
+        "trainingSampleCount": 756,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent"
+        ],
+        "featureMeans": {
+          "return_1d_percent": 0.044142,
+          "return_5d_percent": 0.207561,
+          "return_20d_percent": 0.810966,
+          "gap_percent": 0.010872,
+          "trailing_volatility_20d_percent": 21.554412,
+          "trailing_drawdown_20d_percent": -5.552432,
+          "volume_ratio_20d_percent": 1.871551
+        },
+        "featureStandardDeviations": {
+          "return_1d_percent": 1.486411,
+          "return_5d_percent": 3.180586,
+          "return_20d_percent": 6.278882,
+          "gap_percent": 0.84701,
+          "trailing_volatility_20d_percent": 8.268123,
+          "trailing_drawdown_20d_percent": 3.685093,
+          "volume_ratio_20d_percent": 30.811841
+        },
+        "coefficients": {
+          "intercept": 0.36097,
+          "return_1d_percent": 0.028348,
+          "return_5d_percent": -0.015972,
+          "return_20d_percent": -0.214905,
+          "gap_percent": -0.053401,
+          "trailing_volatility_20d_percent": -0.626222,
+          "trailing_drawdown_20d_percent": -0.12546,
+          "volume_ratio_20d_percent": -0.160668
+        },
+        "options": {
+          "iterations": 700,
+          "learningRate": 0.06,
+          "l2Penalty": 0.08
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.888889,
+        "balancedAccuracy": 0.5,
+        "brierScore": 0.164396,
+        "actualUpRate": 0.888889
+      }
+    },
+    {
+      "id": "fold-10",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2024-11-12",
+        "observationCount": 819
+      },
+      "embargo": {
+        "startDate": "2024-11-13",
+        "endDate": "2024-12-11",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2024-12-12",
+        "endDate": "2025-03-17",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "logistic-regression-l2-v1",
+        "trainingSampleCount": 819,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent"
+        ],
+        "featureMeans": {
+          "return_1d_percent": 0.054005,
+          "return_5d_percent": 0.267833,
+          "return_20d_percent": 0.954031,
+          "gap_percent": 0.024737,
+          "trailing_volatility_20d_percent": 21.377066,
+          "trailing_drawdown_20d_percent": -5.463578,
+          "volume_ratio_20d_percent": 1.173099
+        },
+        "featureStandardDeviations": {
+          "return_1d_percent": 1.462528,
+          "return_5d_percent": 3.147702,
+          "return_20d_percent": 6.07812,
+          "gap_percent": 0.832576,
+          "trailing_volatility_20d_percent": 8.099211,
+          "trailing_drawdown_20d_percent": 3.622071,
+          "volume_ratio_20d_percent": 30.508338
+        },
+        "coefficients": {
+          "intercept": 0.486637,
+          "return_1d_percent": 0.012516,
+          "return_5d_percent": -0.031863,
+          "return_20d_percent": -0.188854,
+          "gap_percent": -0.013623,
+          "trailing_volatility_20d_percent": -0.634185,
+          "trailing_drawdown_20d_percent": -0.105682,
+          "volume_ratio_20d_percent": -0.174844
+        },
+        "options": {
+          "iterations": 700,
+          "learningRate": 0.06,
+          "l2Penalty": 0.08
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.301587,
+        "balancedAccuracy": 0.5,
+        "brierScore": 0.351374,
+        "actualUpRate": 0.301587
+      }
+    },
+    {
+      "id": "fold-11",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2025-02-14",
+        "observationCount": 882
+      },
+      "embargo": {
+        "startDate": "2025-02-18",
+        "endDate": "2025-03-17",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2025-03-18",
+        "endDate": "2025-06-16",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "logistic-regression-l2-v1",
+        "trainingSampleCount": 882,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent"
+        ],
+        "featureMeans": {
+          "return_1d_percent": 0.056238,
+          "return_5d_percent": 0.27283,
+          "return_20d_percent": 1.023533,
+          "gap_percent": 0.025719,
+          "trailing_volatility_20d_percent": 21.146572,
+          "trailing_drawdown_20d_percent": -5.351598,
+          "volume_ratio_20d_percent": 1.04052
+        },
+        "featureStandardDeviations": {
+          "return_1d_percent": 1.441162,
+          "return_5d_percent": 3.082769,
+          "return_20d_percent": 5.904287,
+          "gap_percent": 0.829941,
+          "trailing_volatility_20d_percent": 7.871206,
+          "trailing_drawdown_20d_percent": 3.523776,
+          "volume_ratio_20d_percent": 30.867422
+        },
+        "coefficients": {
+          "intercept": 0.44807,
+          "return_1d_percent": -0.011575,
+          "return_5d_percent": -0.049862,
+          "return_20d_percent": -0.177617,
+          "gap_percent": 0.037984,
+          "trailing_volatility_20d_percent": -0.557603,
+          "trailing_drawdown_20d_percent": -0.097203,
+          "volume_ratio_20d_percent": -0.107172
+        },
+        "options": {
+          "iterations": 700,
+          "learningRate": 0.06,
+          "l2Penalty": 0.08
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.380952,
+        "balancedAccuracy": 0.218182,
+        "brierScore": 0.397242,
+        "actualUpRate": 0.873016
+      }
+    },
+    {
+      "id": "fold-12",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2025-05-16",
+        "observationCount": 945
+      },
+      "embargo": {
+        "startDate": "2025-05-19",
+        "endDate": "2025-06-16",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2025-06-17",
+        "endDate": "2025-09-16",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "logistic-regression-l2-v1",
+        "trainingSampleCount": 945,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent"
+        ],
+        "featureMeans": {
+          "return_1d_percent": 0.051288,
+          "return_5d_percent": 0.247669,
+          "return_20d_percent": 0.796733,
+          "gap_percent": 0.018439,
+          "trailing_volatility_20d_percent": 22.020168,
+          "trailing_drawdown_20d_percent": -5.633966,
+          "volume_ratio_20d_percent": 1.788037
+        },
+        "featureStandardDeviations": {
+          "return_1d_percent": 1.530001,
+          "return_5d_percent": 3.232573,
+          "return_20d_percent": 6.132124,
+          "gap_percent": 0.880303,
+          "trailing_volatility_20d_percent": 9.177086,
+          "trailing_drawdown_20d_percent": 3.731956,
+          "volume_ratio_20d_percent": 33.450816
+        },
+        "coefficients": {
+          "intercept": 0.421465,
+          "return_1d_percent": 0.010726,
+          "return_5d_percent": -0.029263,
+          "return_20d_percent": -0.022955,
+          "gap_percent": 0.025103,
+          "trailing_volatility_20d_percent": -0.161227,
+          "trailing_drawdown_20d_percent": 0.030622,
+          "volume_ratio_20d_percent": -0.053812
+        },
+        "options": {
+          "iterations": 700,
+          "learningRate": 0.06,
+          "l2Penalty": 0.08
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.968254,
+        "balancedAccuracy": 0.5,
+        "brierScore": 0.132425,
+        "actualUpRate": 0.968254
+      }
+    },
+    {
+      "id": "fold-13",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2025-08-18",
+        "observationCount": 1008
+      },
+      "embargo": {
+        "startDate": "2025-08-19",
+        "endDate": "2025-09-16",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2025-09-17",
+        "endDate": "2025-12-15",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "logistic-regression-l2-v1",
+        "trainingSampleCount": 1008,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent"
+        ],
+        "featureMeans": {
+          "return_1d_percent": 0.058445,
+          "return_5d_percent": 0.290343,
+          "return_20d_percent": 1.09177,
+          "gap_percent": 0.024891,
+          "trailing_volatility_20d_percent": 21.455346,
+          "trailing_drawdown_20d_percent": -5.393502,
+          "volume_ratio_20d_percent": 1.732216
+        },
+        "featureStandardDeviations": {
+          "return_1d_percent": 1.494121,
+          "return_5d_percent": 3.151809,
+          "return_20d_percent": 6.106712,
+          "gap_percent": 0.864284,
+          "trailing_volatility_20d_percent": 9.183159,
+          "trailing_drawdown_20d_percent": 3.734959,
+          "volume_ratio_20d_percent": 32.897175
+        },
+        "coefficients": {
+          "intercept": 0.521713,
+          "return_1d_percent": 0.007725,
+          "return_5d_percent": -0.02911,
+          "return_20d_percent": 0.002228,
+          "gap_percent": 0.027646,
+          "trailing_volatility_20d_percent": -0.195222,
+          "trailing_drawdown_20d_percent": 0.070562,
+          "volume_ratio_20d_percent": -0.040502
+        },
+        "options": {
+          "iterations": 700,
+          "learningRate": 0.06,
+          "l2Penalty": 0.08
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.714286,
+        "balancedAccuracy": 0.5,
+        "brierScore": 0.201194,
+        "actualUpRate": 0.714286
+      }
+    },
+    {
+      "id": "fold-14",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2025-11-14",
+        "observationCount": 1071
+      },
+      "embargo": {
+        "startDate": "2025-11-17",
+        "endDate": "2025-12-15",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2025-12-16",
+        "endDate": "2026-03-18",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "logistic-regression-l2-v1",
+        "trainingSampleCount": 1071,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent"
+        ],
+        "featureMeans": {
+          "return_1d_percent": 0.060411,
+          "return_5d_percent": 0.304218,
+          "return_20d_percent": 1.192781,
+          "gap_percent": 0.030639,
+          "trailing_volatility_20d_percent": 21.001067,
+          "trailing_drawdown_20d_percent": -5.245092,
+          "volume_ratio_20d_percent": 1.987793
+        },
+        "featureStandardDeviations": {
+          "return_1d_percent": 1.469343,
+          "return_5d_percent": 3.08587,
+          "return_20d_percent": 5.951403,
+          "gap_percent": 0.85322,
+          "trailing_volatility_20d_percent": 9.142755,
+          "trailing_drawdown_20d_percent": 3.677654,
+          "volume_ratio_20d_percent": 32.466767
+        },
+        "coefficients": {
+          "intercept": 0.570966,
+          "return_1d_percent": 0.013421,
+          "return_5d_percent": -0.039974,
+          "return_20d_percent": -0.013263,
+          "gap_percent": 0.013017,
+          "trailing_volatility_20d_percent": -0.2398,
+          "trailing_drawdown_20d_percent": 0.083078,
+          "volume_ratio_20d_percent": -0.026962
+        },
+        "options": {
+          "iterations": 700,
+          "learningRate": 0.06,
+          "l2Penalty": 0.08
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.31746,
+        "balancedAccuracy": 0.5,
+        "brierScore": 0.346872,
+        "actualUpRate": 0.31746
+      }
+    },
+    {
+      "id": "fold-15",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2026-02-18",
+        "observationCount": 1134
+      },
+      "embargo": {
+        "startDate": "2026-02-19",
+        "endDate": "2026-03-18",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2026-03-19",
+        "endDate": "2026-06-17",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "logistic-regression-l2-v1",
+        "trainingSampleCount": 1134,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent"
+        ],
+        "featureMeans": {
+          "return_1d_percent": 0.056999,
+          "return_5d_percent": 0.280541,
+          "return_20d_percent": 1.116887,
+          "gap_percent": 0.033931,
+          "trailing_volatility_20d_percent": 20.713581,
+          "trailing_drawdown_20d_percent": -5.21258,
+          "volume_ratio_20d_percent": 2.007898
+        },
+        "featureStandardDeviations": {
+          "return_1d_percent": 1.447321,
+          "return_5d_percent": 3.048613,
+          "return_20d_percent": 5.811861,
+          "gap_percent": 0.842072,
+          "trailing_volatility_20d_percent": 8.98604,
+          "trailing_drawdown_20d_percent": 3.597013,
+          "volume_ratio_20d_percent": 32.509928
+        },
+        "coefficients": {
+          "intercept": 0.521767,
+          "return_1d_percent": -0.003774,
+          "return_5d_percent": -0.058858,
+          "return_20d_percent": 0.041137,
+          "gap_percent": 0.013767,
+          "trailing_volatility_20d_percent": -0.198696,
+          "trailing_drawdown_20d_percent": 0.041705,
+          "volume_ratio_20d_percent": -0.041321
+        },
+        "options": {
+          "iterations": 700,
+          "learningRate": 0.06,
+          "l2Penalty": 0.08
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.730159,
+        "balancedAccuracy": 0.5,
+        "brierScore": 0.205332,
+        "actualUpRate": 0.730159
+      }
+    },
+    {
+      "id": "fold-16",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2026-05-19",
+        "observationCount": 1197
+      },
+      "embargo": {
+        "startDate": "2026-05-20",
+        "endDate": "2026-06-17",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2026-06-18",
+        "endDate": "2026-07-14",
+        "observationCount": 17
+      },
+      "model": {
+        "version": "logistic-regression-l2-v1",
+        "trainingSampleCount": 1197,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent"
+        ],
+        "featureMeans": {
+          "return_1d_percent": 0.066766,
+          "return_5d_percent": 0.33623,
+          "return_20d_percent": 1.262505,
+          "gap_percent": 0.032255,
+          "trailing_volatility_20d_percent": 20.576542,
+          "trailing_drawdown_20d_percent": -5.156208,
+          "volume_ratio_20d_percent": 1.536833
+        },
+        "featureStandardDeviations": {
+          "return_1d_percent": 1.436221,
+          "return_5d_percent": 3.044143,
+          "return_20d_percent": 5.962759,
+          "gap_percent": 0.84277,
+          "trailing_volatility_20d_percent": 8.786615,
+          "trailing_drawdown_20d_percent": 3.55477,
+          "volume_ratio_20d_percent": 32.148002
+        },
+        "coefficients": {
+          "intercept": 0.549791,
+          "return_1d_percent": -0.027048,
+          "return_5d_percent": -0.073331,
+          "return_20d_percent": 0.137833,
+          "gap_percent": 0.053177,
+          "trailing_volatility_20d_percent": -0.220111,
+          "trailing_drawdown_20d_percent": -0.044594,
+          "volume_ratio_20d_percent": -0.068709
+        },
+        "options": {
+          "iterations": 700,
+          "learningRate": 0.06,
+          "l2Penalty": 0.08
+        }
+      },
+      "metrics": {
+        "sampleCount": 17,
+        "accuracy": 0.176471,
+        "balancedAccuracy": 0.5,
+        "brierScore": 0.303162,
+        "actualUpRate": 0.176471
+      }
+    }
+  ],
+  "summary": {
+    "metrics": {
+      "sampleCount": 962,
+      "accuracy": 0.58316,
+      "balancedAccuracy": 0.472306,
+      "brierScore": 0.253391,
+      "actualUpRate": 0.68711
+    },
+    "calibrationBins": [
+      {
+        "index": 0,
+        "lowerBound": 0,
+        "upperBound": 0.2,
+        "sampleCount": 18,
+        "averagePredictedProbability": 0.15039,
+        "observedUpRate": 0.944444
+      },
+      {
+        "index": 1,
+        "lowerBound": 0.2,
+        "upperBound": 0.4,
+        "sampleCount": 101,
+        "averagePredictedProbability": 0.338561,
+        "observedUpRate": 0.653465
+      },
+      {
+        "index": 2,
+        "lowerBound": 0.4,
+        "upperBound": 0.6,
+        "sampleCount": 234,
+        "averagePredictedProbability": 0.517723,
+        "observedUpRate": 0.760684
+      },
+      {
+        "index": 3,
+        "lowerBound": 0.6,
+        "upperBound": 0.8,
+        "sampleCount": 607,
+        "averagePredictedProbability": 0.671936,
+        "observedUpRate": 0.657331
+      },
+      {
+        "index": 4,
+        "lowerBound": 0.8,
+        "upperBound": 1,
+        "sampleCount": 2,
+        "averagePredictedProbability": 0.822152,
+        "observedUpRate": 0.5
+      }
+    ],
+    "calibrationBinCount": 5
+  }
+}

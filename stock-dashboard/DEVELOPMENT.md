@@ -684,6 +684,32 @@ GET /api/nasdaq/evaluation-baselines
 
 它的用途是为后续 Logistic Regression、校准和情景概率建立“必须优于什么”的对照线；绝不能把报告里的历史分数当作今天上涨概率或交易建议。
 
+#### 8.2.8 Logistic Regression 候选与校准诊断
+
+第一份候选报告为 [data/evaluation/qqq-logistic-evaluation-v1.json](data/evaluation/qqq-logistic-evaluation-v1.json)。模型固定为训练期均值/标准差标准化、训练期均值填补缺失、L2 正则的 batch Logistic Regression；每个验证折独立拟合，绝不复用验证期的标准化参数、标签或概率。
+
+它使用同一份 20 交易日方向目标和 `qqq-walk-forward-v1`，输出：
+
+- 每折的激活特征、训练样本量、标准化统计、系数和超参数
+- 逐折与总体的 `Accuracy`、`Balanced Accuracy`、`Brier Score`
+- 5 个概率分桶的平均预测概率与实际上涨率，样本不足的分桶必须保留样本数
+
+当前真实 QQQ 报告的 `Brier Score` 为 `0.253391`，没有优于条件动量对照的 `0.248766`，且平衡准确率为 `0.472306`。因此报告固定标记为 `research_only_not_selected`：不能接入当前行情页面、Cron 或 DeepSeek 输入，也不能用于生成投资建议。只有先在预先定义的指标和校准门槛上持续优于对照，才可讨论下一版候选。
+
+重建与查询：
+
+```bash
+set -a
+. ./.env.local
+set +a
+npm run evaluation:logistic
+git diff -- data/evaluation/qqq-logistic-evaluation-v1.json
+```
+
+```text
+GET /api/nasdaq/evaluation-logistic
+```
+
 ### 8.3 NDX 成分与权重快照
 
 首个完整快照保存在：
