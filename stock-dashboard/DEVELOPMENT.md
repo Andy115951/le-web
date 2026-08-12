@@ -38,6 +38,7 @@
 - [x] FRED 宏观观测采集器、稳定去重和离线测试已实现；当前未配置 `FRED_API_KEY`，生产采集保持禁用
 - [x] `event_review_decisions` 已在远程创建；确定性分类、只读队列和追加式人工审核 CLI 已实现
 - [x] `research_packet_snapshots` 已在远程创建；首份 `2026-08-11` 输入快照已验证可幂等重跑
+- [x] 看板“研究回放”已接入快照摘要与按需详情读取；只展示归档事实、来源聚合和审核状态，不调用模型也不展示投资指令
 - [x] `research_narrative_audits` 已在远程创建；等待未来首条模型研究输出写入审计记录
 - [x] Cron 运行日志、失败诊断、手动重跑和最近运行记录接口
 - [x] Nasdaq 核心行情/新闻入口已与个人自选解耦，无登录也可运行
@@ -312,7 +313,7 @@ npx vercel --global-config $vercelConfigDir env ls
 
 ### 6.2 本地 `.env.local`
 
-只有需要在本地测试 Cron 时，才需要在 `stock-dashboard/.env.local` 放置真实服务端变量。可以复制 `.env.example` 后填写，但不要提交该文件。
+本地联调任何访问 Supabase 的服务端接口（Cron、公共历史、研究回放、人工审核）时，都需要在 `stock-dashboard/.env.local` 放置真实服务端变量。可以复制 `.env.example` 后填写，但不要提交该文件。
 
 当前仓库根 `.gitignore` 已忽略 `.env`、`.env.local` 和 `.env.*.local`。提交前仍应运行：
 
@@ -331,11 +332,14 @@ npx vercel --global-config $vercelConfigDir dev
 
 没有使用自定义配置目录时：
 
-```powershell
+```bash
+set -a
+. ./.env.local
+set +a
 npx vercel dev
 ```
 
-默认地址通常是 `http://localhost:3000`。端口被占用时，以终端输出为准。
+当前 Vercel 项目的 Development 环境没有保存 Secret，因此单独执行 `vercel dev` 只能验证静态页面和无凭据接口；上面的三行会只为当前 shell 加载被 Git 忽略的本机变量。默认地址通常是 `http://localhost:3000`。端口被占用时，以终端输出为准。
 
 基本检查：
 
@@ -563,6 +567,8 @@ GET /api/nasdaq/research-packet-snapshots?date=2026-08-11&limit=10
 ```text
 GET /api/nasdaq/research-packet-snapshots?date=2026-08-11&includePacket=true
 ```
+
+网页的“研究回放”导航也使用同一边界：初始只读摘要列表，用户选择某个日期后才请求该日 `includePacket=true` 的完整包。详情分为市场状态、可引用事件、历史相似日、来源/审核汇总与可展开的原始 JSON；它不请求模型、不生成判断，也不会展示用户持仓、密钥或请求头。
 
 手动补一份历史日快照：
 

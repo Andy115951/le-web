@@ -33,6 +33,7 @@
         <button type="button" class="command-link is-active" data-scroll-target="marketOverview">Nasdaq 100</button>
         <button type="button" class="command-link" data-scroll-target="marketEvents">动态新闻</button>
         <button type="button" class="command-link" data-scroll-target="marketCalendar">市场日历</button>
+        <button type="button" class="command-link" data-scroll-target="researchReplay">研究回放</button>
         <button type="button" class="command-link" data-scroll-target="watchlist">个人持仓</button>
       </div>
       <div class="command-actions">
@@ -257,6 +258,21 @@
           <div class="calendar-grid" id="calendarGrid"></div>
         </div>
         <aside class="calendar-detail card" id="calendarDetail" aria-live="polite"></aside>
+      </div>
+    </section>
+
+    <section class="research-replay" id="researchReplay">
+      <div class="section-heading replay-heading">
+        <div>
+          <p class="eyebrow">RESEARCH REPLAY</p>
+          <h2>研究输入回放</h2>
+        </div>
+        <button type="button" class="btn btn-ghost" id="refreshResearchReplayBtn">刷新快照</button>
+      </div>
+      <p class="muted replay-hint" id="researchReplayHint">读取已归档的市场研究输入。默认只加载摘要，选择后才获取完整回放。</p>
+      <div class="replay-layout">
+        <div class="replay-list card" id="researchReplayList" aria-live="polite"></div>
+        <aside class="replay-detail card" id="researchReplayDetail" aria-live="polite"></aside>
       </div>
     </section>
 

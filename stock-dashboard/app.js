@@ -70,6 +70,10 @@ const els = {
   calendarHint: document.getElementById("calendarHint"),
   calendarGrid: document.getElementById("calendarGrid"),
   calendarDetail: document.getElementById("calendarDetail"),
+  refreshResearchReplayBtn: document.getElementById("refreshResearchReplayBtn"),
+  researchReplayHint: document.getElementById("researchReplayHint"),
+  researchReplayList: document.getElementById("researchReplayList"),
+  researchReplayDetail: document.getElementById("researchReplayDetail"),
   rowTemplate: document.getElementById("rowTemplate"),
   countStat: document.getElementById("countStat"),
   upStat: document.getElementById("upStat"),
@@ -141,6 +145,18 @@ const state = {
     detailRequestId: 0,
     similarityRequestId: 0
   },
+  researchReplay: {
+    snapshots: [],
+    selectedId: "",
+    selectedFingerprint: "",
+    loading: false,
+    error: "",
+    detail: null,
+    detailLoading: false,
+    detailError: "",
+    requestId: 0,
+    detailRequestId: 0
+  },
   targetHits: new Set(),
   dropAlerted: new Set(),
   audioCtx: null,
@@ -186,7 +202,7 @@ async function init() {
   updateCloudButtons();
   await initCloud(cloudConfig);
   await refreshQuotes();
-  await Promise.all([refreshMarketHistory(), refreshMarketCalendar()]);
+  await Promise.all([refreshMarketHistory(), refreshMarketCalendar(), refreshResearchReplay()]);
 }
 
 function getNewYorkMonth(now = new Date()) {
@@ -281,6 +297,20 @@ function bindEvents() {
       state.marketCalendar.selectedDate = date;
       renderMarketCalendar();
       void refreshMarketDayDetail(date);
+    });
+  }
+
+  if (els.refreshResearchReplayBtn) {
+    els.refreshResearchReplayBtn.addEventListener("click", function () { void refreshResearchReplay(); });
+  }
+  if (els.researchReplayList) {
+    els.researchReplayList.addEventListener("click", function (event) {
+      const button = event.target.closest("[data-research-snapshot-id]");
+      if (!button) return;
+      const snapshot = state.researchReplay.snapshots.find(function (item) {
+        return item.id === button.getAttribute("data-research-snapshot-id");
+      });
+      if (snapshot) void selectResearchSnapshot(snapshot);
     });
   }
 
@@ -976,6 +1006,189 @@ async function refreshMarketDayDetail(date) {
     calendar.detailError = error?.message || "读取单日详情失败";
     renderMarketDayDetail();
   }
+}
+
+async function refreshResearchReplay() {
+  if (!els.researchReplayList || !els.researchReplayDetail) return;
+  const replay = state.researchReplay;
+  const requestId = ++replay.requestId;
+  replay.loading = true;
+  replay.error = "";
+  renderResearchReplay();
+  try {
+    const response = await fetch("./api/nasdaq/research-packet-snapshots?limit=12");
+    const payload = await response.json().catch(function () { return {}; });
+    if (!response.ok) throw new Error(payload?.error || "读取研究回放快照失败");
+    if (requestId !== replay.requestId) return;
+    replay.snapshots = Array.isArray(payload?.snapshots) ? payload.snapshots : [];
+    replay.loading = false;
+    const current = replay.snapshots.find(function (item) { return item.id === replay.selectedId; });
+    renderResearchReplay();
+    if (current) return;
+    if (replay.snapshots[0]) await selectResearchSnapshot(replay.snapshots[0]);
+    else {
+      replay.detail = null;
+      renderResearchReplay();
+    }
+  } catch (error) {
+    if (requestId !== replay.requestId) return;
+    replay.loading = false;
+    replay.error = error?.message || "读取研究回放快照失败";
+    renderResearchReplay();
+  }
+}
+
+async function selectResearchSnapshot(snapshot) {
+  const replay = state.researchReplay;
+  replay.selectedId = snapshot.id || "";
+  replay.selectedFingerprint = snapshot.packet_fingerprint || "";
+  replay.detail = null;
+  replay.detailError = "";
+  const requestId = ++replay.detailRequestId;
+  replay.detailLoading = true;
+  renderResearchReplay();
+  try {
+    const date = String(snapshot.market_date || "");
+    const response = await fetch("./api/nasdaq/research-packet-snapshots?date=" + encodeURIComponent(date) + "&includePacket=true&limit=30");
+    const payload = await response.json().catch(function () { return {}; });
+    if (!response.ok) throw new Error(payload?.error || "读取完整研究输入失败");
+    if (requestId !== replay.detailRequestId) return;
+    const snapshots = Array.isArray(payload?.snapshots) ? payload.snapshots : [];
+    replay.detail = snapshots.find(function (item) {
+      return item.id === replay.selectedId || item.packet_fingerprint === replay.selectedFingerprint;
+    }) || null;
+    if (!replay.detail) throw new Error("找不到所选快照的完整输入");
+    replay.detailLoading = false;
+    renderResearchReplay();
+  } catch (error) {
+    if (requestId !== replay.detailRequestId) return;
+    replay.detailLoading = false;
+    replay.detailError = error?.message || "读取完整研究输入失败";
+    renderResearchReplay();
+  }
+}
+
+function renderResearchReplay() {
+  if (!els.researchReplayList || !els.researchReplayDetail || !els.researchReplayHint) return;
+  const replay = state.researchReplay;
+  const snapshots = replay.snapshots;
+  if (replay.loading && !snapshots.length) {
+    els.researchReplayHint.textContent = "正在读取已归档的研究输入摘要…";
+    els.researchReplayList.innerHTML = '<div class="replay-empty"><strong>正在加载快照</strong><span>完整输入只会在选择后按需读取。</span></div>';
+    renderResearchReplayDetail();
+    return;
+  }
+  if (replay.error && !snapshots.length) {
+    els.researchReplayHint.textContent = "研究回放暂时不可用，其他看板功能不受影响。";
+    els.researchReplayList.innerHTML = '<div class="replay-empty is-error"><strong>读取失败</strong><span>' + escapeHtml(replay.error) + "</span></div>";
+    renderResearchReplayDetail();
+    return;
+  }
+  if (!snapshots.length) {
+    els.researchReplayHint.textContent = "还没有研究输入快照。下一次收盘归档成功后会自动保存；也可用本地命令手动补建。";
+    els.researchReplayList.innerHTML = '<div class="replay-empty"><strong>暂无可回放输入</strong><span>系统不会把缺少 QQQ 市场状态的半成品输入保存为快照。</span></div>';
+    renderResearchReplayDetail();
+    return;
+  }
+  const selected = snapshots.find(function (item) { return item.id === replay.selectedId; }) || snapshots[0];
+  els.researchReplayHint.textContent = "已归档 " + snapshots.length + " 个研究输入版本。选择版本后读取完整事实包；摘要中的来源统计不包含 URL 或密钥。";
+  els.researchReplayList.innerHTML = [
+    '<div class="replay-list-head"><span>INPUT SNAPSHOTS</span><strong>' + snapshots.length + " 个</strong></div>",
+    '<div class="replay-snapshot-list">',
+    snapshots.map(function (snapshot) { return renderResearchSnapshotItem(snapshot, snapshot.id === selected.id); }).join(""),
+    "</div>"
+  ].join("");
+  renderResearchReplayDetail();
+}
+
+function renderResearchSnapshotItem(snapshot, selected) {
+  const summary = snapshot.source_summary || {};
+  const fingerprint = String(snapshot.packet_fingerprint || "");
+  return [
+    '<button type="button" class="replay-snapshot' + (selected ? " is-selected" : "") + '" data-research-snapshot-id="' + escapeHtml(snapshot.id || "") + '">',
+    '<span class="replay-snapshot-date">' + escapeHtml(formatMarketDate(snapshot.market_date)) + "</span>",
+    '<span class="replay-snapshot-meta"><b>' + Number(summary.eventCount || 0) + " 事件</b><b>" + Number(summary.similarDayCandidateCount || 0) + " 相似样本</b></span>",
+    '<span class="replay-snapshot-fingerprint">' + escapeHtml(fingerprint ? fingerprint.slice(0, 12) + "…" : "--") + "</span>",
+    '<span class="replay-snapshot-time">归档 ' + escapeHtml(formatDualMarketTime(snapshot.captured_at)) + "</span>",
+    "</button>"
+  ].join("");
+}
+
+function renderResearchReplayDetail() {
+  if (!els.researchReplayDetail) return;
+  const replay = state.researchReplay;
+  if (replay.detailLoading) {
+    els.researchReplayDetail.innerHTML = '<div class="replay-detail-empty"><span>FULL INPUT</span><strong>正在加载完整研究包</strong><p>只读取所选日期的已归档事实输入，不会请求模型。</p></div>';
+    return;
+  }
+  if (replay.detailError) {
+    els.researchReplayDetail.innerHTML = '<div class="replay-detail-empty is-error"><span>FULL INPUT</span><strong>读取失败</strong><p>' + escapeHtml(replay.detailError) + "</p></div>";
+    return;
+  }
+  const snapshot = replay.detail;
+  const packet = snapshot?.packet;
+  if (!packet) {
+    els.researchReplayDetail.innerHTML = '<div class="replay-detail-empty"><span>FULL INPUT</span><strong>选择一个快照</strong><p>左侧仅显示摘要；点击后才会读取该版本的完整输入。</p></div>';
+    return;
+  }
+  const events = Array.isArray(packet.events) ? packet.events : [];
+  const matches = Array.isArray(packet.historicalSimilarity?.matches) ? packet.historicalSimilarity.matches : [];
+  const qqq = packet.marketState;
+  const summary = snapshot.source_summary || {};
+  els.researchReplayDetail.innerHTML = [
+    '<div class="replay-detail-head">',
+    '<div><span>REPLAYED INPUT · NEW YORK</span><h3>' + escapeHtml(formatMarketDate(packet.asOf?.marketDate)) + "</h3></div>",
+    '<b>' + escapeHtml(String(packet.contractVersion || "--")) + "</b>",
+    "</div>",
+    '<div class="replay-metric-grid">',
+    '<div><span>QQQ 收盘</span><strong>' + (Number.isFinite(Number(qqq?.adjustedClose)) ? escapeHtml(formatNumber(Number(qqq.adjustedClose))) : "--") + "</strong></div>",
+    '<div><span>当日涨跌</span><strong class="' + replayTone(qqq?.changePercent) + '">' + (Number.isFinite(Number(qqq?.changePercent)) ? escapeHtml(formatSigned(Number(qqq.changePercent)) + "%") : "--") + "</strong></div>",
+    '<div><span>可引用事件</span><strong>' + events.length + "</strong></div>",
+    '<div><span>相似样本</span><strong>' + matches.length + "</strong></div>",
+    "</div>",
+    renderReplaySourceSummary(summary),
+    renderReplayEvents(events),
+    renderReplayMatches(matches),
+    '<details class="replay-json"><summary>查看原始输入 JSON <span>' + escapeHtml(String(snapshot.packet_fingerprint || "").slice(0, 16)) + "…</span></summary><pre>" + escapeHtml(JSON.stringify(packet, null, 2)) + "</pre></details>",
+    '<p class="replay-note">该包为已归档输入。它不包含模型输出、用户持仓、服务器密钥或请求头；已人工拒绝的事件不会进入此证据集。</p>'
+  ].join("");
+}
+
+function renderReplaySourceSummary(summary) {
+  const providers = Object.entries(summary?.providers || {});
+  const reviewStatuses = Object.entries(summary?.reviewStatuses || {});
+  const providerText = providers.length ? providers.map(function ([name, count]) { return name + " " + count; }).join(" · ") : "暂无可引用来源";
+  const reviewText = reviewStatuses.length ? reviewStatuses.map(function ([name, count]) { return name + " " + count; }).join(" · ") : "无事件审核状态";
+  return '<section class="replay-source-summary"><div><span>来源汇总</span><strong>' + escapeHtml(providerText) + '</strong></div><div><span>审核状态</span><strong>' + escapeHtml(reviewText) + "</strong></div></section>";
+}
+
+function renderReplayEvents(events) {
+  if (!events.length) return '<section class="replay-block"><div class="replay-block-head"><strong>可引用事件</strong><span>0 条</span></div><p>该快照没有在研究时间窗口内可引用的结构化事件。</p></section>';
+  return [
+    '<section class="replay-block"><div class="replay-block-head"><strong>可引用事件</strong><span>' + events.length + " 条</span></div><div class=\"replay-event-list\">",
+    events.map(function (event) {
+      const review = event.review || {};
+      const sources = Array.isArray(event.sources) ? event.sources : [];
+      return '<article class="replay-event"><div><b>' + escapeHtml(event.eventType || "unknown") + '</b><strong>' + escapeHtml(event.title || event.eventKey || "Untitled event") + '</strong></div><p>' + escapeHtml(event.summary || "") + '</p><small>审核：' + escapeHtml(review.status || (review.requiresAttention ? "needs_attention" : "unreviewed")) + " · 来源 " + sources.length + "</small></article>";
+    }).join(""),
+    "</div></section>"
+  ].join("");
+}
+
+function renderReplayMatches(matches) {
+  if (!matches.length) return '<section class="replay-block"><div class="replay-block-head"><strong>历史相似日</strong><span>0 条</span></div><p>该市场日没有已成熟且去重后的相似日候选。</p></section>';
+  return [
+    '<section class="replay-block"><div class="replay-block-head"><strong>历史相似日</strong><span>RESEARCH ONLY</span></div><div class="replay-match-list">',
+    matches.slice(0, 5).map(function (match) {
+      return '<div><span>#' + Number(match.rank || 0) + " · " + escapeHtml(formatMarketDate(match.candidateMarketDate)) + '</span><strong>' + (Number.isFinite(Number(match.similarityScore)) ? Number(match.similarityScore).toFixed(0) + " 分" : "--") + "</strong></div>";
+    }).join(""),
+    "</div></section>"
+  ].join("");
+}
+
+function replayTone(value) {
+  const number = Number(value);
+  return number > 0 ? "positive" : number < 0 ? "negative" : "neutral";
 }
 
 async function refreshSimilarDays(date) {

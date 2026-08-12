@@ -73,7 +73,7 @@
 - SEC EDGAR filings 骨架：可将核心标的的 `10-K / 10-Q / 8-K / 20-F / 40-F / 6-K` 以官方归档链接、接受时间和 CIK 写入统一事件层；配置合规 `SEC_USER_AGENT` 后启用
 - FRED 宏观观测骨架：可把 `CPIAUCSL / UNRATE / FEDFUNDS / GDPC1` 的官方 FRED 观测写入统一事件层；配置服务端 `FRED_API_KEY` 后启用，未配置时保持禁用
 - 日度研究输入包：`GET /api/nasdaq/research-packet?date=YYYY-MM-DD` 固定后续 AI/日报可读取的泄漏安全事实边界，并按“上一交易日收盘到目标日收盘”筛选可知事件；人工 `rejected` 事件不会进入模型证据集合
-- 研究输入回放：收盘任务会追加保存稳定指纹的研究包快照；`GET /api/nasdaq/research-packet-snapshots` 默认只返回摘要，显式 `includePacket=true` 才返回完整历史输入
+- 研究输入回放：收盘任务会追加保存稳定指纹的研究包快照；看板“研究回放”以摘要列表加按需详情方式复原当时事实输入，`GET /api/nasdaq/research-packet-snapshots` 默认只返回摘要，显式 `includePacket=true` 才返回完整历史输入
 - 研究摘要输出契约：未来 DeepSeek/LLM 输出必须通过来源引用、越权语言和输入/输出指纹验证；审计表已就绪，但当前没有调用模型
 - 输出契约查询：`GET /api/nasdaq/research-narrative-contract?date=YYYY-MM-DD` 提供该日期允许引用的证据与固定 JSON 结构
 
@@ -207,12 +207,17 @@ vercel link
 
 ```bash
 cd /Users/apple/Documents/code/other/le-web/stock-dashboard
+set -a
+. ./.env.local
+set +a
 vercel dev
 ```
 
 本地地址通常是：
 
 - `http://localhost:3000`
+
+`vercel dev` 会优先读取 Vercel 的 Development 环境；当前项目没有在 Vercel 保存 Development Secret。要联调依赖 Supabase 的接口（例如“研究回放”），请先按上面的三行把本机、被 Git 忽略的 `.env.local` 仅注入当前终端。纯静态页面查看不需要这些变量。
 
 如果端口被占用，Vercel CLI 会自动换端口，请以终端输出为准。
 
