@@ -18,6 +18,7 @@ const { getTreeEvaluationReport } = require("../../lib/evaluation-tree-report");
 const { getWalkForwardBacktestReport } = require("../../lib/evaluation-backtest-report");
 const { getResearchOutcomeEvaluations } = require("../../lib/research-outcome-evaluations");
 const { getSupabaseConfig } = require("../../lib/supabase-server");
+const { getResearchHealth } = require("../../lib/research-health");
 const { getCandidatePromotionReviews, getLogisticPromotionReview, getTreePromotionReview } = require("../../lib/evaluation-promotion-report");
 
 function sendJson(res, statusCode, payload) {
@@ -43,6 +44,13 @@ function sendFailure(res, message, error) {
 }
 
 const resources = {
+  async "research-health"(_req, res) {
+    try {
+      const health = await getResearchHealth();
+      res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=900");
+      sendJson(res, 200, { ok: true, researchOnly: true, health });
+    } catch (error) { sendFailure(res, "Failed to load research health", error); }
+  },
   async calendar(req, res) {
     try {
       const date = String(req.query?.date || "").trim();
