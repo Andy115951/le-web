@@ -34,6 +34,7 @@
         <button type="button" class="command-link" data-scroll-target="marketEvents">动态新闻</button>
         <button type="button" class="command-link" data-scroll-target="marketCalendar">市场日历</button>
         <button type="button" class="command-link" data-scroll-target="researchReplay">研究回放</button>
+        <button type="button" class="command-link" data-scroll-target="dailyResearchReports">每日研究</button>
         <button type="button" class="command-link" data-scroll-target="modelReview">模型复核</button>
         <button type="button" class="command-link" data-scroll-target="watchlist">个人持仓</button>
       </div>
@@ -284,6 +285,15 @@
       </div>
       <p class="muted" id="researchHealthHint">读取脱敏运行状态，不包含运维错误正文或个人数据。</p>
       <div class="research-health-grid" id="researchHealthBody" aria-live="polite"></div>
+    </section>
+
+    <section class="daily-reports card" id="dailyResearchReports">
+      <div class="section-heading">
+        <div><p class="eyebrow">DAILY FACT RECAP</p><h2>每日研究事实摘要</h2></div>
+        <button type="button" class="btn btn-ghost" id="refreshDailyReportsBtn">刷新日报</button>
+      </div>
+      <p class="muted" id="dailyReportsHint">日报由已归档研究输入确定性生成，不包含预测、建议或交易指令。</p>
+      <div class="daily-reports-grid" id="dailyReportsBody" aria-live="polite"></div>
     </section>
 
     <section class="model-review" id="modelReview">

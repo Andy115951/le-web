@@ -80,6 +80,9 @@ const els = {
   refreshResearchHealthBtn: document.getElementById("refreshResearchHealthBtn"),
   researchHealthHint: document.getElementById("researchHealthHint"),
   researchHealthBody: document.getElementById("researchHealthBody"),
+  refreshDailyReportsBtn: document.getElementById("refreshDailyReportsBtn"),
+  dailyReportsHint: document.getElementById("dailyReportsHint"),
+  dailyReportsBody: document.getElementById("dailyReportsBody"),
   rowTemplate: document.getElementById("rowTemplate"),
   countStat: document.getElementById("countStat"),
   upStat: document.getElementById("upStat"),
@@ -175,6 +178,7 @@ const state = {
     requestId: 0
   },
   researchHealth: { value: null, loading: false, error: "" },
+  dailyReports: { reports: [], loading: false, error: "" },
   targetHits: new Set(),
   dropAlerted: new Set(),
   audioCtx: null,
@@ -220,7 +224,7 @@ async function init() {
   updateCloudButtons();
   await initCloud(cloudConfig);
   await refreshQuotes();
-  await Promise.all([refreshMarketHistory(), refreshMarketCalendar(), refreshResearchReplay(), refreshModelReview(), refreshResearchHealth()]);
+  await Promise.all([refreshMarketHistory(), refreshMarketCalendar(), refreshResearchReplay(), refreshModelReview(), refreshResearchHealth(), refreshDailyReports()]);
 }
 
 function getNewYorkMonth(now = new Date()) {
@@ -325,6 +329,7 @@ function bindEvents() {
     els.refreshModelReviewBtn.addEventListener("click", function () { void refreshModelReview(); });
   }
   if (els.refreshResearchHealthBtn) els.refreshResearchHealthBtn.addEventListener("click", function () { void refreshResearchHealth(); });
+  if (els.refreshDailyReportsBtn) els.refreshDailyReportsBtn.addEventListener("click", function () { void refreshDailyReports(); });
   if (els.modelReviewBody) {
     els.modelReviewBody.addEventListener("click", function (event) {
       const button = event.target.closest("[data-model-review-version]");
@@ -1301,6 +1306,65 @@ function renderResearchHealthAlerts(alerts) {
   const rows = Array.isArray(alerts) ? alerts : [];
   if (!rows.length) return '<section class="research-health-alerts is-clear"><strong>运行状态正常</strong><span>当前没有需要公开提示的研究任务告警。</span></section>';
   return '<section class="research-health-alerts">' + rows.map(function (alert) { return '<article class="is-' + escapeHtml(String(alert?.severity || "info")) + '"><b>' + escapeHtml(String(alert?.severity || "info").toUpperCase()) + '</b><div><strong>' + escapeHtml(String(alert?.code || "research_alert")) + '</strong><span>' + escapeHtml(String(alert?.message || "")) + '</span></div></article>'; }).join("") + "</section>";
+}
+
+async function refreshDailyReports() {
+  if (!els.dailyReportsBody || !els.dailyReportsHint) return;
+  const dailyReports = state.dailyReports;
+  dailyReports.loading = true;
+  dailyReports.error = "";
+  renderDailyReports();
+  try {
+    const response = await fetch("./api/nasdaq/daily-reports?limit=7");
+    const payload = await response.json().catch(function () { return {}; });
+    if (!response.ok) throw new Error(payload?.error || "读取每日研究摘要失败");
+    dailyReports.reports = Array.isArray(payload?.reports) ? payload.reports : [];
+  } catch (error) {
+    dailyReports.error = error?.message || "读取每日研究摘要失败";
+  }
+  dailyReports.loading = false;
+  renderDailyReports();
+}
+
+function renderDailyReports() {
+  if (!els.dailyReportsBody || !els.dailyReportsHint) return;
+  const dailyReports = state.dailyReports;
+  if (dailyReports.loading && !dailyReports.reports.length) {
+    els.dailyReportsBody.innerHTML = '<div class="daily-reports-empty">正在读取已归档日报…</div>';
+    return;
+  }
+  if (dailyReports.error && !dailyReports.reports.length) {
+    els.dailyReportsHint.textContent = "每日事实摘要暂时不可用，其他研究功能不受影响。";
+    els.dailyReportsBody.innerHTML = '<div class="daily-reports-empty is-error">' + escapeHtml(dailyReports.error) + "</div>";
+    return;
+  }
+  if (!dailyReports.reports.length) {
+    els.dailyReportsHint.textContent = "还没有日报。下一次收盘归档成功后，系统会在同一不可变研究快照基础上自动补建。";
+    els.dailyReportsBody.innerHTML = '<div class="daily-reports-empty"><strong>暂无每日摘要</strong><span>日报不会主动调用模型，也不会输出交易结论。</span></div>';
+    return;
+  }
+  els.dailyReportsHint.textContent = "最近 " + dailyReports.reports.length + " 份日报均由不可变研究输入确定性生成；它们是回放和核对材料，不构成投资建议。";
+  els.dailyReportsBody.innerHTML = dailyReports.reports.map(renderDailyReport).join("");
+}
+
+function renderDailyReport(row) {
+  const report = row?.report && typeof row.report === "object" ? row.report : {};
+  const market = report.market || {};
+  const evidence = report.evidence || {};
+  const change = Number(market.changePercent);
+  const hasChange = Number.isFinite(change);
+  const sourceEntries = Object.entries(evidence.providers || {});
+  const sourceText = sourceEntries.length
+    ? sourceEntries.map(function ([provider, count]) { return provider + " " + count; }).join(" · ")
+    : "暂无可引用来源";
+  return [
+    '<article class="daily-report-card">',
+    '<div class="daily-report-head"><div><span>NEW YORK CLOSE</span><strong>' + escapeHtml(formatMarketDate(row.market_date || report.marketDate)) + '</strong></div><b class="' + replayTone(change) + '">' + (hasChange ? escapeHtml(formatSigned(change) + "%") : "--") + "</b></div>",
+    '<div class="daily-report-metrics"><div><span>QQQ 收盘</span><strong>' + (Number.isFinite(Number(market.adjustedClose)) ? escapeHtml(formatNumber(Number(market.adjustedClose))) : "--") + '</strong></div><div><span>可引用事件</span><strong>' + Number(evidence.eventCount || 0) + '</strong></div><div><span>相似样本</span><strong>' + Number(evidence.similarDayCandidateCount || 0) + "</strong></div></div>",
+    '<p><b>来源</b>' + escapeHtml(sourceText) + '</p>',
+    '<small>确定性事实摘要 · ' + escapeHtml(String(row.report_version || report.reportVersion || "--")) + "</small>",
+    "</article>"
+  ].join("");
 }
 
 async function refreshModelReview() {

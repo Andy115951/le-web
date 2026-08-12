@@ -83,6 +83,7 @@
 - FRED 宏观观测骨架：可把 `CPIAUCSL / UNRATE / FEDFUNDS / GDPC1` 的官方 FRED 观测写入统一事件层；配置服务端 `FRED_API_KEY` 后启用，未配置时保持禁用
 - 日度研究输入包：`GET /api/nasdaq/research-packet?date=YYYY-MM-DD` 固定后续 AI/日报可读取的泄漏安全事实边界，并按“上一交易日收盘到目标日收盘”筛选可知事件；人工 `rejected` 事件不会进入模型证据集合
 - 研究输入回放：收盘任务会追加保存字段顺序无关稳定指纹的研究包快照；看板“研究回放”以摘要列表加按需详情方式复原当时事实输入，`GET /api/nasdaq/research-packet-snapshots` 默认只返回摘要，显式 `includePacket=true` 才返回完整历史输入
+- 每日研究事实摘要：每次成功归档研究快照后，系统会按同一快照与报告版本幂等写入日报；`GET /api/nasdaq/daily-reports?limit=7` 只返回 QQQ 收盘、涨跌和证据计数，不含预测、建议或交易指令
 - 受控 DeepSeek 摘要执行器：只可读取已归档研究输入，默认关闭；启用后受每日请求上限、稳定输入指纹、引用/越权校验与服务端审计共同约束
 - 已验证摘要回放：研究回放会显示与所选快照指纹一致、且已通过校验的模型摘要；没有摘要时明确显示未生成，网页不会触发模型调用
 - 输出契约查询：`GET /api/nasdaq/research-narrative-contract?date=YYYY-MM-DD` 提供该日期允许引用的证据与固定 JSON 结构
@@ -153,6 +154,7 @@
 - `scripts/capture-fred-macro.js`: 手动采集 FRED 宏观观测的受控入口
 - `lib/daily-research-packet.js`: 为未来报告/Agent 固定市场状态、跨收盘可知事件、来源与历史相似日的只读契约
 - `lib/research-packet-snapshots.js`: 研究输入的稳定指纹、来源摘要、追加式快照写入与回放读取
+- `lib/daily-research-reports.js`: 基于不可变研究快照的确定性日报构建、幂等写入与只读查询
 - `scripts/capture-research-packet-snapshot.js`: 手动生成某个市场日研究输入快照的受控入口
 - `lib/research-narrative-contract.js`: 未来 LLM 市场复盘的引用约束、禁止语义与输出验证
 - `lib/research-narrative-audit.js`: 服务端审计写入；记录版本、指纹、验证结果与原始模型 JSON

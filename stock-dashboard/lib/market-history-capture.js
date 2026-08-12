@@ -6,7 +6,8 @@ const { persistUnifiedMarketEvents } = require("./unified-market-events");
 const { captureRecentSecFilings, isSecEdgarConfigured } = require("./sec-edgar");
 const { captureRecentFredObservations, isFredConfigured } = require("./fred-macro");
 const { getDailyResearchPacket } = require("./daily-research-packet");
-const { persistResearchPacketSnapshot } = require("./research-packet-snapshots");
+const { findResearchPacketSnapshot, persistResearchPacketSnapshot } = require("./research-packet-snapshots");
+const { persistDailyResearchReport } = require("./daily-research-reports");
 const { runDeepSeekResearchNarrative } = require("./deepseek-research-narrative");
 const { evaluateMatureResearchOutcomes } = require("./research-outcome-evaluations");
 
@@ -274,6 +275,20 @@ async function captureMarketHistory(input) {
       // Snapshots enable research replay but must not discard an otherwise valid close capture.
       researchPacketSnapshotResult = { ...researchPacketSnapshotResult, status: "failed", error: errorMessage(error) };
     }
+    let dailyResearchReportResult = { status: "pending", created: false, error: null };
+    try {
+      if (researchPacketSnapshotResult.status !== "succeeded" || !researchPacket) {
+        dailyResearchReportResult = { ...dailyResearchReportResult, status: "skipped", error: "research_packet_not_archived" };
+      } else {
+        const snapshot = await findResearchPacketSnapshot({ marketDate: researchPacketSnapshotResult.marketDate, packetFingerprint: researchPacketSnapshotResult.packetFingerprint }, config);
+        if (!snapshot) throw new Error("Saved research snapshot was not found");
+        const saved = await persistDailyResearchReport(config, snapshot, researchPacket);
+        dailyResearchReportResult = { status: "succeeded", error: null, ...saved };
+      }
+    } catch (error) {
+      // Deterministic report is a replay aid and must not block market capture.
+      dailyResearchReportResult = { ...dailyResearchReportResult, status: "failed", error: errorMessage(error) };
+    }
     let researchNarrativeResult = {
       status: "pending",
       reason: null,
@@ -383,6 +398,8 @@ async function captureMarketHistory(input) {
       researchPacketSnapshotStatus: researchPacketSnapshotResult.status,
       researchPacketSnapshotCreated: researchPacketSnapshotResult.created,
       researchPacketFingerprint: researchPacketSnapshotResult.packetFingerprint,
+      dailyResearchReportStatus: dailyResearchReportResult.status,
+      dailyResearchReportCreated: dailyResearchReportResult.created,
       researchNarrativeStatus: researchNarrativeResult.status,
       researchNarrativeReason: researchNarrativeResult.reason,
       researchNarrativeCreated: researchNarrativeResult.created,

@@ -95,6 +95,16 @@ async function getResearchPacketSnapshots(options = {}, config = getSupabaseConf
   };
 }
 
+async function findResearchPacketSnapshot(options = {}, config = getSupabaseConfig(), requestImpl = requestSupabase) {
+  const marketDate = normalizeDate(options.marketDate);
+  const fingerprint = String(options.packetFingerprint || "").trim();
+  if (!/^[a-f0-9]{64}$/.test(fingerprint)) throw new Error("Invalid research packet fingerprint");
+  const rows = await requestImpl(config, "/rest/v1/research_packet_snapshots?select=id,market_date,packet_fingerprint,source_summary,captured_at"
+    + "&market_date=eq." + encodeURIComponent(marketDate)
+    + "&packet_fingerprint=eq." + encodeURIComponent(fingerprint) + "&limit=1");
+  return Array.isArray(rows) ? rows[0] || null : null;
+}
+
 async function rehashResearchPacketSnapshots(config = getSupabaseConfig(), requestImpl = requestSupabase) {
   const rows = await requestImpl(config, "/rest/v1/research_packet_snapshots?select=id,market_date,packet_fingerprint,packet&order=market_date.desc,captured_at.desc&limit=1000");
   const snapshots = Array.isArray(rows) ? rows : [];
@@ -127,6 +137,7 @@ module.exports = {
   RESEARCH_PACKET_SNAPSHOT_VERSION,
   buildResearchPacketSnapshot,
   buildSourceSummary,
+  findResearchPacketSnapshot,
   getResearchPacketSnapshots,
   materialPacket,
   normalizeSnapshotLimit,

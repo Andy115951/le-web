@@ -263,6 +263,12 @@ FRED API Key 只放在服务端 `FRED_API_KEY`。API 请求 URL 不会写库，�
 
 这不是预测表，也不保存个人持仓、价格目标或交易指令。表开启 RLS，仅服务端 Secret Key 可 `select / insert`；浏览器只能通过受控的只读汇总接口读取公开市场研究结果。
 
+### 每日研究事实摘要
+
+`20260813020000_add_daily_research_reports.sql` 新增 `daily_research_reports`。每行关联一个不可变 `research_packet_snapshots` 输入，保存该输入的 `daily-research-report-v1` 确定性事实摘要和市场日期。唯一键 `(snapshot_id, report_version)` 保证 Cron 重跑不会更新、覆盖或重复既有日报。
+
+报告 JSON 只存当时可知的 QQQ 收盘状态、事件/来源/审核状态聚合和相似日候选数；不存预测、投资建议、个人持仓、服务器密钥或请求头。表开启 RLS，只授予服务端 Secret Key `select / insert`；浏览器必须通过 `GET /api/nasdaq/daily-reports` 的受控只读汇总访问。
+
 ## 2. 打开邮箱登录
 
 在 Supabase Dashboard:

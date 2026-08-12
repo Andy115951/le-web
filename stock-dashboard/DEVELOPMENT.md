@@ -793,6 +793,20 @@ GET /api/nasdaq/research-outcomes?limit=12
 
 该公共接口特意不回传 `market_capture_runs.id`、`error_message`、`details`、用户计数、完整研究包或密钥。需要诊断具体失败原因时，仍必须用 `CRON_SECRET` 调受保护的 `/api/cron/market-history-runs`。
 
+#### 8.2.13 每日确定性研究报告
+
+每次收盘 Cron 成功归档 `research_packet_snapshots` 后，会先按 `(market_date, packet_fingerprint)` 找回同一不可变快照，再向 `daily_research_reports` 写入 `daily-research-report-v1`。报告只包含 QQQ 的已知收盘状态、归档时的事件/来源/审核统计和相似日候选数；它不会调用模型，也不包含预测、目标价、仓位、买卖或任何交易指令。
+
+写入使用 `(snapshot_id, report_version)` 唯一键和 `resolution=ignore-duplicates`，所以同日 Cron 重跑不会覆盖或复制日报。日报生成或写入失败只会以 `dailyResearchReportStatus: failed` 记录在采集运行详情里，既不会丢弃行情归档，也不会阻断到期结果审计。
+
+看板“每日研究事实摘要”与以下只读接口使用同一数据边界，默认最多读取 12 条、最大 30 条：
+
+```text
+GET /api/nasdaq/daily-reports?limit=7
+```
+
+当前完成的是每日确定性事实摘要。周度汇总会等积累足够连续日报和结果审计记录后另行实现，不能把当前日报视为周报或模型结论。
+
 ### 8.3 NDX 成分与权重快照
 
 首个完整快照保存在：
