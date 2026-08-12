@@ -5,8 +5,8 @@ const { DAILY_RESEARCH_REPORT_VERSION } = require("./daily-research-reports");
 const { RESEARCH_OUTCOME_EVALUATION_VERSION } = require("./research-outcome-evaluations");
 
 const RESEARCH_TASK_RUN_VERSION = "research-task-run-v1";
-const TASK_KINDS = new Set(["research_input_snapshot", "daily_fact_report", "model_recap", "outcome_evaluation"]);
-const TASK_STATUSES = new Set(["succeeded", "skipped", "failed", "disabled"]);
+const TASK_KINDS = new Set(["market_collection", "research_input_snapshot", "daily_fact_report", "model_recap", "outcome_evaluation"]);
+const TASK_STATUSES = new Set(["succeeded", "partial", "skipped", "failed", "disabled"]);
 
 function normalizeTaskStatus(value) {
   const status = String(value || "").trim().toLowerCase();
@@ -25,6 +25,17 @@ function buildResearchTaskRunRows(input) {
   const stages = input?.stages || {};
   const createdAt = input?.createdAt || new Date().toISOString();
   const rows = [
+    {
+      task_kind: "market_collection",
+      task_version: "market-collection-v1",
+      result: stages.marketCollection,
+      details: {
+        publicRowsWritten: finiteNonNegative(stages.marketCollection?.publicRowsWritten),
+        unifiedEventsWritten: finiteNonNegative(stages.marketCollection?.unifiedEventsWritten),
+        unifiedSourcesWritten: finiteNonNegative(stages.marketCollection?.unifiedSourcesWritten),
+        failedSymbolCount: finiteNonNegative(stages.marketCollection?.failedSymbolCount)
+      }
+    },
     {
       task_kind: "research_input_snapshot",
       task_version: RESEARCH_PACKET_SNAPSHOT_VERSION,

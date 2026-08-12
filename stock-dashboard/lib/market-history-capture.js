@@ -325,11 +325,19 @@ async function captureMarketHistory(input) {
     }
     let researchTaskRunResult = { status: "pending", written: 0, error: null };
     try {
+      const marketCollectionResult = {
+        status: failedSymbolSet.size ? "partial" : "succeeded",
+        publicRowsWritten: publicSavedEvents,
+        unifiedEventsWritten: unifiedResult.eventsWritten,
+        unifiedSourcesWritten: unifiedResult.sourcesWritten,
+        failedSymbolCount: failedSymbolSet.size
+      };
       const rows = buildResearchTaskRunRows({
         captureRunId: runId,
         marketDate: today,
         createdAt: now.toISOString(),
         stages: {
+          marketCollection: marketCollectionResult,
           snapshot: researchPacketSnapshotResult,
           dailyReport: dailyResearchReportResult,
           narrative: researchNarrativeResult,

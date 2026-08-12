@@ -10,21 +10,25 @@ test("task run rows append only public stage summaries without raw errors", func
     marketDate: "2026-08-11",
     createdAt: "2026-08-12T00:00:00.000Z",
     stages: {
+      marketCollection: { status: "partial", publicRowsWritten: 8, unifiedEventsWritten: 7, unifiedSourcesWritten: 9, failedSymbolCount: 1, failedSymbols: ["private ticker"] },
       snapshot: { status: "succeeded", created: true },
       dailyReport: { status: "failed", error: "database password should never appear" },
       narrative: { status: "disabled", created: false },
       outcomeEvaluation: { status: "succeeded", matureOutcomesWritten: 2 }
     }
   });
-  assert.equal(rows.length, 4);
-  assert.deepEqual(rows.map(function (row) { return row.status; }), ["succeeded", "failed", "disabled", "succeeded"]);
-  assert.equal(rows[1].failure_code, "task_failed");
+  assert.equal(rows.length, 5);
+  assert.deepEqual(rows.map(function (row) { return row.status; }), ["partial", "succeeded", "failed", "disabled", "succeeded"]);
+  assert.equal(rows[2].failure_code, "task_failed");
   assert.equal(JSON.stringify(rows).includes("password"), false);
-  assert.equal(rows[3].details.matureOutcomesWritten, 2);
+  assert.equal(JSON.stringify(rows).includes("private ticker"), false);
+  assert.deepEqual(rows[0].details, { publicRowsWritten: 8, unifiedEventsWritten: 7, unifiedSourcesWritten: 9, failedSymbolCount: 1 });
+  assert.equal(rows[4].details.matureOutcomesWritten, 2);
 });
 
 test("task run controls keep statuses and public reads bounded", function () {
   assert.equal(normalizeTaskStatus("unexpected"), "skipped");
+  assert.equal(normalizeTaskStatus("partial"), "partial");
   assert.equal(normalizeResearchTaskRunLimit(100), 50);
   assert.equal(normalizeResearchTaskRunLimit(-1), 1);
 });
