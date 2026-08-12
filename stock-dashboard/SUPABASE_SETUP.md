@@ -110,6 +110,21 @@ with check (auth.uid() = user_id);
 
 该表启用 RLS，不给 `anon` 和 `authenticated` 角色访问权限，只允许服务端 Secret Key 管理。浏览器不能直接读取运维日志。
 
+### 公共 Nasdaq 历史表
+
+`nasdaq_market_event_history` 保存不绑定用户账号的核心市场日度事件。正式定义位于：
+
+- `supabase/migrations/20260812173000_add_nasdaq_market_event_history.sql`
+
+关键约束：
+
+- 唯一键：`market_date + symbol`
+- 保存标的角色和观察宇宙日期：`instrument_role / universe_as_of`
+- 保存涨跌、QQQ 对照、归因假设、新闻标题和原始链接
+- 启用 RLS，撤销 `anon` / `authenticated` 权限，仅服务端 Secret Key 可直接读写
+
+浏览器通过 `GET /api/nasdaq/history?days=30|90|180` 读取服务端筛选后的公共记录，不需要 Supabase 登录，也不会获得 Secret Key。
+
 ## 2. 打开邮箱登录
 
 在 Supabase Dashboard:
@@ -200,7 +215,7 @@ vercel dev
 
 行情事件也会随着普通云同步保存。迁移未执行前，看板会自动降级为只同步原有数据，不会影响自选股和持仓同步；执行迁移后，事件才能跨设备保留。
 
-`market_event_history` 是长期历史表：同一用户、同一交易日、同一股票只保留一条最新快照。这样即使定时任务重复运行，也只会更新当天记录，不会产生重复数据。
+`nasdaq_market_event_history` 是公共市场主历史表；`market_event_history` 只保留个人兼容数据。同一交易日和股票重复运行时更新原记录，不产生重复行。
 
 ## 8. 开启每日收盘自动归档
 

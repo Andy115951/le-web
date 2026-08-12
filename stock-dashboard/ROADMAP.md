@@ -61,6 +61,8 @@
 - 不依赖个人自选的 Nasdaq 核心行情/新闻雷达
 - 近 36 小时新闻聚合、去重和标题相关性过滤
 - 未登录可用的本地 14 天日度脉络
+- 公共 `nasdaq_market_event_history` 与无登录历史 API
+- 收盘 Cron 在无用户数据时仍能归档核心市场事件
 
 当前首页已经切换为“公共 Nasdaq 雷达优先，个人持仓辅助”，但长期数据仍需迁移到独立的市场日、价格、事件、来源、日报、预测和评估表，不能依赖 `watchlist_states` JSON。
 
@@ -395,8 +397,10 @@ CRON_SECRET
 - [x] 公共 Nasdaq 核心雷达不依赖 `watchlist_states`
 - [x] 动态新闻去重与结构化相关性过滤
 - [x] 本地 14 天 Nasdaq 日度脉络
+- [x] 公共 Nasdaq 历史表和 30/90/180 天读取 API
+- [x] 公共收盘归档不依赖 `watchlist_states`
 
-现有个人历史 Cron 保留兼容；“电脑关机仍能写入公共市场历史”的验收转移到 Phase 1 独立市场表完成后执行。
+验收已完成：在 `sourceUsers = 0` 时，收盘采集仍成功写入 14 条公共市场事件；个人历史 Cron 继续兼容。
 
 ### Phase 1：QQQ 市场记忆 MVP
 
@@ -464,7 +468,7 @@ CRON_SECRET
 严格按顺序：
 
 1. 在可直连数据库的网络中执行 `supabase db push`，登记已应用的 migration 历史。
-2. 建立 `market_days`、`instruments`、`price_bars_daily`，公共历史不再绑定 `user_id`。
+2. 建立 `market_days`、`instruments`、`price_bars_daily`，补齐标准 OHLCV 数据层。
 3. 选择 QQQ 价格供应商并完成至少 5 年回填。
 4. 建立 Nasdaq-100 成分和权重快照，替换代码中的固定核心名单。
 5. 将收盘 Cron 改为公共市场采集，并实现第一个动态日历页面。

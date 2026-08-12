@@ -1,7 +1,12 @@
 const crypto = require("crypto");
 const { getDailyMarketEvents, isAfterUsMarketClose, marketDate } = require("./daily-market-events");
+const { NASDAQ_FOCUS_INSTRUMENTS, NASDAQ_UNIVERSE_AS_OF } = require("./nasdaq-universe");
 
 const RUNS_TABLE = "market_capture_runs";
+const PUBLIC_HISTORY_TABLE = "nasdaq_market_event_history";
+const INSTRUMENT_ROLES = new Map(NASDAQ_FOCUS_INSTRUMENTS.map(function (item) {
+  return [item.symbol, item.role];
+}));
 
 function getConfig() {
   const url = String(process.env.SUPABASE_URL || "").trim().replace(/\/$/, "");
@@ -56,6 +61,25 @@ function toHistoryRow(userId, event, now) {
   };
 }
 
+function toPublicHistoryRow(event, now) {
+  return {
+    market_date: event.date,
+    symbol: event.symbol,
+    display_name: event.name,
+    instrument_role: INSTRUMENT_ROLES.get(event.symbol) || "component",
+    universe_as_of: NASDAQ_UNIVERSE_AS_OF,
+    change_percent: event.changePercent,
+    benchmark_change_percent: event.benchmarkChangePercent,
+    driver_type: event.driverType,
+    confidence: event.confidence,
+    summary: event.summary,
+    reasons: Array.isArray(event.reasons) ? event.reasons : [],
+    news: Array.isArray(event.news) ? event.news : [],
+    captured_at: event.capturedAt,
+    updated_at: now.toISOString()
+  };
+}
+
 function normalizeCaptureOptions(input) {
   if (input instanceof Date) return { now: input, trigger: "manual" };
   const options = input && typeof input === "object" ? input : {};
@@ -97,6 +121,15 @@ async function safelyUpdateRun(config, runId, patch) {
   } catch (error) {
     return errorMessage(error);
   }
+}
+
+async function upsertRows(config, table, conflictColumns, rows) {
+  if (!rows.length) return;
+  await requestSupabase(config, "/rest/v1/" + table + "?on_conflict=" + conflictColumns, {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+    body: rows
+  });
 }
 
 function finalRunPatch(startedAt, result, status, details, error) {
@@ -159,16 +192,54 @@ async function captureMarketHistory(input) {
   }
 
   try {
+    const today = marketDate(now);
+    const publicSnapshot = await getDailyMarketEvents([]);
+    const failedSymbolSet = new Set(publicSnapshot.failedSymbols || []);
+
+    if (!publicSnapshot.events.length && publicSnapshot.failedSymbols?.length) {
+      throw new Error("Public Nasdaq snapshot failed for all requested symbols");
+    }
+
+    // A market holiday or stale upstream quote must never be stamped as today.
+    if (publicSnapshot.date !== today || !publicSnapshot.events.length) {
+      const result = {
+        runId,
+        trigger: options.trigger,
+        status: "skipped",
+        skipped: true,
+        date: today,
+        reason: "Public Nasdaq snapshot is not for the current US market date",
+        publicSavedEvents: 0,
+        savedEvents: 0,
+        failedSymbols: Array.from(failedSymbolSet).sort(),
+        loggingError
+      };
+      if (!loggingError) {
+        result.loggingError = await safelyUpdateRun(config, runId, finalRunPatch(
+          startedAt,
+          result,
+          "skipped",
+          { reason: result.reason, failedSymbols: result.failedSymbols },
+          null
+        ));
+      }
+      return result;
+    }
+
+    const publicRows = publicSnapshot.events.map(function (event) {
+      return toPublicHistoryRow(event, now);
+    });
+    await upsertRows(config, PUBLIC_HISTORY_TABLE, "market_date,symbol", publicRows);
+    const publicSavedEvents = publicRows.length;
+
     const states = await requestSupabase(config, "/rest/v1/watchlist_states?select=user_id,items", {
       headers: { Range: "0-999" }
     });
-    const today = marketDate(now);
     const sourceStates = Array.isArray(states) ? states : [];
     const resultCache = new Map();
-    const failedSymbolSet = new Set();
     const userFailures = [];
     let processedUsers = 0;
-    let savedEvents = 0;
+    let personalSavedEvents = 0;
     let skippedUsers = 0;
     let failedUsers = 0;
 
@@ -199,13 +270,9 @@ async function captureMarketHistory(input) {
         const rows = snapshot.events.map(function (event) {
           return toHistoryRow(state.user_id, event, now);
         });
-        await requestSupabase(config, "/rest/v1/market_event_history?on_conflict=user_id,market_date,symbol", {
-          method: "POST",
-          headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
-          body: rows
-        });
+        await upsertRows(config, "market_event_history", "user_id,market_date,symbol", rows);
         processedUsers += 1;
-        savedEvents += rows.length;
+        personalSavedEvents += rows.length;
       } catch (error) {
         failedUsers += 1;
         if (userFailures.length < 20) {
@@ -217,7 +284,8 @@ async function captureMarketHistory(input) {
       }
     }
 
-    const status = determineRunStatus(processedUsers, skippedUsers, failedUsers);
+    const status = determineRunStatus(1 + processedUsers, skippedUsers, failedUsers);
+    const savedEvents = publicSavedEvents + personalSavedEvents;
     const result = {
       runId,
       trigger: options.trigger,
@@ -227,6 +295,8 @@ async function captureMarketHistory(input) {
       sourceUsers: sourceStates.length,
       processedUsers,
       savedEvents,
+      publicSavedEvents,
+      personalSavedEvents,
       skippedUsers,
       failedUsers,
       failedSymbols: Array.from(failedSymbolSet).sort(),
@@ -241,7 +311,9 @@ async function captureMarketHistory(input) {
         {
           failedSymbols: result.failedSymbols,
           userFailures,
-          reason: status === "skipped" ? "No user produced a current-market-date snapshot" : null
+          publicSavedEvents,
+          personalSavedEvents,
+          publicUniverseAsOf: NASDAQ_UNIVERSE_AS_OF
         },
         failedUsers > 0 ? failedUsers + " user capture(s) failed" : null
       ));
@@ -261,6 +333,43 @@ async function captureMarketHistory(input) {
     error.loggingError = loggingError;
     throw error;
   }
+}
+
+function normalizeHistoryDays(days) {
+  const value = Number(days) || 30;
+  return [30, 90, 180].includes(value) ? value : 30;
+}
+
+async function getNasdaqMarketHistory(days) {
+  const config = getConfig();
+  const normalizedDays = normalizeHistoryDays(days);
+  const start = new Date();
+  start.setUTCDate(start.getUTCDate() - normalizedDays + 1);
+  const startDate = start.toISOString().slice(0, 10);
+  const columns = [
+    "market_date",
+    "symbol",
+    "display_name",
+    "instrument_role",
+    "universe_as_of",
+    "change_percent",
+    "benchmark_change_percent",
+    "driver_type",
+    "confidence",
+    "summary",
+    "reasons",
+    "news",
+    "captured_at"
+  ].join(",");
+  const rows = await requestSupabase(
+    config,
+    "/rest/v1/" + PUBLIC_HISTORY_TABLE
+      + "?select=" + columns
+      + "&market_date=gte." + startDate
+      + "&order=market_date.desc,symbol.asc"
+      + "&limit=" + (normalizedDays * NASDAQ_FOCUS_INSTRUMENTS.length)
+  );
+  return Array.isArray(rows) ? rows : [];
 }
 
 async function getRecentCaptureRuns(limit) {
@@ -293,6 +402,9 @@ module.exports = {
   captureMarketHistory,
   collectSymbols,
   determineRunStatus,
+  getNasdaqMarketHistory,
   getRecentCaptureRuns,
-  normalizeCaptureOptions
+  normalizeCaptureOptions,
+  normalizeHistoryDays,
+  toPublicHistoryRow
 };

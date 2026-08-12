@@ -11,8 +11,7 @@ import {
   onCloudAuthChange,
   loadRemoteState,
   saveRemoteState,
-  saveMarketEventHistory,
-  loadMarketEventHistory
+  saveMarketEventHistory
 } from "./cloud.js";
 
 const els = {
@@ -163,6 +162,7 @@ async function init() {
   updateCloudButtons();
   await initCloud(cloudConfig);
   await refreshQuotes();
+  await refreshMarketHistory();
 }
 
 function isAShareSymbol(symbol) {
@@ -829,31 +829,26 @@ async function syncMarketEventsToHistory(events) {
   if (!cloud.client || !cloud.user || !Array.isArray(events) || !events.length) return;
   const result = await saveMarketEventHistory(cloud.client, cloud.user.id, events);
   if (result.error) return;
-  void refreshMarketHistory({ silent: true });
 }
 
 async function refreshMarketHistory(options) {
   if (!els.marketHistoryBody || !els.marketHistoryHint) return;
-  const cloud = state.cloud;
-  if (!cloud.client || !cloud.user) {
-    state.marketHistory = [];
-    state.marketHistoryError = "";
-    renderMarketHistory();
-    return;
-  }
   if (state.marketHistoryLoading) return;
 
   state.marketHistoryLoading = true;
   if (!options?.silent) renderMarketHistory();
-  const result = await loadMarketEventHistory(cloud.client, cloud.user.id, state.marketHistoryRange);
-  state.marketHistoryLoading = false;
-  if (result.error) {
-    state.marketHistoryError = result.error;
-  } else {
-    state.marketHistory = result.data;
+  try {
+    const response = await fetch("./api/nasdaq/history?days=" + encodeURIComponent(state.marketHistoryRange));
+    const payload = await response.json().catch(function () { return {}; });
+    if (!response.ok) throw new Error(payload?.error || "读取 Nasdaq 公共历史失败");
+    state.marketHistory = Array.isArray(payload?.history) ? payload.history : [];
     state.marketHistoryError = "";
+  } catch (error) {
+    state.marketHistoryError = error?.message || "读取 Nasdaq 公共历史失败";
+  } finally {
+    state.marketHistoryLoading = false;
+    renderMarketHistory();
   }
-  renderMarketHistory();
 }
 
 function mergeMarketEvents(existing, incoming) {
@@ -1975,7 +1970,7 @@ function renderMarketHistory() {
   });
 
   const historyEntries = getAvailableMarketHistory();
-  const usingCloudHistory = Boolean(state.cloud.client && state.cloud.user && state.marketHistory.length);
+  const usingPublicHistory = state.marketHistory.length > 0;
 
   if (state.marketHistoryLoading && !historyEntries.length) {
     els.marketHistoryHint.textContent = "正在读取历史收盘快照…";
@@ -1989,7 +1984,7 @@ function renderMarketHistory() {
       '<article class="market-history-empty">',
       "<strong>暂时无法读取历史</strong>",
       '<p class="muted">' + escapeHtml(state.marketHistoryError) + "</p>",
-      '<p class="muted">请先执行 `SUPABASE_SETUP.md` 里的 `market_event_history` 建表 SQL。</p>',
+      '<p class="muted">公共历史 API 暂时不可用，页面会继续保留本机最近 14 天记录。</p>',
       "</article>"
     ].join("");
     return;
@@ -2001,8 +1996,8 @@ function renderMarketHistory() {
     return;
   }
 
-  els.marketHistoryHint.textContent = usingCloudHistory
-    ? "已加载最近 " + state.marketHistoryRange + " 天云端记录。展开交易日可查看涨跌线索与原文证据。"
+  els.marketHistoryHint.textContent = usingPublicHistory
+    ? "已加载最近 " + state.marketHistoryRange + " 天公共市场记录。展开交易日可查看涨跌线索与原文证据。"
     : "正在展示本机最近 14 天的 Nasdaq 雷达记录；无需登录即可使用。";
   const byDate = new Map();
   historyEntries.forEach(function (entry) {
@@ -2020,7 +2015,7 @@ function renderMarketHistory() {
 }
 
 function getAvailableMarketHistory() {
-  if (state.cloud.client && state.cloud.user && state.marketHistory.length) return state.marketHistory;
+  if (state.marketHistory.length) return state.marketHistory;
   return state.marketEvents.filter(function (entry) {
     return NASDAQ_FOCUS_SYMBOLS.includes(String(entry?.symbol || "").toUpperCase());
   }).map(function (entry) {

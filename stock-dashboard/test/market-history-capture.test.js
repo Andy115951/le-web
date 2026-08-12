@@ -3,7 +3,9 @@ const test = require("node:test");
 const {
   collectSymbols,
   determineRunStatus,
-  normalizeCaptureOptions
+  normalizeHistoryDays,
+  normalizeCaptureOptions,
+  toPublicHistoryRow
 } = require("../lib/market-history-capture");
 
 test("collectSymbols normalizes, deduplicates, and filters symbols", function () {
@@ -14,6 +16,33 @@ test("collectSymbols normalizes, deduplicates, and filters symbols", function ()
     { symbol: "600519" },
     { symbol: "not valid" }
   ]), ["NVDA", "QQQ"]);
+});
+
+test("normalizeHistoryDays only accepts supported dashboard ranges", function () {
+  assert.equal(normalizeHistoryDays(30), 30);
+  assert.equal(normalizeHistoryDays("90"), 90);
+  assert.equal(normalizeHistoryDays(180), 180);
+  assert.equal(normalizeHistoryDays(365), 30);
+});
+
+test("public history rows preserve market identity without a user id", function () {
+  const now = new Date("2026-08-12T01:00:00.000Z");
+  const row = toPublicHistoryRow({
+    date: "2026-08-11",
+    symbol: "QQQ",
+    name: "Invesco QQQ Trust",
+    changePercent: -0.34,
+    benchmarkChangePercent: -0.34,
+    driverType: "market",
+    confidence: "medium",
+    summary: "Market summary",
+    reasons: ["Reason"],
+    news: [],
+    capturedAt: now.toISOString()
+  }, now);
+  assert.equal(row.instrument_role, "benchmark");
+  assert.equal(row.universe_as_of, "2026-06-30");
+  assert.equal("user_id" in row, false);
 });
 
 test("normalizeCaptureOptions preserves cron and manual triggers", function () {

@@ -30,7 +30,7 @@
 当前剩余环境事项：
 
 - [ ] 当前网络没有公网 IPv6，`supabase db push --linked` 无法直连数据库；Schema 已通过 `supabase db query --linked --file` 应用，但仍需在具备 IPv6 或 Pooler 数据库密码时登记 migration 历史
-- [ ] 云端目前没有 `watchlist_states` 用户记录；这只影响旧的个人历史 Cron 验证，不阻塞 Nasdaq 公共雷达
+- [x] 公共 `nasdaq_market_event_history` 已建表并完成 14 个核心标的真实写入
 - [x] Cron 运行日志、失败诊断、手动重跑和最近运行记录接口
 - [x] Nasdaq 核心行情/新闻入口已与个人自选解耦，无登录也可运行
 
@@ -62,6 +62,7 @@ stock-dashboard/
 │  ├─ a-share/detail.js              A 股分析接口
 │  ├─ global-stock/detail.js         美股分析接口
 │  ├─ global-stock/daily-events.js   当日市场事件接口
+│  ├─ nasdaq/history.js              公共 Nasdaq 历史读取接口
 │  └─ cron/capture-market-history.js 收盘后历史归档入口
 ├─ lib/
 │  ├─ a-share-data.js                A 股数据层
@@ -87,15 +88,15 @@ Browser refresh
   → 页面新闻流 + localStorage 最近 14 天日度脉络
 ```
 
-旧的个人历史任务数据流：
+收盘历史任务数据流：
 
 ```text
 Vercel Cron
   → GET /api/cron/capture-market-history
   → 校验 Authorization: Bearer <CRON_SECRET>
-  → 用 Supabase Secret Key 读取 watchlist_states
-  → 抓取 QQQ、个人自选股行情和公开资讯
-  → 按 user_id + market_date + symbol 写入 market_event_history
+  → 抓取默认 Nasdaq 核心观察宇宙
+  → 按 market_date + symbol 写入 nasdaq_market_event_history
+  → 可选读取 watchlist_states，兼容写入个人 market_event_history
 ```
 
 ## 3. 开发前置条件
@@ -388,6 +389,7 @@ npx vercel --global-config $vercelConfigDir --prod
 - 新闻发布时间、采集时间、行情日期要分开保存
 - 休市日或上游陈旧行情不能写成当天记录
 - 每日历史写入必须保持幂等，当前唯一键为 `user_id + market_date + symbol`
+- 公共历史唯一键为 `market_date + symbol`，不得因为任务重跑产生重复行
 - `lib/nasdaq-universe.js` 与 `app.js` 的核心代码列表必须同步更新；长期方案是改为数据库成分快照
 - 当前核心名单是限流条件下的新闻雷达，不可在文案中称为完整 Nasdaq-100 全量成分
 
@@ -547,19 +549,20 @@ Could not find the table 'public.watchlist_states' in the schema cache
 
 环境变量修改只对新 Deployment 生效。添加或轮换变量后必须重新执行生产部署，旧 Deployment 不会自动更新运行时变量。
 
-### Cron 返回成功但 `processedUsers` 和 `savedEvents` 都是 0
+### Cron 返回 `processedUsers: 0`
 
-这不代表 Vercel 或 Supabase 连接失败。当前任务从 `watchlist_states` 读取各用户的自选列表；如果还没有用户登录并同步数据，任务会正常返回：
+这只说明没有个人自选需要兼容归档。公共 Nasdaq 写入应查看 `publicSavedEvents` 和 `savedEvents`：
 
 ```json
 {
   "ok": true,
   "processedUsers": 0,
-  "savedEvents": 0
+  "publicSavedEvents": 14,
+  "savedEvents": 14
 }
 ```
 
-只有验证旧的个人历史归档时，才需要登录并同步 `watchlist_states`。Nasdaq 公共行情和新闻不依赖这一步；后续公共历史将迁移到独立市场表。
+只有验证旧的个人历史归档时，才需要登录并同步 `watchlist_states`。如果 `publicSavedEvents` 也是 0，再检查收盘窗口、行情日期和 `nasdaq_market_event_history` migration。
 
 ### Cron 返回 `skipped: true`
 

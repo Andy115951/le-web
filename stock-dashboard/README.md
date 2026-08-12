@@ -44,6 +44,7 @@
 - 决策优先 UI：顶部行动队列 + 收敛后的自选表格
 - 当日市场线索：区分市场同向、个股资讯、混合因素与证据不足；新闻原文链接保留供复核
 - 历史归档基础：独立 `market_event_history` 表、30/90/180 天时间轴、收盘后自动补抓入口
+- 公共 Nasdaq 历史：独立 `nasdaq_market_event_history` 表，不绑定用户账号；页面经服务端 API 读取
 - 采集可观测性：每次 Cron/手动重跑写入 `market_capture_runs`，记录状态、耗时、用户数、写入数和失败摘要
 - 采集任务支持单用户失败隔离，不会因一个用户异常中断整批任务
 - 受 `CRON_SECRET` 保护的手动重跑与最近运行记录接口
@@ -60,7 +61,7 @@
 
 ### 下一阶段
 
-1. 建立 `market_days`、`instruments`、`price_bars_daily`，让公共市场历史彻底脱离 `user_id`
+1. 建立 `market_days`、`instruments`、`price_bars_daily`，补齐公共市场的标准价格数据层
 2. 选择长期行情供应商并回填至少 5 年 QQQ 日线
 3. 建立 Nasdaq-100 成分/权重快照和自动更新机制
 4. 实现第一个动态日历和单日详情页
@@ -85,6 +86,7 @@
 - `api/a-share/detail.js`: A 股分析接口
 - `api/global-stock/detail.js`: 美股分析接口
 - `api/global-stock/daily-events.js`: 当日行情事件接口
+- `api/nasdaq/history.js`: 无需登录的公共 Nasdaq 历史读取接口
 - `api/cron/capture-market-history.js`: 收盘后自动归档入口
 - `api/cron/market-history-runs.js`: 最近采集运行记录接口
 - `lib/a-share-data.js`: A 股分析数据层
@@ -110,13 +112,13 @@
 
 ## 涨跌历史的运行方式
 
-无需登录时，页面会把 Nasdaq 核心雷达保存在当前浏览器中，展示最近 14 天的日度脉络。登录后仍可使用现有个人云端历史，但它属于辅助功能。
+无需登录时，页面优先从服务端 `nasdaq_market_event_history` 读取 30/90/180 天公共记录；接口暂时不可用时，回退到当前浏览器最近 14 天的数据。个人云同步只负责持仓和偏好。
 
 历史看板有两条写入路径：
 
 1. 你刷新页面时，核心雷达会直接抓取当天行情和相关资讯，不依赖个人自选。
-2. 已登录用户仍可把当天事件写入 `market_event_history`。
-3. 现有 Vercel Cron 仍用于兼容个人历史；公共 Nasdaq 历史将在下一阶段迁移到独立市场表。
+2. Vercel Cron 在收盘后优先把核心雷达写入公共 `nasdaq_market_event_history`。
+3. 已登录用户仍可把个人事件兼容写入 `market_event_history`，但它不影响公共归档是否成功。
 
 当前核心观察名单参考 Nasdaq 官方 2026-06-30 NDX Fact Sheet 的权重信息，并额外保留 `QQQ`、`MAGS`、`META` 和 `AVGO` 作为市场/主题参照。它是受服务端请求量约束的新闻雷达，不等同于完整且永久不变的 Nasdaq-100 成分表；来源见 <https://indexes.nasdaq.com/docs/FS_NDX.pdf>。
 
