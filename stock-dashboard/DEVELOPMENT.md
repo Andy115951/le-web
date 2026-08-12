@@ -716,6 +716,8 @@ GET /api/nasdaq/evaluation-logistic
 
 通过只意味着 `eligible_for_human_review`，仍然明确是 `not_deployed`，不会自动生成市场信号、影响 Cron 或交给 DeepSeek。当前 Logistic 的确定性复核为 `not_eligible`，失败标签是 `brier_improvement`、`balanced_accuracy_improvement`、`calibration`：这比在页面上展示一个无上下文分数更便于排查失败案例。
 
+复核输出还会给出最多 5 个阶段级失败案例：每项仅比较一个冻结验证区间内候选与 `conditionalMomentum20d` 的聚合 Brier/平衡准确率差距，标签为 `probability_degradation` 与/或 `direction_degradation`。为避免把研究工件变成实时信号流，它不保留逐日预测、当前概率或任何交易指令。
+
 只读查询：
 
 ```text

@@ -1312,6 +1312,7 @@ function renderModelReview() {
     '<div class="model-review-checks-head"><strong>固定门槛</strong><span>' + passedCount + "/" + checks.length + " 通过" + (failures.length ? " · " + failures.length + " 项待改进" : "") + "</span></div>",
     checks.map(renderModelReviewCheck).join(""),
     "</div>",
+    renderModelFailureCases(review.failureCaseSummary),
     '<p class="model-review-note">' + escapeHtml(String(review.promotionBoundary || "该评估仅供研究复核。")) + "</p>"
   ].join("");
 }
@@ -1322,6 +1323,24 @@ function renderModelReviewMetric(label, value, note) {
 
 function renderModelReviewCheck(item) {
   return '<div class="model-review-check ' + (item?.passed ? "is-passed" : "is-failed") + '"><b>' + (item?.passed ? "通过" : "未通过") + "</b><div><strong>" + escapeHtml(String(item?.id || "unknown")) + "</strong><p>" + escapeHtml(String(item?.detail || "")) + "</p></div></div>";
+}
+
+function renderModelFailureCases(summary) {
+  const cases = Array.isArray(summary?.cases) ? summary.cases : [];
+  if (!cases.length) return "";
+  return [
+    '<section class="model-failure-cases">',
+    '<div class="model-failure-cases-head"><div><span>FAILURE CASES</span><strong>阶段级失败案例</strong></div><small>' + Number(summary.failureCaseCount || 0) + " / " + Number(summary.evaluatedFoldCount || 0) + " 个冻结折出现相对退化</small></div>",
+    '<p>按验证期聚合比较候选与条件动量基线，不包含逐日预测、当前概率或交易指令。</p>',
+    '<div class="model-failure-case-list">',
+    cases.map(function (item) {
+      const evaluation = item?.evaluation || {};
+      const labels = Array.isArray(item?.labels) ? item.labels : [];
+      return '<article><div><b>' + escapeHtml(String(item?.foldId || "--")) + "</b><span>" + escapeHtml(formatMarketDate(evaluation.startDate)) + " - " + escapeHtml(formatMarketDate(evaluation.endDate)) + "</span></div><div class=\"model-failure-tags\">" + labels.map(function (label) { return "<i>" + escapeHtml(label) + "</i>"; }).join("") + "</div><dl><div><dt>Brier 差距</dt><dd>" + escapeHtml(formatModelDelta(item?.probabilityGap)) + "</dd></div><div><dt>平衡准确率差距</dt><dd>" + escapeHtml(formatModelDelta(item?.directionGap)) + "</dd></div></dl></article>";
+    }).join(""),
+    "</div>",
+    "</section>"
+  ].join("");
 }
 
 function formatModelNumber(value) {

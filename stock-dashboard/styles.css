@@ -2068,6 +2068,24 @@ body {
 .model-review-check.is-failed > b { color: #b44355; background: #fff0f1; }
 .model-review-check strong { color: #33445f; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.68rem; }
 .model-review-check p { margin: 3px 0 0; color: #76849a; font-size: 0.66rem; line-height: 1.45; }
+.model-failure-cases { margin: 5px 20px 17px; padding: 14px; border: 1px solid #e2e8f1; border-radius: 12px; background: #f8fafc; }
+.model-failure-cases-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.model-failure-cases-head > div { display: grid; gap: 3px; }
+.model-failure-cases-head span { color: #6980a5; font-size: 0.56rem; font-weight: 900; letter-spacing: 0.12em; }
+.model-failure-cases-head strong { color: #30415c; font-size: 0.76rem; }
+.model-failure-cases-head small { color: #7d899b; font-size: 0.59rem; text-align: right; }
+.model-failure-cases > p { margin: 8px 0 10px; color: #7a879a; font-size: 0.61rem; line-height: 1.45; }
+.model-failure-case-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.model-failure-case-list article { display: grid; gap: 8px; padding: 10px; border: 1px solid #e1e7ef; border-radius: 9px; background: #fff; }
+.model-failure-case-list article > div:first-child { display: flex; align-items: baseline; justify-content: space-between; gap: 7px; }
+.model-failure-case-list article b { color: #31486c; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.64rem; }
+.model-failure-case-list article span { color: #8794a6; font-size: 0.57rem; text-align: right; }
+.model-failure-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.model-failure-tags i { padding: 3px 5px; border-radius: 5px; color: #a04759; background: #fff0f1; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.52rem; font-style: normal; }
+.model-failure-case-list dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin: 0; }
+.model-failure-case-list dl div { display: grid; gap: 2px; }
+.model-failure-case-list dt { color: #8794a6; font-size: 0.54rem; }
+.model-failure-case-list dd { margin: 0; color: #a04859; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.62rem; }
 .model-review-note { margin: 0; padding: 12px 20px 17px; color: #8794a7; font-size: 0.61rem; line-height: 1.45; }
 
 .overview-card,
@@ -2227,6 +2245,10 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(43, 97, 21
   .model-review-hero { align-items: stretch; flex-direction: column; gap: 12px; }
   .model-review-status { text-align: left; }
   .model-review-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .model-failure-cases { margin: 5px 14px 15px; }
+  .model-failure-cases-head { align-items: flex-start; flex-direction: column; }
+  .model-failure-cases-head small { text-align: left; }
+  .model-failure-case-list { grid-template-columns: 1fr; }
   .outcome-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .controls-head { align-items: stretch; flex-direction: column; }
   .controls-head .btn { width: 100%; }
