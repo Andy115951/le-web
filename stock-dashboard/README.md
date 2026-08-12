@@ -58,6 +58,10 @@
 - NDX 历史成分与权重快照：首个完整官方快照含 101 个证券，生效日 `2026-05-01`，权重合计 `99.96%`
 - 成分查询接口：`GET /api/nasdaq/constituents?asOf=YYYY-MM-DD`
 - 核心新闻雷达改为从最新完整快照动态选取权重前 12，并保留 `QQQ / MAGS` 基准篮子
+- Nasdaq 动态月历：按美东市场日期展示 `QQQ` 涨跌、20 日后视波动状态、事件数量和最高影响等级
+- 单日详情：同屏查看 `QQQ` 行情、统一事件时间线、原始证据链接和当日有效的 NDX 权重快照
+- 日历查询接口：`GET /api/nasdaq/calendar?month=YYYY-MM` 和 `GET /api/nasdaq/calendar?date=YYYY-MM-DD`
+- 事后研究结果与当日信息严格分区，未来 1/3/5/20 日标签不会作为实时判断输入
 
 ### 当前版本重点
 
@@ -71,8 +75,8 @@
 
 ### 下一阶段
 
-1. 实现第一个动态日历和单日详情页
-2. 将价格、事件与成熟标签按交易日关联，为历史相似日准备输入特征
+1. 将价格与事件按交易日关联，形成第一版可复算且不使用未来数据的日度特征
+2. 实现历史相似日基线和结果页，展示相似依据、差异及事后收益分布
 3. 增加 NDX 新快照发现与人工审核更新流程
 4. 扩展 SEC、FRED、公司 IR 等官方事件源
 
@@ -101,6 +105,7 @@
 - `api/nasdaq/labels.js`: 无需登录的历史研究标签读取接口
 - `api/nasdaq/events.js`: 无需登录的统一事件、来源和实体关系读取接口
 - `api/nasdaq/constituents.js`: 按日期读取当时有效的 NDX 成分与权重快照
+- `api/nasdaq/calendar.js`: 按月份读取市场日历，或按日期读取单日详情
 - `api/cron/capture-market-history.js`: 收盘后自动归档入口
 - `api/cron/market-history-runs.js`: 最近采集运行记录接口
 - `lib/a-share-data.js`: A 股分析数据层
@@ -114,6 +119,7 @@
 - `lib/market-label-store.js`: 标签重算、写库与查询
 - `lib/unified-market-events.js`: 来源规范化、事件双写、关系维护和统一读取
 - `lib/ndx-snapshots.js`: NDX 快照校验、导入、版本查询与动态雷达选择依据
+- `lib/market-calendar.js`: 按美东市场日期聚合 QQQ、后视波动、事件、研究标签和成分快照
 - `data/ndx/`: 经校验且保留官方来源日期的 NDX 结构化快照
 - `lib/cron-auth.js`: Cron/运维接口统一鉴权与 JSON 响应
 - `vercel.json`: 每个工作日一次的收盘后 Cron 配置

@@ -32,6 +32,7 @@
       <div class="command-links">
         <button type="button" class="command-link is-active" data-scroll-target="marketOverview">Nasdaq 100</button>
         <button type="button" class="command-link" data-scroll-target="marketEvents">动态新闻</button>
+        <button type="button" class="command-link" data-scroll-target="marketCalendar">市场日历</button>
         <button type="button" class="command-link" data-scroll-target="watchlist">个人持仓</button>
       </div>
       <div class="command-actions">
@@ -226,6 +227,37 @@
       </div>
       <p class="muted" id="marketHistoryHint">按交易日回看核心成分涨跌、QQQ 对照和可复核资讯。</p>
       <div class="market-history-list" id="marketHistoryBody"></div>
+    </section>
+
+    <section class="market-calendar" id="marketCalendar">
+      <div class="section-heading calendar-heading">
+        <div>
+          <p class="eyebrow">MARKET MEMORY</p>
+          <h2>Nasdaq 动态日历</h2>
+        </div>
+        <div class="calendar-nav" aria-label="月份切换">
+          <button type="button" class="calendar-nav-btn" id="calendarPrevBtn" aria-label="上个月">←</button>
+          <strong id="calendarMonthLabel">--</strong>
+          <button type="button" class="calendar-nav-btn" id="calendarNextBtn" aria-label="下个月">→</button>
+          <button type="button" class="calendar-today-btn" id="calendarTodayBtn">本月</button>
+        </div>
+      </div>
+      <p class="muted calendar-hint" id="calendarHint">日期按美东交易日归属；点击任意日期查看行情、事件证据和事后结果。</p>
+      <div class="calendar-legend" aria-label="日历图例">
+        <span><i class="legend-dot trading"></i>交易日</span>
+        <span><i class="legend-dot event"></i>有事件</span>
+        <span><i class="legend-dot closed"></i>周末 / 未确认休市</span>
+        <span><i class="legend-dot upcoming"></i>未来日期</span>
+      </div>
+      <div class="calendar-layout">
+        <div class="calendar-panel card">
+          <div class="calendar-weekdays" aria-hidden="true">
+            <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+          </div>
+          <div class="calendar-grid" id="calendarGrid"></div>
+        </div>
+        <aside class="calendar-detail card" id="calendarDetail" aria-live="polite"></aside>
+      </div>
     </section>
 
     <section class="overview-grid" id="marketOverview">

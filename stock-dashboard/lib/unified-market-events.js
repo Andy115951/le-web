@@ -207,17 +207,24 @@ function normalizeHistoryDays(value) {
   return ALLOWED_HISTORY_DAYS.has(days) ? days : 30;
 }
 
-async function getUnifiedMarketEvents(days) {
+function validateMarketDate(value, field) {
+  const date = String(value || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Invalid " + field + " market date");
+  return date;
+}
+
+async function getUnifiedMarketEventsRange(startDate, endDate) {
   const config = getSupabaseConfig();
-  const normalizedDays = normalizeHistoryDays(days);
-  const start = new Date();
-  start.setUTCDate(start.getUTCDate() - normalizedDays + 1);
+  const normalizedStart = validateMarketDate(startDate, "start");
+  const normalizedEnd = validateMarketDate(endDate, "end");
+  if (normalizedStart > normalizedEnd) throw new Error("Invalid market date range");
   const columns = "id,event_key,market_date,event_time,available_at,captured_at,event_type,title,summary,sentiment,impact_scope,impact_level,confidence,tickers,themes,attributes,extractor_version";
   const events = [];
   const basePath = "/rest/v1/events?select=" + columns
-    + "&market_date=gte." + start.toISOString().slice(0, 10)
+    + "&market_date=gte." + normalizedStart
+    + "&market_date=lte." + normalizedEnd
     + "&order=market_date.desc,event_key.asc";
-  for (let offset = 0; offset < normalizedDays * 20; offset += 1000) {
+  for (let offset = 0; offset < 4000; offset += 1000) {
     const page = await requestSupabase(config, basePath + "&limit=1000&offset=" + offset);
     const rows = Array.isArray(page) ? page : [];
     events.push(...rows);
@@ -251,11 +258,20 @@ async function getUnifiedMarketEvents(days) {
   });
 }
 
+async function getUnifiedMarketEvents(days) {
+  const normalizedDays = normalizeHistoryDays(days);
+  const end = new Date();
+  const start = new Date(end);
+  start.setUTCDate(start.getUTCDate() - normalizedDays + 1);
+  return getUnifiedMarketEventsRange(start.toISOString().slice(0, 10), end.toISOString().slice(0, 10));
+}
+
 module.exports = {
   EXTRACTOR_VERSION,
   buildUnifiedEventRecords,
   canonicalizeSourceUrl,
   getUnifiedMarketEvents,
+  getUnifiedMarketEventsRange,
   normalizeHistoryDays,
   persistUnifiedMarketEvents,
   sourceFingerprint

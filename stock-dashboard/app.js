@@ -63,6 +63,13 @@ const els = {
   marketEventsHint: document.getElementById("marketEventsHint"),
   marketHistoryBody: document.getElementById("marketHistoryBody"),
   marketHistoryHint: document.getElementById("marketHistoryHint"),
+  calendarPrevBtn: document.getElementById("calendarPrevBtn"),
+  calendarNextBtn: document.getElementById("calendarNextBtn"),
+  calendarTodayBtn: document.getElementById("calendarTodayBtn"),
+  calendarMonthLabel: document.getElementById("calendarMonthLabel"),
+  calendarHint: document.getElementById("calendarHint"),
+  calendarGrid: document.getElementById("calendarGrid"),
+  calendarDetail: document.getElementById("calendarDetail"),
   rowTemplate: document.getElementById("rowTemplate"),
   countStat: document.getElementById("countStat"),
   upStat: document.getElementById("upStat"),
@@ -117,6 +124,19 @@ const state = {
   marketHistoryLoading: false,
   marketHistoryError: "",
   marketHistoryRange: 30,
+  marketCalendar: {
+    month: getNewYorkMonth(),
+    today: "",
+    days: [],
+    selectedDate: "",
+    loading: false,
+    error: "",
+    detailLoading: false,
+    detailError: "",
+    detail: null,
+    requestId: 0,
+    detailRequestId: 0
+  },
   targetHits: new Set(),
   dropAlerted: new Set(),
   audioCtx: null,
@@ -162,7 +182,15 @@ async function init() {
   updateCloudButtons();
   await initCloud(cloudConfig);
   await refreshQuotes();
-  await refreshMarketHistory();
+  await Promise.all([refreshMarketHistory(), refreshMarketCalendar()]);
+}
+
+function getNewYorkMonth(now = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit"
+  }).format(now).slice(0, 7);
 }
 
 function isAShareSymbol(symbol) {
@@ -227,6 +255,30 @@ function bindEvents() {
       void refreshMarketHistory();
     });
   });
+
+  if (els.calendarPrevBtn) {
+    els.calendarPrevBtn.addEventListener("click", function () { void changeCalendarMonth(-1); });
+  }
+  if (els.calendarNextBtn) {
+    els.calendarNextBtn.addEventListener("click", function () { void changeCalendarMonth(1); });
+  }
+  if (els.calendarTodayBtn) {
+    els.calendarTodayBtn.addEventListener("click", function () {
+      state.marketCalendar.month = getNewYorkMonth();
+      state.marketCalendar.selectedDate = "";
+      void refreshMarketCalendar();
+    });
+  }
+  if (els.calendarGrid) {
+    els.calendarGrid.addEventListener("click", function (event) {
+      const button = event.target.closest("[data-calendar-date]");
+      if (!button) return;
+      const date = button.getAttribute("data-calendar-date");
+      state.marketCalendar.selectedDate = date;
+      renderMarketCalendar();
+      void refreshMarketDayDetail(date);
+    });
+  }
 
   els.stockForm.addEventListener("submit", async function (event) {
     event.preventDefault();
@@ -851,6 +903,74 @@ async function refreshMarketHistory(options) {
   }
 }
 
+function shiftCalendarMonth(month, offset) {
+  const date = new Date(month + "-01T12:00:00.000Z");
+  date.setUTCMonth(date.getUTCMonth() + offset);
+  return date.toISOString().slice(0, 7);
+}
+
+async function changeCalendarMonth(offset) {
+  state.marketCalendar.month = shiftCalendarMonth(state.marketCalendar.month, offset);
+  state.marketCalendar.selectedDate = "";
+  await refreshMarketCalendar();
+}
+
+async function refreshMarketCalendar() {
+  if (!els.calendarGrid || !els.calendarDetail) return;
+  const calendar = state.marketCalendar;
+  const requestId = ++calendar.requestId;
+  calendar.loading = true;
+  calendar.error = "";
+  renderMarketCalendar();
+  try {
+    const response = await fetch("./api/nasdaq/calendar?month=" + encodeURIComponent(calendar.month));
+    const payload = await response.json().catch(function () { return {}; });
+    if (!response.ok) throw new Error(payload?.error || "读取市场日历失败");
+    if (requestId !== calendar.requestId) return;
+    calendar.today = payload.today || "";
+    calendar.days = Array.isArray(payload.days) ? payload.days : [];
+    const currentSelection = calendar.days.find(function (day) { return day.date === calendar.selectedDate; });
+    if (!currentSelection) {
+      const candidates = calendar.days.filter(function (day) {
+        return day.status === "trading" && (!calendar.today || day.date <= calendar.today);
+      });
+      calendar.selectedDate = candidates.at(-1)?.date || calendar.days[0]?.date || "";
+    }
+    calendar.loading = false;
+    calendar.detail = null;
+    calendar.detailError = "";
+    renderMarketCalendar();
+    if (calendar.selectedDate) await refreshMarketDayDetail(calendar.selectedDate);
+  } catch (error) {
+    if (requestId !== calendar.requestId) return;
+    calendar.loading = false;
+    calendar.error = error?.message || "读取市场日历失败";
+    renderMarketCalendar();
+  }
+}
+
+async function refreshMarketDayDetail(date) {
+  const calendar = state.marketCalendar;
+  const requestId = ++calendar.detailRequestId;
+  calendar.detailLoading = true;
+  calendar.detailError = "";
+  renderMarketDayDetail();
+  try {
+    const response = await fetch("./api/nasdaq/calendar?date=" + encodeURIComponent(date));
+    const payload = await response.json().catch(function () { return {}; });
+    if (!response.ok) throw new Error(payload?.error || "读取单日详情失败");
+    if (requestId !== calendar.detailRequestId || date !== calendar.selectedDate) return;
+    calendar.detail = payload;
+    calendar.detailLoading = false;
+    renderMarketDayDetail();
+  } catch (error) {
+    if (requestId !== calendar.detailRequestId || date !== calendar.selectedDate) return;
+    calendar.detailLoading = false;
+    calendar.detailError = error?.message || "读取单日详情失败";
+    renderMarketDayDetail();
+  }
+}
+
 function mergeMarketEvents(existing, incoming) {
   const merged = new Map();
   (existing || []).concat(incoming || []).forEach(function (entry) {
@@ -947,6 +1067,7 @@ function render() {
   renderActionQueue();
   renderMarketEvents();
   renderMarketHistory();
+  renderMarketCalendar();
   renderOverview();
   els.stockTableBody.innerHTML = "";
   els.mobileList.innerHTML = "";
@@ -2074,6 +2195,191 @@ function renderMarketHistoryEvent(entry) {
     firstNews ? '<a class="history-source" href="' + escapeHtml(firstNews.url) + '" target="_blank" rel="noreferrer">查看证据 · ' + escapeHtml(firstNews.publisher || "资讯来源") + "</a>" : '<span class="history-source muted">无可复核新闻链接</span>',
     "</article>"
   ].join("");
+}
+
+function renderMarketCalendar() {
+  if (!els.calendarGrid || !els.calendarDetail) return;
+  const calendar = state.marketCalendar;
+  const [year, month] = calendar.month.split("-");
+  els.calendarMonthLabel.textContent = year + " 年 " + Number(month) + " 月";
+  els.calendarTodayBtn.classList.toggle("is-active", calendar.month === getNewYorkMonth());
+
+  if (calendar.loading && !calendar.days.length) {
+    els.calendarHint.textContent = "正在对齐 QQQ 行情、统一事件与研究结果…";
+    els.calendarGrid.innerHTML = '<div class="calendar-empty"><strong>正在加载市场记忆</strong><span>日期统一按 America/New_York 交易日处理。</span></div>';
+    renderMarketDayDetail();
+    return;
+  }
+  if (calendar.error && !calendar.days.length) {
+    els.calendarHint.textContent = "市场日历暂时不可用，其他看板功能不受影响。";
+    els.calendarGrid.innerHTML = '<div class="calendar-empty is-error"><strong>读取失败</strong><span>' + escapeHtml(calendar.error) + "</span></div>";
+    renderMarketDayDetail();
+    return;
+  }
+
+  const tradingCount = calendar.days.filter(function (day) { return day.status === "trading"; }).length;
+  const eventCount = calendar.days.reduce(function (sum, day) { return sum + Number(day.eventSummary?.count || 0); }, 0);
+  els.calendarHint.textContent = "美东交易日 · 本月已入库 " + tradingCount + " 个交易日 · " + eventCount + " 条结构化事件。";
+  const firstDate = calendar.days[0]?.date;
+  const weekday = firstDate ? new Date(firstDate + "T12:00:00.000Z").getUTCDay() : 1;
+  const leading = (weekday + 6) % 7;
+  const placeholders = Array.from({ length: leading }, function () {
+    return '<span class="calendar-placeholder" aria-hidden="true"></span>';
+  }).join("");
+  els.calendarGrid.innerHTML = placeholders + calendar.days.map(renderCalendarDay).join("");
+  renderMarketDayDetail();
+}
+
+function renderCalendarDay(day) {
+  const change = Number(day.qqq?.changePercent);
+  const tone = Number.isFinite(change) && change > 0 ? "positive" : Number.isFinite(change) && change < 0 ? "negative" : "neutral";
+  const selected = day.date === state.marketCalendar.selectedDate;
+  const today = day.date === state.marketCalendar.today;
+  const eventCount = Number(day.eventSummary?.count || 0);
+  const dayNumber = Number(day.date.slice(-2));
+  const statusLabels = {
+    trading: "交易日",
+    weekend: "周末",
+    "closed-or-missing": "未确认休市 / 缺失",
+    upcoming: "未来"
+  };
+  const volatilityLabels = { calm: "低波动", normal: "常态", elevated: "高波动", unknown: "" };
+  return [
+    '<button type="button" class="calendar-day ' + escapeHtml(day.status) + " " + tone + (selected ? " is-selected" : "") + (today ? " is-today" : "") + '" data-calendar-date="' + escapeHtml(day.date) + '" aria-label="' + escapeHtml(day.date + " " + (statusLabels[day.status] || "")) + '">',
+    '<span class="calendar-day-top"><strong>' + dayNumber + "</strong>" + (today ? '<em>今日</em>' : "") + "</span>",
+    day.qqq
+      ? '<span class="calendar-move ' + tone + '">' + escapeHtml(formatSigned(change) + "%") + "</span>"
+      : '<span class="calendar-status">' + escapeHtml(statusLabels[day.status] || "无数据") + "</span>",
+    '<span class="calendar-day-meta">' + (eventCount ? '<b>' + eventCount + " 事件</b>" : "<span>无事件</span>") + (day.qqq?.volatilityLevel && day.qqq.volatilityLevel !== "unknown" ? "<i>" + escapeHtml(volatilityLabels[day.qqq.volatilityLevel]) + "</i>" : "") + "</span>",
+    "</button>"
+  ].join("");
+}
+
+function renderMarketDayDetail() {
+  if (!els.calendarDetail) return;
+  const calendar = state.marketCalendar;
+  if (calendar.detailLoading) {
+    els.calendarDetail.innerHTML = '<div class="calendar-detail-empty"><span class="calendar-detail-kicker">DAY BRIEF</span><strong>正在读取 ' + escapeHtml(calendar.selectedDate) + '</strong><p>正在关联行情、事件证据和事后验证结果。</p></div>';
+    return;
+  }
+  if (calendar.detailError) {
+    els.calendarDetail.innerHTML = '<div class="calendar-detail-empty is-error"><span class="calendar-detail-kicker">DAY BRIEF</span><strong>详情读取失败</strong><p>' + escapeHtml(calendar.detailError) + "</p></div>";
+    return;
+  }
+  const detail = calendar.detail;
+  const day = detail?.day;
+  if (!day) {
+    els.calendarDetail.innerHTML = '<div class="calendar-detail-empty"><span class="calendar-detail-kicker">DAY BRIEF</span><strong>选择一个日期</strong><p>点击左侧日期查看当日行情、事件时间线与来源。</p></div>';
+    return;
+  }
+
+  const statusLabels = {
+    trading: "交易日",
+    weekend: "周末",
+    "closed-or-missing": "未确认休市或行情缺失",
+    upcoming: "未来日期"
+  };
+  const qqq = day.qqq;
+  const events = Array.isArray(detail.events) ? detail.events : [];
+  const outcome = day.researchOutcome;
+  els.calendarDetail.innerHTML = [
+    '<div class="calendar-detail-head">',
+    '<div><span class="calendar-detail-kicker">DAY BRIEF · NEW YORK</span><h3>' + escapeHtml(formatMarketDate(day.date)) + '</h3></div>',
+    '<span class="calendar-status-chip ' + escapeHtml(day.status) + '">' + escapeHtml(statusLabels[day.status] || day.status) + "</span>",
+    "</div>",
+    qqq ? renderDayMarketMetrics(qqq, day.eventSummary) : '<div class="day-no-session"><strong>没有确认的 QQQ 交易数据</strong><p>周末会明确标记；工作日缺失不会被自动宣称为法定休市。</p></div>',
+    events.length ? '<div class="day-timeline"><div class="day-section-title"><strong>事件时间线</strong><span>' + events.length + " 条</span></div>" + events.map(renderUnifiedDayEvent).join("") + "</div>" : '<div class="day-empty-block"><strong>暂无结构化事件</strong><p>价格存在不代表已经找到可靠原因；系统不会无证据补写归因。</p></div>',
+    renderResearchOutcome(outcome),
+    renderNdxSnapshotSummary(detail.ndxSnapshot),
+    "<p class=\"calendar-time-note\">市场日期按美东归属；事件时间同时显示美东和北京时间。事后标签不会作为当天判断输入。</p>"
+  ].join("");
+}
+
+function renderDayMarketMetrics(qqq, summary) {
+  const change = Number(qqq.changePercent);
+  const tone = change > 0 ? "positive" : change < 0 ? "negative" : "neutral";
+  const volatilityLabels = { calm: "低波动", normal: "常态波动", elevated: "高波动", unknown: "待计算" };
+  const impactLabels = { high: "高", medium: "中", low: "低", unknown: "暂无" };
+  return [
+    '<div class="day-metric-grid">',
+    '<div><span>QQQ 涨跌</span><strong class="' + tone + '">' + escapeHtml(formatSigned(change) + "%") + "</strong></div>",
+    '<div><span>调整收盘</span><strong>' + escapeHtml(formatNumber(Number(qqq.adjustedClose))) + "</strong></div>",
+    '<div><span>20 日后视波动</span><strong>' + (Number.isFinite(Number(qqq.trailingVolatility20dPercent)) ? escapeHtml(Number(qqq.trailingVolatility20dPercent).toFixed(1) + "%") : "--") + '<small>' + escapeHtml(volatilityLabels[qqq.volatilityLevel] || "") + "</small></strong></div>",
+    '<div><span>事件 / 最高影响</span><strong>' + Number(summary?.count || 0) + '<small>' + escapeHtml(impactLabels[summary?.highestImpact] || "暂无") + "</small></strong></div>",
+    "</div>"
+  ].join("");
+}
+
+function renderUnifiedDayEvent(event) {
+  const tickers = Array.isArray(event.tickers) ? event.tickers : [];
+  const sources = Array.isArray(event.sources) ? event.sources : [];
+  const evidence = sources.filter(function (source) { return source.relationType === "evidence"; }).slice(0, 3);
+  const primary = sources.find(function (source) { return source.relationType === "primary"; });
+  const timeValue = event.event_time || event.available_at;
+  const timeLabel = event.event_time ? "事件时间" : "系统可用时间";
+  return [
+    '<article class="day-event-card impact-' + escapeHtml(event.impact_level || "unknown") + '">',
+    '<div class="day-event-head"><div><span>' + escapeHtml(tickers.join(" · ") || "MARKET") + '</span><strong>' + escapeHtml(event.event_type === "market_move_attribution" ? "当日走势归因假设" : event.title) + '</strong></div><em>' + escapeHtml(event.impact_level || "unknown") + "</em></div>",
+    '<p class="day-event-time">' + escapeHtml(timeLabel + " · " + formatDualMarketTime(timeValue)) + "</p>",
+    '<p class="day-event-summary">' + escapeHtml(event.summary || "暂无摘要") + "</p>",
+    '<div class="day-event-sources">',
+    evidence.length ? evidence.map(function (source) {
+      return '<a href="' + escapeHtml(source.canonical_url) + '" target="_blank" rel="noreferrer">' + escapeHtml(source.provider || "来源") + " · " + escapeHtml(source.title || "查看证据") + "</a>";
+    }).join("") : primary ? '<a href="' + escapeHtml(primary.canonical_url) + '" target="_blank" rel="noreferrer">查看主行情来源</a>' : '<span>暂无来源链接</span>',
+    "</div>",
+    "</article>"
+  ].join("");
+}
+
+function renderResearchOutcome(outcome) {
+  if (!outcome) return '<div class="day-empty-block research"><strong>事后验证尚不可用</strong><p>该日期没有对应的成熟研究标签。</p></div>';
+  const metrics = [
+    ["后 1 日", outcome.return1dPercent],
+    ["后 3 日", outcome.return3dPercent],
+    ["后 5 日", outcome.return5dPercent],
+    ["后 20 日", outcome.return20dPercent]
+  ];
+  return [
+    '<div class="research-outcome">',
+    '<div class="day-section-title"><strong>事后验证</strong><span>RESEARCH ONLY</span></div>',
+    '<p>以下结果在当日并不可知，仅用于复盘和未来回测。</p>',
+    '<div class="outcome-grid">' + metrics.map(function (item) {
+      const value = item[1];
+      const tone = Number(value) > 0 ? "positive" : Number(value) < 0 ? "negative" : "neutral";
+      const mature = value !== null && value !== undefined && Number.isFinite(Number(value));
+      return '<div><span>' + item[0] + '</span><strong class="' + tone + '">' + (mature ? escapeHtml(formatSigned(Number(value)) + "%") : "待成熟") + "</strong></div>";
+    }).join("") + "</div>",
+    "</div>"
+  ].join("");
+}
+
+function renderNdxSnapshotSummary(snapshot) {
+  if (!snapshot) return "";
+  const members = Array.isArray(snapshot.topMembers) ? snapshot.topMembers.slice(0, 5) : [];
+  return [
+    '<div class="day-snapshot">',
+    '<div class="day-section-title"><strong>当时有效的 NDX 快照</strong><a href="' + escapeHtml(snapshot.sourceUrl) + '" target="_blank" rel="noreferrer">官方来源</a></div>',
+    '<p>生效 ' + escapeHtml(snapshot.effectiveDate) + " · " + Number(snapshot.constituentCount || 0) + " 个证券 · 权重合计 " + escapeHtml(Number(snapshot.totalWeightPercent).toFixed(2)) + "%</p>",
+    '<div class="snapshot-members">' + members.map(function (member) {
+      return '<span><b>' + escapeHtml(member.instruments?.symbol || "--") + "</b> " + escapeHtml(Number(member.weight_percent).toFixed(2)) + "%</span>";
+    }).join("") + "</div>",
+    "</div>"
+  ].join("");
+}
+
+function formatMarketDate(value) {
+  const date = new Date(value + "T12:00:00.000Z");
+  return new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "short", timeZone: "UTC" }).format(date);
+}
+
+function formatDualMarketTime(value) {
+  if (!value) return "时间未知";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "时间未知";
+  const options = { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" };
+  const newYork = new Intl.DateTimeFormat("zh-CN", { ...options, timeZone: "America/New_York" }).format(date);
+  const beijing = new Intl.DateTimeFormat("zh-CN", { ...options, timeZone: "Asia/Shanghai" }).format(date);
+  return "美东 " + newYork + " / 北京 " + beijing;
 }
 
 function buildActionQueue() {
