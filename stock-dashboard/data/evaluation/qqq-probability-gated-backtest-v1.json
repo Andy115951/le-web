@@ -1,0 +1,66 @@
+{
+  "backtestVersion": "qqq-probability-gated-backtest-v1",
+  "deploymentStatus": "research_only_not_selected",
+  "splitVersion": "qqq-walk-forward-v1",
+  "instrument": "QQQ",
+  "methodology": {
+    "horizonTradingDays": 20,
+    "probabilityThreshold": 0.5,
+    "schedule": "Within each frozen evaluation fold, sample every 20th trading day. Each simulated period uses its mature 20-trading-day label and does not overlap another sampled period within that fold.",
+    "limitation": "Research-only aggregate simulation. It excludes transaction costs, taxes, slippage, live execution, individual prediction records, and investment instructions."
+  },
+  "benchmark": {
+    "key": "alwaysLongQQQ",
+    "summary": {
+      "decisionCount": 61,
+      "investedDecisionCount": 61,
+      "investedRate": 1,
+      "averageReturnPercent": 1.705866,
+      "medianReturnPercent": 1.770522,
+      "positiveReturnRate": 0.704918,
+      "cumulativeReturnPercent": 158.859345,
+      "maximumDrawdownPercent": -18.822258
+    }
+  },
+  "candidates": [
+    {
+      "key": "conditionalMomentum20d",
+      "summary": {
+        "decisionCount": 61,
+        "investedDecisionCount": 47,
+        "investedRate": 0.770492,
+        "averageReturnPercent": 1.47098,
+        "medianReturnPercent": 0.724557,
+        "positiveReturnRate": 0.57377,
+        "cumulativeReturnPercent": 131.725576,
+        "maximumDrawdownPercent": -18.822258
+      }
+    },
+    {
+      "key": "logisticRegression",
+      "summary": {
+        "decisionCount": 61,
+        "investedDecisionCount": 48,
+        "investedRate": 0.786885,
+        "averageReturnPercent": 1.135652,
+        "medianReturnPercent": 0.463321,
+        "positiveReturnRate": 0.557377,
+        "cumulativeReturnPercent": 90.35384,
+        "maximumDrawdownPercent": -18.822258
+      }
+    },
+    {
+      "key": "shallowProbabilityTree",
+      "summary": {
+        "decisionCount": 61,
+        "investedDecisionCount": 43,
+        "investedRate": 0.704918,
+        "averageReturnPercent": 1.29756,
+        "medianReturnPercent": 0,
+        "positiveReturnRate": 0.491803,
+        "cumulativeReturnPercent": 109.02775,
+        "maximumDrawdownPercent": -18.822258
+      }
+    }
+  ]
+}

@@ -444,7 +444,7 @@ CRON_SECRET
 - [x] 定义首个 20 日方向目标，并完成永远上涨、训练期条件动量对照基线
 - [x] 建立训练期标准化与 L2 正则 Logistic Regression 候选、逐折系数和概率校准分桶
 - [x] 建立受限浅层概率树候选，并在同一冻结切分、校准和固定晋升门槛下比较；当前未优于基线，保持 research-only
-- [ ] 建立 walk-forward 回测
+- [x] 建立非重叠 20 日概率门控 walk-forward 聚合回测；现有候选没有优于始终持有 QQQ，保持 research-only
 - [ ] 保存预测原始版本并自动到期评估
 - [x] 建立概率校准诊断工件；当前 Logistic 候选未优于条件动量，保持 research-only
 - [x] 预先注册模型晋升门槛与确定性失败标签；当前 Logistic 复核为 `not_eligible`

@@ -15,6 +15,7 @@ const { getWalkForwardSplitManifest } = require("../../lib/evaluation-split-mani
 const { getBaselineEvaluationReport } = require("../../lib/evaluation-baseline-report");
 const { getLogisticEvaluationReport } = require("../../lib/evaluation-logistic-report");
 const { getTreeEvaluationReport } = require("../../lib/evaluation-tree-report");
+const { getWalkForwardBacktestReport } = require("../../lib/evaluation-backtest-report");
 const { getCandidatePromotionReviews, getLogisticPromotionReview, getTreePromotionReview } = require("../../lib/evaluation-promotion-report");
 
 function sendJson(res, statusCode, payload) {
@@ -322,6 +323,16 @@ const resources = {
       sendJson(res, 200, { ok: true, researchOnly: true, candidates });
     } catch (error) {
       sendFailure(res, "Failed to load candidate promotion reviews", error);
+    }
+  },
+
+  async "evaluation-backtest"(_req, res) {
+    try {
+      const report = getWalkForwardBacktestReport();
+      res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=86400");
+      sendJson(res, 200, { ok: true, researchOnly: true, report });
+    } catch (error) {
+      sendFailure(res, "Failed to load frozen walk-forward backtest", error);
     }
   }
 };

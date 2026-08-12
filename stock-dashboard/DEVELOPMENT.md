@@ -732,6 +732,24 @@ GET /api/nasdaq/evaluation-tree-review
 GET /api/nasdaq/evaluation-candidate-reviews
 ```
 
+#### 8.2.10 概率门控 walk-forward 回测
+
+[data/evaluation/qqq-probability-gated-backtest-v1.json](data/evaluation/qqq-probability-gated-backtest-v1.json) 使用与模型报告完全相同的冻结 16 折：在每个验证折中每 20 个交易日抽取一次样本，使用当时该折训练出的概率；概率至少 `0.5` 才记为持有 QQQ，否则该段记为现金。抽样窗口在每折内不重叠，且所有 20 日结果在评估时都已成熟。
+
+工件只记录聚合的决策次数、持有比例、平均/中位回报、正回报率、复利累计回报和最大回撤；不保存日期级决策、概率或仓位。它未计入成本、税、滑点或实际执行。真实 QQQ 结果中，始终持有的累计模拟回报为 `158.859345%`，条件动量为 `131.725576%`，Logistic 为 `90.353840%`，树为 `109.027750%`，且回撤没有改善。因此它不能作为交易策略、更不能提升任一候选模型。
+
+```bash
+set -a
+. ./.env.local
+set +a
+npm run evaluation:backtest
+git diff -- data/evaluation/qqq-probability-gated-backtest-v1.json
+```
+
+```text
+GET /api/nasdaq/evaluation-backtest
+```
+
 #### 8.2.9 固定模型晋升门槛与失败标签
 
 任何候选在训练前都必须使用 [lib/model-promotion-governance.js](lib/model-promotion-governance.js) 的 `qqq-model-promotion-policy-v1`。政策不可根据某次评估结果临时放宽，且所有门槛必须同时满足：同一 `qqq-walk-forward-v1` 切分、至少 16 折和 900 个样本、相对 `conditionalMomentum20d` 的 Brier 至少改善 `0.005`、平衡准确率至少改善 `0.005`、每个至少 60 样本的校准分桶绝对误差不超过 `0.10`。
