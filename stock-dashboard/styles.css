@@ -1939,6 +1939,21 @@ body {
 .similar-day-outcomes b { margin-left: 3px; color: #dce6f7; font-size: 0.66rem; }
 .similar-day-outcomes b.positive { color: #70dfaf; }
 .similar-day-outcomes b.negative { color: #ff8f9d; }
+.similar-distribution { margin-top: 9px; padding: 8px; border: 1px solid rgba(128, 186, 255, 0.2); border-radius: 9px; background: rgba(17, 45, 91, 0.18); }
+.similar-distribution-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.similar-distribution-head strong { color: #dbe9ff; font-size: 0.68rem; }
+.similar-distribution-head span { color: #8eabd7; font-size: 0.59rem; font-weight: 700; }
+.similar-distribution-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 7px; }
+.similar-distribution-grid > div { display: grid; gap: 2px; min-width: 0; }
+.similar-distribution-grid span { overflow: hidden; color: #93a9c9; font-size: 0.55rem; text-overflow: ellipsis; white-space: nowrap; }
+.similar-distribution-grid strong { color: #e8f0ff; font-size: 0.78rem; }
+.similar-distribution-grid strong.positive,
+.similar-distribution-grid b.positive { color: #70dfaf; }
+.similar-distribution-grid strong.negative,
+.similar-distribution-grid b.negative { color: #ff8f9d; }
+.similar-distribution-grid small { color: #8fa2c1; font-size: 0.54rem; }
+.similar-distribution-grid b { font-size: 0.58rem; }
+.similar-distribution-note { margin: 7px 0 0; color: #8fa2c1; font-size: 0.56rem; line-height: 1.4; }
 .outcome-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; margin-top: 9px; }
 .outcome-grid > div { display: grid; gap: 3px; min-width: 0; }
 .outcome-grid span { color: #94a6c2; font-size: 0.57rem; }

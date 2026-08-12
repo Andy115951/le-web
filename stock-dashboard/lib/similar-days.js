@@ -103,6 +103,63 @@ function candidateOutcome(label) {
   };
 }
 
+function finiteNumbers(rows, keys) {
+  return (rows || []).map(function (row) {
+    const value = keys.map(function (key) { return row?.[key]; }).find(function (item) {
+      return item !== null && item !== undefined && item !== "";
+    });
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  }).filter(function (value) { return value !== null; });
+}
+
+function percentile(values, fraction) {
+  if (!values.length) return null;
+  const ordered = [...values].sort(function (left, right) { return left - right; });
+  const position = (ordered.length - 1) * fraction;
+  const lower = Math.floor(position);
+  const upper = Math.ceil(position);
+  if (lower === upper) return ordered[lower];
+  return ordered[lower] + (ordered[upper] - ordered[lower]) * (position - lower);
+}
+
+function summarizeReturn(values) {
+  if (!values.length) return { availableCount: 0, positiveCount: 0, positiveRatePercent: null, meanPercent: null, medianPercent: null, p25Percent: null, p75Percent: null };
+  return {
+    availableCount: values.length,
+    positiveCount: values.filter(function (value) { return value > 0; }).length,
+    positiveRatePercent: round(values.filter(function (value) { return value > 0; }).length / values.length * 100),
+    meanPercent: round(mean(values)),
+    medianPercent: round(percentile(values, 0.5)),
+    p25Percent: round(percentile(values, 0.25)),
+    p75Percent: round(percentile(values, 0.75))
+  };
+}
+
+function summarizeDrawdown(values) {
+  if (!values.length) return { availableCount: 0, meanPercent: null, medianPercent: null, p25Percent: null, p75Percent: null, worstPercent: null };
+  return {
+    availableCount: values.length,
+    meanPercent: round(mean(values)),
+    medianPercent: round(percentile(values, 0.5)),
+    p25Percent: round(percentile(values, 0.25)),
+    p75Percent: round(percentile(values, 0.75)),
+    worstPercent: round(Math.min(...values))
+  };
+}
+
+function summarizeSimilarDayOutcomes(matches) {
+  const rows = Array.isArray(matches) ? matches : [];
+  return {
+    candidateCount: rows.length,
+    return1d: summarizeReturn(finiteNumbers(rows, ["return1dPercent", "return_1d_percent", "candidate_return_1d_percent"])),
+    return3d: summarizeReturn(finiteNumbers(rows, ["return3dPercent", "return_3d_percent", "candidate_return_3d_percent"])),
+    return5d: summarizeReturn(finiteNumbers(rows, ["return5dPercent", "return_5d_percent", "candidate_return_5d_percent"])),
+    return20d: summarizeReturn(finiteNumbers(rows, ["return20dPercent", "return_20d_percent", "candidate_return_20d_percent"])),
+    maxDrawdown20d: summarizeDrawdown(finiteNumbers(rows, ["maxDrawdown20dPercent", "max_drawdown_20d_percent", "candidate_max_drawdown_20d_percent"]))
+  };
+}
+
 function findSimilarDays(options) {
   const features = [...(options?.features || [])].sort(function (left, right) { return marketDateOf(left).localeCompare(marketDateOf(right)); });
   const targetDate = String(options?.targetDate || "");
@@ -180,5 +237,6 @@ module.exports = {
   MIN_NORMALIZATION_SAMPLES,
   OUTCOME_HORIZON,
   SIMILARITY_METHOD_VERSION,
-  findSimilarDays
+  findSimilarDays,
+  summarizeSimilarDayOutcomes
 };

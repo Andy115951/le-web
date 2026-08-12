@@ -2347,6 +2347,7 @@ function renderSimilarDays() {
     '<div class="similar-days">',
     '<div class="day-section-title"><strong>历史相似日</strong><span>RESEARCH ONLY</span></div>',
     '<p>使用目标日之前的价格、风险与成交量状态拟合；候选日的后续表现仅作历史研究，不构成预测。</p>',
+    renderSimilarDayDistribution(result.summary),
     '<div class="similar-day-list">',
     matches.map(function (match) {
       const score = Number(match.similarity_score);
@@ -2366,6 +2367,40 @@ function renderSimilarDays() {
     }).join(""),
     "</div>",
     "</div>"
+  ].join("");
+}
+
+function renderSimilarDayDistribution(summary) {
+  const candidateCount = Number(summary?.candidateCount || 0);
+  if (!candidateCount) return "";
+  const formatPercent = function (value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? formatSigned(number) + "%" : "--";
+  };
+  const formatRate = function (value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number.toFixed(0) + "%" : "--";
+  };
+  const return5d = summary?.return5d || {};
+  const return20d = summary?.return20d || {};
+  const drawdown = summary?.maxDrawdown20d || {};
+  const tone = function (value) {
+    const number = Number(value);
+    return number > 0 ? "positive" : number < 0 ? "negative" : "neutral";
+  };
+  const caution = candidateCount < 5
+    ? "样本不足 5 个，结果只作线索。"
+    : "只统计当前前 " + candidateCount + " 个已成熟历史候选。";
+  return [
+    '<section class="similar-distribution">',
+    '<div class="similar-distribution-head"><strong>候选结果分布</strong><span>样本 ' + candidateCount + "</span></div>",
+    '<div class="similar-distribution-grid">',
+    '<div><span>后 5 日胜率</span><strong>' + escapeHtml(formatRate(return5d.positiveRatePercent)) + '</strong><small>中位 <b class="' + tone(return5d.medianPercent) + '">' + escapeHtml(formatPercent(return5d.medianPercent)) + "</b></small></div>",
+    '<div><span>后 20 日胜率</span><strong>' + escapeHtml(formatRate(return20d.positiveRatePercent)) + '</strong><small>中位 <b class="' + tone(return20d.medianPercent) + '">' + escapeHtml(formatPercent(return20d.medianPercent)) + "</b></small></div>",
+    '<div><span>20 日回撤</span><strong class="' + tone(drawdown.medianPercent) + '">' + escapeHtml(formatPercent(drawdown.medianPercent)) + '</strong><small>最差 <b class="negative">' + escapeHtml(formatPercent(drawdown.worstPercent)) + "</b></small></div>",
+    '</div>',
+    '<p class="similar-distribution-note">' + escapeHtml(caution) + " 胜率不等于预测概率。</p>",
+    '</section>'
   ].join("");
 }
 

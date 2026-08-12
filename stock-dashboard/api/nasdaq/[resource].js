@@ -153,6 +153,7 @@ const resources = {
         instrument: result.instrument,
         target: result.target,
         count: result.matches.length,
+        summary: result.summary,
         methodVersion: result.methodVersion,
         matches: result.matches
       });

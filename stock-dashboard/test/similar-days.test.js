@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { MIN_CANDIDATE_SEPARATION, findSimilarDays } = require("../lib/similar-days");
+const { MIN_CANDIDATE_SEPARATION, findSimilarDays, summarizeSimilarDayOutcomes } = require("../lib/similar-days");
 
 function feature(index) {
   const date = new Date(Date.UTC(2020, 0, 1 + index)).toISOString().slice(0, 10);
@@ -74,4 +74,28 @@ test("similar days report an explicit no-result state with insufficient history"
   const result = findSimilarDays({ features, labels: features, targetDate: features.at(-1).market_date });
   assert.equal(result.matches.length, 0);
   assert.match(result.reason, /Insufficient/);
+});
+
+test("similar-day outcome summary reports empirical distribution without inventing missing values", function () {
+  const summary = summarizeSimilarDayOutcomes([
+    { candidate_return_5d_percent: 10, candidate_return_20d_percent: 20, candidate_max_drawdown_20d_percent: -5 },
+    { candidate_return_5d_percent: -2, candidate_return_20d_percent: -10, candidate_max_drawdown_20d_percent: -12 },
+    { candidate_return_5d_percent: 4, candidate_return_20d_percent: 0, candidate_max_drawdown_20d_percent: -3 },
+    { candidate_return_5d_percent: null, candidate_return_20d_percent: 6, candidate_max_drawdown_20d_percent: null }
+  ]);
+  assert.equal(summary.candidateCount, 4);
+  assert.deepEqual(summary.return5d, {
+    availableCount: 3,
+    positiveCount: 2,
+    positiveRatePercent: 66.666667,
+    meanPercent: 4,
+    medianPercent: 4,
+    p25Percent: 1,
+    p75Percent: 7
+  });
+  assert.equal(summary.return20d.availableCount, 4);
+  assert.equal(summary.return20d.positiveRatePercent, 50);
+  assert.equal(summary.maxDrawdown20d.availableCount, 3);
+  assert.equal(summary.maxDrawdown20d.medianPercent, -5);
+  assert.equal(summary.maxDrawdown20d.worstPercent, -12);
 });

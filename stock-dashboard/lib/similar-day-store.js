@@ -1,7 +1,7 @@
 const { normalizeSymbol } = require("./historical-market-data");
 const { getStoredDailyFeatures, normalizeFeatureDate } = require("./daily-feature-store");
 const { getStoredForwardLabels } = require("./market-label-store");
-const { SIMILARITY_METHOD_VERSION, findSimilarDays } = require("./similar-days");
+const { SIMILARITY_METHOD_VERSION, findSimilarDays, summarizeSimilarDayOutcomes } = require("./similar-days");
 const { getSupabaseConfig, requestSupabase } = require("./supabase-server");
 
 function normalizeSimilarLimit(value) {
@@ -102,7 +102,7 @@ async function getStoredSimilarDays(symbol, date, limit) {
     + (normalizedDate ? "&market_date=eq." + normalizedDate : "")
     + "&order=market_date.desc&limit=1");
   const target = Array.isArray(featureRows) ? featureRows[0] : null;
-  if (!target) return { instrument, target: null, matches: [], methodVersion: SIMILARITY_METHOD_VERSION };
+  if (!target) return { instrument, target: null, matches: [], summary: summarizeSimilarDayOutcomes([]), methodVersion: SIMILARITY_METHOD_VERSION };
   const columns = [
     "rank", "similarity_score", "momentum_score", "risk_score", "participation_score", "event_score", "used_feature_keys",
     "normalization_start_date", "normalization_end_date", "normalization_sample_count", "candidate_market_date",
@@ -114,7 +114,8 @@ async function getStoredSimilarDays(symbol, date, limit) {
     + "&target_market_date=eq." + target.market_date
     + "&method_version=eq." + encodeURIComponent(SIMILARITY_METHOD_VERSION)
     + "&order=rank.asc&limit=" + normalizedLimit);
-  return { instrument, target, matches: Array.isArray(rows) ? rows : [], methodVersion: SIMILARITY_METHOD_VERSION };
+  const matches = Array.isArray(rows) ? rows : [];
+  return { instrument, target, matches, summary: summarizeSimilarDayOutcomes(matches), methodVersion: SIMILARITY_METHOD_VERSION };
 }
 
 module.exports = { getStoredSimilarDays, normalizeSimilarLimit, rebuildSimilarDayMatches };
