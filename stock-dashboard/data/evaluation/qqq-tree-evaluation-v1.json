@@ -1,0 +1,1796 @@
+{
+  "evaluationVersion": "qqq-tree-evaluation-v1",
+  "modelVersion": "shallow-probability-tree-v1",
+  "deploymentStatus": "research_only_not_selected",
+  "deploymentReason": "This offline candidate is never wired to the market runtime until it clears the fixed promotion policy and human review.",
+  "splitVersion": "qqq-walk-forward-v1",
+  "instrument": "QQQ",
+  "featureVersion": "qqq-daily-state-v1",
+  "labelVersion": "adjusted-close-forward-v1",
+  "outcome": {
+    "horizonTradingDays": 20,
+    "definition": "return_20d_percent > 0"
+  },
+  "folds": [
+    {
+      "id": "fold-01",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2022-08-11",
+        "observationCount": 252
+      },
+      "embargo": {
+        "startDate": "2022-08-12",
+        "endDate": "2022-09-09",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2022-09-12",
+        "endDate": "2022-12-08",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "shallow-probability-tree-v1",
+        "trainingSampleCount": 252,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent",
+          "available_event_count",
+          "high_impact_event_count",
+          "medium_impact_event_count",
+          "low_impact_event_count"
+        ],
+        "featureMedians": {
+          "return_1d_percent": 0.052844,
+          "return_5d_percent": 0.091742,
+          "return_20d_percent": -1.623371,
+          "gap_percent": 0.04086,
+          "trailing_volatility_20d_percent": 26.282731,
+          "trailing_drawdown_20d_percent": -5.870471,
+          "volume_ratio_20d_percent": -5.911324,
+          "available_event_count": 0,
+          "high_impact_event_count": 0,
+          "medium_impact_event_count": 0,
+          "low_impact_event_count": 0
+        },
+        "baseRate": 0.412698,
+        "options": {
+          "maxDepth": 2,
+          "minimumLeafSamples": 30,
+          "thresholdQuantiles": 10,
+          "minimumGain": 0.002,
+          "smoothing": 8
+        },
+        "root": {
+          "type": "split",
+          "featureKey": "trailing_volatility_20d_percent",
+          "threshold": 22.231446,
+          "gain": 0.018388,
+          "sampleCount": 252,
+          "left": {
+            "type": "split",
+            "featureKey": "trailing_volatility_20d_percent",
+            "threshold": 12.905187,
+            "gain": 0.068504,
+            "sampleCount": 75,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 30,
+              "upCount": 10,
+              "probability": 0.350042
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 45,
+              "upCount": 32,
+              "probability": 0.666068
+            }
+          },
+          "right": {
+            "type": "split",
+            "featureKey": "volume_ratio_20d_percent",
+            "threshold": -24.439412,
+            "gain": 0.034505,
+            "sampleCount": 177,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 35,
+              "upCount": 3,
+              "probability": 0.146549
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 142,
+              "upCount": 59,
+              "probability": 0.415344
+            }
+          }
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.539683,
+        "balancedAccuracy": 0.5,
+        "brierScore": 0.266743,
+        "actualUpRate": 0.460317
+      }
+    },
+    {
+      "id": "fold-02",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2022-11-09",
+        "observationCount": 315
+      },
+      "embargo": {
+        "startDate": "2022-11-10",
+        "endDate": "2022-12-08",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2022-12-09",
+        "endDate": "2023-03-13",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "shallow-probability-tree-v1",
+        "trainingSampleCount": 315,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent",
+          "available_event_count",
+          "high_impact_event_count",
+          "medium_impact_event_count",
+          "low_impact_event_count"
+        ],
+        "featureMedians": {
+          "return_1d_percent": -0.047319,
+          "return_5d_percent": -0.239853,
+          "return_20d_percent": -2.713577,
+          "gap_percent": 0.006276,
+          "trailing_volatility_20d_percent": 26.724658,
+          "trailing_drawdown_20d_percent": -7.292665,
+          "volume_ratio_20d_percent": -4.263082,
+          "available_event_count": 0,
+          "high_impact_event_count": 0,
+          "medium_impact_event_count": 0,
+          "low_impact_event_count": 0
+        },
+        "baseRate": 0.419048,
+        "options": {
+          "maxDepth": 2,
+          "minimumLeafSamples": 30,
+          "thresholdQuantiles": 10,
+          "minimumGain": 0.002,
+          "smoothing": 8
+        },
+        "root": {
+          "type": "split",
+          "featureKey": "trailing_volatility_20d_percent",
+          "threshold": 20.596988,
+          "gain": 0.026853,
+          "sampleCount": 315,
+          "left": {
+            "type": "split",
+            "featureKey": "trailing_volatility_20d_percent",
+            "threshold": 13.71246,
+            "gain": 0.169704,
+            "sampleCount": 63,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 31,
+              "upCount": 11,
+              "probability": 0.36801
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 32,
+              "upCount": 30,
+              "probability": 0.83381
+            }
+          },
+          "right": {
+            "type": "split",
+            "featureKey": "trailing_volatility_20d_percent",
+            "threshold": 29.513911,
+            "gain": 0.043115,
+            "sampleCount": 252,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 126,
+              "upCount": 27,
+              "probability": 0.22651
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 126,
+              "upCount": 64,
+              "probability": 0.50263
+            }
+          }
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.365079,
+        "balancedAccuracy": 0.538889,
+        "brierScore": 0.397878,
+        "actualUpRate": 0.714286
+      }
+    },
+    {
+      "id": "fold-03",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2023-02-10",
+        "observationCount": 378
+      },
+      "embargo": {
+        "startDate": "2023-02-13",
+        "endDate": "2023-03-13",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2023-03-14",
+        "endDate": "2023-06-12",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "shallow-probability-tree-v1",
+        "trainingSampleCount": 378,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent",
+          "available_event_count",
+          "high_impact_event_count",
+          "medium_impact_event_count",
+          "low_impact_event_count"
+        ],
+        "featureMedians": {
+          "return_1d_percent": -0.053186,
+          "return_5d_percent": 0.041229,
+          "return_20d_percent": -1.623371,
+          "gap_percent": -0.002958,
+          "trailing_volatility_20d_percent": 26.368373,
+          "trailing_drawdown_20d_percent": -6.925335,
+          "volume_ratio_20d_percent": -4.431724,
+          "available_event_count": 0,
+          "high_impact_event_count": 0,
+          "medium_impact_event_count": 0,
+          "low_impact_event_count": 0
+        },
+        "baseRate": 0.425926,
+        "options": {
+          "maxDepth": 2,
+          "minimumLeafSamples": 30,
+          "thresholdQuantiles": 10,
+          "minimumGain": 0.002,
+          "smoothing": 8
+        },
+        "root": {
+          "type": "split",
+          "featureKey": "return_20d_percent",
+          "threshold": 2.564833,
+          "gain": 0.028079,
+          "sampleCount": 378,
+          "left": {
+            "type": "split",
+            "featureKey": "trailing_volatility_20d_percent",
+            "threshold": 22.082774,
+            "gain": 0.021173,
+            "sampleCount": 264,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 52,
+              "upCount": 37,
+              "probability": 0.673457
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 212,
+              "upCount": 96,
+              "probability": 0.451852
+            }
+          },
+          "right": {
+            "type": "split",
+            "featureKey": "volume_ratio_20d_percent",
+            "threshold": -15.757924,
+            "gain": 0.039732,
+            "sampleCount": 114,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 34,
+              "upCount": 1,
+              "probability": 0.104938
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 80,
+              "upCount": 27,
+              "probability": 0.345539
+            }
+          }
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.349206,
+        "balancedAccuracy": 0.663934,
+        "brierScore": 0.387849,
+        "actualUpRate": 0.968254
+      }
+    },
+    {
+      "id": "fold-04",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2023-05-12",
+        "observationCount": 441
+      },
+      "embargo": {
+        "startDate": "2023-05-15",
+        "endDate": "2023-06-12",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2023-06-13",
+        "endDate": "2023-09-12",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "shallow-probability-tree-v1",
+        "trainingSampleCount": 441,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent",
+          "available_event_count",
+          "high_impact_event_count",
+          "medium_impact_event_count",
+          "low_impact_event_count"
+        ],
+        "featureMedians": {
+          "return_1d_percent": -0.04704,
+          "return_5d_percent": 0.22181,
+          "return_20d_percent": -0.557876,
+          "gap_percent": -0.010904,
+          "trailing_volatility_20d_percent": 25.771513,
+          "trailing_drawdown_20d_percent": -5.937662,
+          "volume_ratio_20d_percent": -4.599444,
+          "available_event_count": 0,
+          "high_impact_event_count": 0,
+          "medium_impact_event_count": 0,
+          "low_impact_event_count": 0
+        },
+        "baseRate": 0.496599,
+        "options": {
+          "maxDepth": 2,
+          "minimumLeafSamples": 30,
+          "thresholdQuantiles": 10,
+          "minimumGain": 0.002,
+          "smoothing": 8
+        },
+        "root": {
+          "type": "split",
+          "featureKey": "trailing_volatility_20d_percent",
+          "threshold": 21.693019,
+          "gain": 0.042524,
+          "sampleCount": 441,
+          "left": {
+            "type": "split",
+            "featureKey": "trailing_volatility_20d_percent",
+            "threshold": 14.384307,
+            "gain": 0.045344,
+            "sampleCount": 132,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 39,
+              "upCount": 19,
+              "probability": 0.488783
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 93,
+              "upCount": 76,
+              "probability": 0.79181
+            }
+          },
+          "right": {
+            "type": "split",
+            "featureKey": "return_20d_percent",
+            "threshold": 1.826125,
+            "gain": 0.026519,
+            "sampleCount": 309,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 216,
+              "upCount": 103,
+              "probability": 0.477557
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 93,
+              "upCount": 21,
+              "probability": 0.247255
+            }
+          }
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.587302,
+        "balancedAccuracy": 0.556795,
+        "brierScore": 0.288116,
+        "actualUpRate": 0.539683
+      }
+    },
+    {
+      "id": "fold-05",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2023-08-14",
+        "observationCount": 504
+      },
+      "embargo": {
+        "startDate": "2023-08-15",
+        "endDate": "2023-09-12",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2023-09-13",
+        "endDate": "2023-12-11",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "shallow-probability-tree-v1",
+        "trainingSampleCount": 504,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent",
+          "available_event_count",
+          "high_impact_event_count",
+          "medium_impact_event_count",
+          "low_impact_event_count"
+        ],
+        "featureMedians": {
+          "return_1d_percent": -0.002692,
+          "return_5d_percent": 0.323871,
+          "return_20d_percent": 1.083396,
+          "gap_percent": -0.007294,
+          "trailing_volatility_20d_percent": 24.50436,
+          "trailing_drawdown_20d_percent": -5.163462,
+          "volume_ratio_20d_percent": -4.681364,
+          "available_event_count": 0,
+          "high_impact_event_count": 0,
+          "medium_impact_event_count": 0,
+          "low_impact_event_count": 0
+        },
+        "baseRate": 0.529762,
+        "options": {
+          "maxDepth": 2,
+          "minimumLeafSamples": 30,
+          "thresholdQuantiles": 10,
+          "minimumGain": 0.002,
+          "smoothing": 8
+        },
+        "root": {
+          "type": "split",
+          "featureKey": "trailing_volatility_20d_percent",
+          "threshold": 22.258506,
+          "gain": 0.048721,
+          "sampleCount": 504,
+          "left": {
+            "type": "split",
+            "featureKey": "trailing_volatility_20d_percent",
+            "threshold": 15.158976,
+            "gain": 0.055222,
+            "sampleCount": 201,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 60,
+              "upCount": 28,
+              "probability": 0.47409
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 141,
+              "upCount": 117,
+              "probability": 0.813678
+            }
+          },
+          "right": {
+            "type": "split",
+            "featureKey": "return_20d_percent",
+            "threshold": 1.909439,
+            "gain": 0.02536,
+            "sampleCount": 303,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 212,
+              "upCount": 101,
+              "probability": 0.478355
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 91,
+              "upCount": 21,
+              "probability": 0.25493
+            }
+          }
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.650794,
+        "balancedAccuracy": 0.520408,
+        "brierScore": 0.192432,
+        "actualUpRate": 0.777778
+      }
+    },
+    {
+      "id": "fold-06",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2023-11-10",
+        "observationCount": 567
+      },
+      "embargo": {
+        "startDate": "2023-11-13",
+        "endDate": "2023-12-11",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2023-12-12",
+        "endDate": "2024-03-13",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "shallow-probability-tree-v1",
+        "trainingSampleCount": 567,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent",
+          "available_event_count",
+          "high_impact_event_count",
+          "medium_impact_event_count",
+          "low_impact_event_count"
+        ],
+        "featureMedians": {
+          "return_1d_percent": 0.040105,
+          "return_5d_percent": 0.2343,
+          "return_20d_percent": 0.442909,
+          "gap_percent": 0.002607,
+          "trailing_volatility_20d_percent": 22.639251,
+          "trailing_drawdown_20d_percent": -5.208536,
+          "volume_ratio_20d_percent": -4.347915,
+          "available_event_count": 0,
+          "high_impact_event_count": 0,
+          "medium_impact_event_count": 0,
+          "low_impact_event_count": 0
+        },
+        "baseRate": 0.532628,
+        "options": {
+          "maxDepth": 2,
+          "minimumLeafSamples": 30,
+          "thresholdQuantiles": 10,
+          "minimumGain": 0.002,
+          "smoothing": 8
+        },
+        "root": {
+          "type": "split",
+          "featureKey": "trailing_volatility_20d_percent",
+          "threshold": 20.082413,
+          "gain": 0.042833,
+          "sampleCount": 567,
+          "left": {
+            "type": "split",
+            "featureKey": "trailing_volatility_20d_percent",
+            "threshold": 15.166543,
+            "gain": 0.052548,
+            "sampleCount": 226,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 67,
+              "upCount": 31,
+              "probability": 0.470147
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 159,
+              "upCount": 130,
+              "probability": 0.803958
+            }
+          },
+          "right": {
+            "type": "split",
+            "featureKey": "volume_ratio_20d_percent",
+            "threshold": -29.916386,
+            "gain": 0.023432,
+            "sampleCount": 341,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 34,
+              "upCount": 3,
+              "probability": 0.172881
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 307,
+              "upCount": 138,
+              "probability": 0.451622
+            }
+          }
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.222222,
+        "balancedAccuracy": 0.122807,
+        "brierScore": 0.261717,
+        "actualUpRate": 0.904762
+      }
+    },
+    {
+      "id": "fold-07",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2024-02-13",
+        "observationCount": 630
+      },
+      "embargo": {
+        "startDate": "2024-02-14",
+        "endDate": "2024-03-13",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2024-03-14",
+        "endDate": "2024-06-12",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "shallow-probability-tree-v1",
+        "trainingSampleCount": 630,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent",
+          "available_event_count",
+          "high_impact_event_count",
+          "medium_impact_event_count",
+          "low_impact_event_count"
+        ],
+        "featureMedians": {
+          "return_1d_percent": 0.065804,
+          "return_5d_percent": 0.434124,
+          "return_20d_percent": 1.369098,
+          "gap_percent": 0.009934,
+          "trailing_volatility_20d_percent": 20.925787,
+          "trailing_drawdown_20d_percent": -4.864046,
+          "volume_ratio_20d_percent": -4.453157,
+          "available_event_count": 0,
+          "high_impact_event_count": 0,
+          "medium_impact_event_count": 0,
+          "low_impact_event_count": 0
+        },
+        "baseRate": 0.579365,
+        "options": {
+          "maxDepth": 2,
+          "minimumLeafSamples": 30,
+          "thresholdQuantiles": 10,
+          "minimumGain": 0.002,
+          "smoothing": 8
+        },
+        "root": {
+          "type": "split",
+          "featureKey": "trailing_volatility_20d_percent",
+          "threshold": 18.009881,
+          "gain": 0.040648,
+          "sampleCount": 630,
+          "left": {
+            "type": "split",
+            "featureKey": "trailing_volatility_20d_percent",
+            "threshold": 13.21805,
+            "gain": 0.011736,
+            "sampleCount": 252,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 50,
+              "upCount": 30,
+              "probability": 0.597154
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 202,
+              "upCount": 160,
+              "probability": 0.783976
+            }
+          },
+          "right": {
+            "type": "split",
+            "featureKey": "trailing_volatility_20d_percent",
+            "threshold": 20.201223,
+            "gain": 0.045115,
+            "sampleCount": 378,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 37,
+              "upCount": 34,
+              "probability": 0.858554
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 341,
+              "upCount": 141,
+              "probability": 0.417292
+            }
+          }
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.698413,
+        "balancedAccuracy": 0.5,
+        "brierScore": 0.223455,
+        "actualUpRate": 0.698413
+      }
+    },
+    {
+      "id": "fold-08",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2024-05-14",
+        "observationCount": 693
+      },
+      "embargo": {
+        "startDate": "2024-05-15",
+        "endDate": "2024-06-12",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2024-06-13",
+        "endDate": "2024-09-12",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "shallow-probability-tree-v1",
+        "trainingSampleCount": 693,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent",
+          "available_event_count",
+          "high_impact_event_count",
+          "medium_impact_event_count",
+          "low_impact_event_count"
+        ],
+        "featureMedians": {
+          "return_1d_percent": 0.065804,
+          "return_5d_percent": 0.395601,
+          "return_20d_percent": 1.325497,
+          "gap_percent": 0.025984,
+          "trailing_volatility_20d_percent": 19.465324,
+          "trailing_drawdown_20d_percent": -4.612963,
+          "volume_ratio_20d_percent": -4.431724,
+          "available_event_count": 0,
+          "high_impact_event_count": 0,
+          "medium_impact_event_count": 0,
+          "low_impact_event_count": 0
+        },
+        "baseRate": 0.58153,
+        "options": {
+          "maxDepth": 2,
+          "minimumLeafSamples": 30,
+          "thresholdQuantiles": 10,
+          "minimumGain": 0.002,
+          "smoothing": 8
+        },
+        "root": {
+          "type": "split",
+          "featureKey": "trailing_volatility_20d_percent",
+          "threshold": 22.453702,
+          "gain": 0.039386,
+          "sampleCount": 693,
+          "left": {
+            "type": "split",
+            "featureKey": "trailing_drawdown_20d_percent",
+            "threshold": -3.064233,
+            "gain": 0.013186,
+            "sampleCount": 415,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 207,
+              "upCount": 161,
+              "probability": 0.770476
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 208,
+              "upCount": 128,
+              "probability": 0.614131
+            }
+          },
+          "right": {
+            "type": "split",
+            "featureKey": "trailing_drawdown_20d_percent",
+            "threshold": -4.826714,
+            "gain": 0.040999,
+            "sampleCount": 278,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 222,
+              "upCount": 107,
+              "probability": 0.485445
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 56,
+              "upCount": 7,
+              "probability": 0.182066
+            }
+          }
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.238095,
+        "balancedAccuracy": 0.219854,
+        "brierScore": 0.312971,
+        "actualUpRate": 0.587302
+      }
+    },
+    {
+      "id": "fold-09",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2024-08-14",
+        "observationCount": 756
+      },
+      "embargo": {
+        "startDate": "2024-08-15",
+        "endDate": "2024-09-12",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2024-09-13",
+        "endDate": "2024-12-11",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "shallow-probability-tree-v1",
+        "trainingSampleCount": 756,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent",
+          "available_event_count",
+          "high_impact_event_count",
+          "medium_impact_event_count",
+          "low_impact_event_count"
+        ],
+        "featureMedians": {
+          "return_1d_percent": 0.074795,
+          "return_5d_percent": 0.395601,
+          "return_20d_percent": 1.50519,
+          "gap_percent": 0.042902,
+          "trailing_volatility_20d_percent": 18.925856,
+          "trailing_drawdown_20d_percent": -4.490697,
+          "volume_ratio_20d_percent": -4.453157,
+          "available_event_count": 0,
+          "high_impact_event_count": 0,
+          "medium_impact_event_count": 0,
+          "low_impact_event_count": 0
+        },
+        "baseRate": 0.585979,
+        "options": {
+          "maxDepth": 2,
+          "minimumLeafSamples": 30,
+          "thresholdQuantiles": 10,
+          "minimumGain": 0.002,
+          "smoothing": 8
+        },
+        "root": {
+          "type": "split",
+          "featureKey": "trailing_volatility_20d_percent",
+          "threshold": 21.613222,
+          "gain": 0.032947,
+          "sampleCount": 756,
+          "left": {
+            "type": "split",
+            "featureKey": "trailing_volatility_20d_percent",
+            "threshold": 13.299938,
+            "gain": 0.007659,
+            "sampleCount": 453,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 90,
+              "upCount": 51,
+              "probability": 0.568243
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 363,
+              "upCount": 262,
+              "probability": 0.718835
+            }
+          },
+          "right": {
+            "type": "split",
+            "featureKey": "trailing_drawdown_20d_percent",
+            "threshold": -4.846768,
+            "gain": 0.044738,
+            "sampleCount": 303,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 242,
+              "upCount": 122,
+              "probability": 0.506751
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 61,
+              "upCount": 8,
+              "probability": 0.183882
+            }
+          }
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.888889,
+        "balancedAccuracy": 0.5,
+        "brierScore": 0.139806,
+        "actualUpRate": 0.888889
+      }
+    },
+    {
+      "id": "fold-10",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2024-11-12",
+        "observationCount": 819
+      },
+      "embargo": {
+        "startDate": "2024-11-13",
+        "endDate": "2024-12-11",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2024-12-12",
+        "endDate": "2025-03-17",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "shallow-probability-tree-v1",
+        "trainingSampleCount": 819,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent",
+          "available_event_count",
+          "high_impact_event_count",
+          "medium_impact_event_count",
+          "low_impact_event_count"
+        ],
+        "featureMedians": {
+          "return_1d_percent": 0.085575,
+          "return_5d_percent": 0.397422,
+          "return_20d_percent": 1.697587,
+          "gap_percent": 0.042902,
+          "trailing_volatility_20d_percent": 18.950425,
+          "trailing_drawdown_20d_percent": -4.490697,
+          "volume_ratio_20d_percent": -5.255853,
+          "available_event_count": 0,
+          "high_impact_event_count": 0,
+          "medium_impact_event_count": 0,
+          "low_impact_event_count": 0
+        },
+        "baseRate": 0.614164,
+        "options": {
+          "maxDepth": 2,
+          "minimumLeafSamples": 30,
+          "thresholdQuantiles": 10,
+          "minimumGain": 0.002,
+          "smoothing": 8
+        },
+        "root": {
+          "type": "split",
+          "featureKey": "trailing_volatility_20d_percent",
+          "threshold": 21.542448,
+          "gain": 0.030362,
+          "sampleCount": 819,
+          "left": {
+            "type": "split",
+            "featureKey": "trailing_volatility_20d_percent",
+            "threshold": 11.22304,
+            "gain": 0.007527,
+            "sampleCount": 491,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 49,
+              "upCount": 26,
+              "probability": 0.542339
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 442,
+              "upCount": 325,
+              "probability": 0.733141
+            }
+          },
+          "right": {
+            "type": "split",
+            "featureKey": "return_20d_percent",
+            "threshold": 8.538222,
+            "gain": 0.026199,
+            "sampleCount": 328,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 295,
+              "upCount": 148,
+              "probability": 0.504664
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 33,
+              "upCount": 4,
+              "probability": 0.217398
+            }
+          }
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.301587,
+        "balancedAccuracy": 0.5,
+        "brierScore": 0.378229,
+        "actualUpRate": 0.301587
+      }
+    },
+    {
+      "id": "fold-11",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2025-02-14",
+        "observationCount": 882
+      },
+      "embargo": {
+        "startDate": "2025-02-18",
+        "endDate": "2025-03-17",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2025-03-18",
+        "endDate": "2025-06-16",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "shallow-probability-tree-v1",
+        "trainingSampleCount": 882,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent",
+          "available_event_count",
+          "high_impact_event_count",
+          "medium_impact_event_count",
+          "low_impact_event_count"
+        ],
+        "featureMedians": {
+          "return_1d_percent": 0.086466,
+          "return_5d_percent": 0.423319,
+          "return_20d_percent": 1.74843,
+          "gap_percent": 0.057045,
+          "trailing_volatility_20d_percent": 18.885704,
+          "trailing_drawdown_20d_percent": -4.307617,
+          "volume_ratio_20d_percent": -5.650015,
+          "available_event_count": 0,
+          "high_impact_event_count": 0,
+          "medium_impact_event_count": 0,
+          "low_impact_event_count": 0
+        },
+        "baseRate": 0.606576,
+        "options": {
+          "maxDepth": 2,
+          "minimumLeafSamples": 30,
+          "thresholdQuantiles": 10,
+          "minimumGain": 0.002,
+          "smoothing": 8
+        },
+        "root": {
+          "type": "split",
+          "featureKey": "trailing_volatility_20d_percent",
+          "threshold": 20.922505,
+          "gain": 0.02085,
+          "sampleCount": 882,
+          "left": {
+            "type": "split",
+            "featureKey": "trailing_drawdown_20d_percent",
+            "threshold": -6.492035,
+            "gain": 0.009972,
+            "sampleCount": 529,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 52,
+              "upCount": 47,
+              "probability": 0.86421
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 477,
+              "upCount": 318,
+              "probability": 0.665675
+            }
+          },
+          "right": {
+            "type": "split",
+            "featureKey": "return_20d_percent",
+            "threshold": 5.244468,
+            "gain": 0.029526,
+            "sampleCount": 353,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 282,
+              "upCount": 153,
+              "probability": 0.544319
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 71,
+              "upCount": 17,
+              "probability": 0.276615
+            }
+          }
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.714286,
+        "balancedAccuracy": 0.409091,
+        "brierScore": 0.238567,
+        "actualUpRate": 0.873016
+      }
+    },
+    {
+      "id": "fold-12",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2025-05-16",
+        "observationCount": 945
+      },
+      "embargo": {
+        "startDate": "2025-05-19",
+        "endDate": "2025-06-16",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2025-06-17",
+        "endDate": "2025-09-16",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "shallow-probability-tree-v1",
+        "trainingSampleCount": 945,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent",
+          "available_event_count",
+          "high_impact_event_count",
+          "medium_impact_event_count",
+          "low_impact_event_count"
+        ],
+        "featureMedians": {
+          "return_1d_percent": 0.091685,
+          "return_5d_percent": 0.411486,
+          "return_20d_percent": 1.50519,
+          "gap_percent": 0.048699,
+          "trailing_volatility_20d_percent": 19.34755,
+          "trailing_drawdown_20d_percent": -4.547024,
+          "volume_ratio_20d_percent": -5.650015,
+          "available_event_count": 0,
+          "high_impact_event_count": 0,
+          "medium_impact_event_count": 0,
+          "low_impact_event_count": 0
+        },
+        "baseRate": 0.603175,
+        "options": {
+          "maxDepth": 2,
+          "minimumLeafSamples": 30,
+          "thresholdQuantiles": 10,
+          "minimumGain": 0.002,
+          "smoothing": 8
+        },
+        "root": {
+          "type": "split",
+          "featureKey": "trailing_volatility_20d_percent",
+          "threshold": 21.577689,
+          "gain": 0.014931,
+          "sampleCount": 945,
+          "left": {
+            "type": "split",
+            "featureKey": "trailing_volatility_20d_percent",
+            "threshold": 11.520051,
+            "gain": 0.004174,
+            "sampleCount": 567,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 56,
+              "upCount": 30,
+              "probability": 0.544147
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 511,
+              "upCount": 352,
+              "probability": 0.687525
+            }
+          },
+          "right": {
+            "type": "split",
+            "featureKey": "return_20d_percent",
+            "threshold": 2.066034,
+            "gain": 0.014357,
+            "sampleCount": 378,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 264,
+              "upCount": 146,
+              "probability": 0.554505
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 114,
+              "upCount": 42,
+              "probability": 0.383815
+            }
+          }
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.968254,
+        "balancedAccuracy": 0.5,
+        "brierScore": 0.141716,
+        "actualUpRate": 0.968254
+      }
+    },
+    {
+      "id": "fold-13",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2025-08-18",
+        "observationCount": 1008
+      },
+      "embargo": {
+        "startDate": "2025-08-19",
+        "endDate": "2025-09-16",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2025-09-17",
+        "endDate": "2025-12-15",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "shallow-probability-tree-v1",
+        "trainingSampleCount": 1008,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent",
+          "available_event_count",
+          "high_impact_event_count",
+          "medium_impact_event_count",
+          "low_impact_event_count"
+        ],
+        "featureMedians": {
+          "return_1d_percent": 0.095434,
+          "return_5d_percent": 0.519838,
+          "return_20d_percent": 1.787683,
+          "gap_percent": 0.064596,
+          "trailing_volatility_20d_percent": 18.76558,
+          "trailing_drawdown_20d_percent": -4.232511,
+          "volume_ratio_20d_percent": -5.424727,
+          "available_event_count": 0,
+          "high_impact_event_count": 0,
+          "medium_impact_event_count": 0,
+          "low_impact_event_count": 0
+        },
+        "baseRate": 0.625992,
+        "options": {
+          "maxDepth": 2,
+          "minimumLeafSamples": 30,
+          "thresholdQuantiles": 10,
+          "minimumGain": 0.002,
+          "smoothing": 8
+        },
+        "root": {
+          "type": "split",
+          "featureKey": "trailing_volatility_20d_percent",
+          "threshold": 20.922505,
+          "gain": 0.018806,
+          "sampleCount": 1008,
+          "left": {
+            "type": "split",
+            "featureKey": "trailing_drawdown_20d_percent",
+            "threshold": -1.471099,
+            "gain": 0.00601,
+            "sampleCount": 604,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 543,
+              "upCount": 373,
+              "probability": 0.68604
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 61,
+              "upCount": 53,
+              "probability": 0.840695
+            }
+          },
+          "right": {
+            "type": "split",
+            "featureKey": "return_20d_percent",
+            "threshold": 5.244468,
+            "gain": 0.015201,
+            "sampleCount": 404,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 323,
+              "upCount": 178,
+              "probability": 0.552894
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 81,
+              "upCount": 27,
+              "probability": 0.35964
+            }
+          }
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.714286,
+        "balancedAccuracy": 0.5,
+        "brierScore": 0.198685,
+        "actualUpRate": 0.714286
+      }
+    },
+    {
+      "id": "fold-14",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2025-11-14",
+        "observationCount": 1071
+      },
+      "embargo": {
+        "startDate": "2025-11-17",
+        "endDate": "2025-12-15",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2025-12-16",
+        "endDate": "2026-03-18",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "shallow-probability-tree-v1",
+        "trainingSampleCount": 1071,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent",
+          "available_event_count",
+          "high_impact_event_count",
+          "medium_impact_event_count",
+          "low_impact_event_count"
+        ],
+        "featureMedians": {
+          "return_1d_percent": 0.104244,
+          "return_5d_percent": 0.531206,
+          "return_20d_percent": 1.89767,
+          "gap_percent": 0.066329,
+          "trailing_volatility_20d_percent": 18.359657,
+          "trailing_drawdown_20d_percent": -4.032196,
+          "volume_ratio_20d_percent": -4.976837,
+          "available_event_count": 0,
+          "high_impact_event_count": 0,
+          "medium_impact_event_count": 0,
+          "low_impact_event_count": 0
+        },
+        "baseRate": 0.636788,
+        "options": {
+          "maxDepth": 2,
+          "minimumLeafSamples": 30,
+          "thresholdQuantiles": 10,
+          "minimumGain": 0.002,
+          "smoothing": 8
+        },
+        "root": {
+          "type": "split",
+          "featureKey": "trailing_volatility_20d_percent",
+          "threshold": 20.374805,
+          "gain": 0.020538,
+          "sampleCount": 1071,
+          "left": {
+            "type": "split",
+            "featureKey": "gap_percent",
+            "threshold": -0.349578,
+            "gain": 0.002401,
+            "sampleCount": 642,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 128,
+              "upCount": 101,
+              "probability": 0.780105
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 514,
+              "upCount": 361,
+              "probability": 0.70133
+            }
+          },
+          "right": {
+            "type": "split",
+            "featureKey": "return_20d_percent",
+            "threshold": 4.835498,
+            "gain": 0.015465,
+            "sampleCount": 429,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 343,
+              "upCount": 191,
+              "probability": 0.558673
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 86,
+              "upCount": 29,
+              "probability": 0.362705
+            }
+          }
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.31746,
+        "balancedAccuracy": 0.5,
+        "brierScore": 0.386727,
+        "actualUpRate": 0.31746
+      }
+    },
+    {
+      "id": "fold-15",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2026-02-18",
+        "observationCount": 1134
+      },
+      "embargo": {
+        "startDate": "2026-02-19",
+        "endDate": "2026-03-18",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2026-03-19",
+        "endDate": "2026-06-17",
+        "observationCount": 63
+      },
+      "model": {
+        "version": "shallow-probability-tree-v1",
+        "trainingSampleCount": 1134,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent",
+          "available_event_count",
+          "high_impact_event_count",
+          "medium_impact_event_count",
+          "low_impact_event_count"
+        ],
+        "featureMedians": {
+          "return_1d_percent": 0.106732,
+          "return_5d_percent": 0.515755,
+          "return_20d_percent": 1.696941,
+          "gap_percent": 0.067228,
+          "trailing_volatility_20d_percent": 18.029415,
+          "trailing_drawdown_20d_percent": -4.188462,
+          "volume_ratio_20d_percent": -5.05473,
+          "available_event_count": 0,
+          "high_impact_event_count": 0,
+          "medium_impact_event_count": 0,
+          "low_impact_event_count": 0
+        },
+        "baseRate": 0.626102,
+        "options": {
+          "maxDepth": 2,
+          "minimumLeafSamples": 30,
+          "thresholdQuantiles": 10,
+          "minimumGain": 0.002,
+          "smoothing": 8
+        },
+        "root": {
+          "type": "split",
+          "featureKey": "trailing_volatility_20d_percent",
+          "threshold": 22.756415,
+          "gain": 0.018863,
+          "sampleCount": 1134,
+          "left": {
+            "type": "split",
+            "featureKey": "return_20d_percent",
+            "threshold": 4.440809,
+            "gain": 0.004289,
+            "sampleCount": 793,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 555,
+              "upCount": 366,
+              "probability": 0.658985
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 238,
+              "upCount": 181,
+              "probability": 0.756133
+            }
+          },
+          "right": {
+            "type": "split",
+            "featureKey": "trailing_drawdown_20d_percent",
+            "threshold": -4.873055,
+            "gain": 0.023921,
+            "sampleCount": 341,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 272,
+              "upCount": 145,
+              "probability": 0.535746
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 69,
+              "upCount": 18,
+              "probability": 0.298816
+            }
+          }
+        }
+      },
+      "metrics": {
+        "sampleCount": 63,
+        "accuracy": 0.730159,
+        "balancedAccuracy": 0.5,
+        "brierScore": 0.210321,
+        "actualUpRate": 0.730159
+      }
+    },
+    {
+      "id": "fold-16",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2026-05-19",
+        "observationCount": 1197
+      },
+      "embargo": {
+        "startDate": "2026-05-20",
+        "endDate": "2026-06-17",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2026-06-18",
+        "endDate": "2026-07-14",
+        "observationCount": 17
+      },
+      "model": {
+        "version": "shallow-probability-tree-v1",
+        "trainingSampleCount": 1197,
+        "activeFeatureKeys": [
+          "return_1d_percent",
+          "return_5d_percent",
+          "return_20d_percent",
+          "gap_percent",
+          "trailing_volatility_20d_percent",
+          "trailing_drawdown_20d_percent",
+          "volume_ratio_20d_percent",
+          "available_event_count",
+          "high_impact_event_count",
+          "medium_impact_event_count",
+          "low_impact_event_count"
+        ],
+        "featureMedians": {
+          "return_1d_percent": 0.109007,
+          "return_5d_percent": 0.529721,
+          "return_20d_percent": 1.62757,
+          "gap_percent": 0.067228,
+          "trailing_volatility_20d_percent": 17.923118,
+          "trailing_drawdown_20d_percent": -4.188462,
+          "volume_ratio_20d_percent": -5.116678,
+          "available_event_count": 0,
+          "high_impact_event_count": 0,
+          "medium_impact_event_count": 0,
+          "low_impact_event_count": 0
+        },
+        "baseRate": 0.632414,
+        "options": {
+          "maxDepth": 2,
+          "minimumLeafSamples": 30,
+          "thresholdQuantiles": 10,
+          "minimumGain": 0.002,
+          "smoothing": 8
+        },
+        "root": {
+          "type": "split",
+          "featureKey": "trailing_drawdown_20d_percent",
+          "threshold": -1.696824,
+          "gain": 0.015956,
+          "sampleCount": 1197,
+          "left": {
+            "type": "split",
+            "featureKey": "trailing_volatility_20d_percent",
+            "threshold": 23.789467,
+            "gain": 0.010768,
+            "sampleCount": 1077,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 753,
+              "upCount": 490,
+              "probability": 0.650538
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 324,
+              "upCount": 159,
+              "probability": 0.494155
+            }
+          },
+          "right": {
+            "type": "split",
+            "featureKey": "return_5d_percent",
+            "threshold": 2.188534,
+            "gain": 0.019286,
+            "sampleCount": 120,
+            "left": {
+              "type": "leaf",
+              "sampleCount": 84,
+              "upCount": 81,
+              "probability": 0.935427
+            },
+            "right": {
+              "type": "leaf",
+              "sampleCount": 36,
+              "upCount": 27,
+              "probability": 0.728621
+            }
+          }
+        }
+      },
+      "metrics": {
+        "sampleCount": 17,
+        "accuracy": 0.823529,
+        "balancedAccuracy": 0.5,
+        "brierScore": 0.246252,
+        "actualUpRate": 0.176471
+      }
+    }
+  ],
+  "summary": {
+    "metrics": {
+      "sampleCount": 962,
+      "accuracy": 0.557173,
+      "balancedAccuracy": 0.476918,
+      "brierScore": 0.267957,
+      "actualUpRate": 0.68711
+    },
+    "calibrationBins": [
+      {
+        "index": 0,
+        "lowerBound": 0,
+        "upperBound": 0.2,
+        "sampleCount": 30,
+        "averagePredictedProbability": 0.130479,
+        "observedUpRate": 0.733333
+      },
+      {
+        "index": 1,
+        "lowerBound": 0.2,
+        "upperBound": 0.4,
+        "sampleCount": 93,
+        "averagePredictedProbability": 0.266455,
+        "observedUpRate": 0.817204
+      },
+      {
+        "index": 2,
+        "lowerBound": 0.4,
+        "upperBound": 0.6,
+        "sampleCount": 277,
+        "averagePredictedProbability": 0.497546,
+        "observedUpRate": 0.703971
+      },
+      {
+        "index": 3,
+        "lowerBound": 0.6,
+        "upperBound": 0.8,
+        "sampleCount": 469,
+        "averagePredictedProbability": 0.721973,
+        "observedUpRate": 0.622601
+      },
+      {
+        "index": 4,
+        "lowerBound": 0.8,
+        "upperBound": 1,
+        "sampleCount": 93,
+        "averagePredictedProbability": 0.820351,
+        "observedUpRate": 0.817204
+      }
+    ],
+    "calibrationBinCount": 5
+  }
+}

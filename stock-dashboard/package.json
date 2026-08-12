@@ -21,6 +21,7 @@
     "evaluation:splits": "node scripts/build-walk-forward-splits.js",
     "evaluation:baselines": "node scripts/build-walk-forward-baselines.js",
     "evaluation:logistic": "node scripts/build-walk-forward-logistic.js",
+    "evaluation:tree": "node scripts/build-walk-forward-tree.js",
     "test": "node --test"
   },
   "engines": {

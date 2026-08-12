@@ -710,11 +710,33 @@ git diff -- data/evaluation/qqq-logistic-evaluation-v1.json
 GET /api/nasdaq/evaluation-logistic
 ```
 
+#### 8.2.8a Shallow Probability Tree 候选
+
+第二份候选为 [data/evaluation/qqq-tree-evaluation-v1.json](data/evaluation/qqq-tree-evaluation-v1.json)。它是特意受约束的 CART 风格概率树，而不是自动调参的黑盒：最大深度固定为 `2`，每叶最少 `30` 个训练样本；每个节点只在训练期特征的 10 个分位阈值候选中按 Gini gain 选择；缺失值使用对应训练期中位数；叶节点按训练期基础上涨率做 Laplace 平滑。
+
+每个冻结折都重新拟合树与中位数，验证区数据从不参与分裂、填补或概率计算。报告只保留树结构、训练统计、折级/总体指标和 5 分桶校准结果，不保存逐日预测。真实 QQQ 评估为 `Brier Score 0.267957`、`Balanced Accuracy 0.476918`，均未超过条件动量对照，因此持续标记 `research_only_not_selected`，不得接入页面行情、Cron、DeepSeek 或投资建议。
+
+重建与只读查询：
+
+```bash
+set -a
+. ./.env.local
+set +a
+npm run evaluation:tree
+git diff -- data/evaluation/qqq-tree-evaluation-v1.json
+```
+
+```text
+GET /api/nasdaq/evaluation-tree
+GET /api/nasdaq/evaluation-tree-review
+GET /api/nasdaq/evaluation-candidate-reviews
+```
+
 #### 8.2.9 固定模型晋升门槛与失败标签
 
 任何候选在训练前都必须使用 [lib/model-promotion-governance.js](lib/model-promotion-governance.js) 的 `qqq-model-promotion-policy-v1`。政策不可根据某次评估结果临时放宽，且所有门槛必须同时满足：同一 `qqq-walk-forward-v1` 切分、至少 16 折和 900 个样本、相对 `conditionalMomentum20d` 的 Brier 至少改善 `0.005`、平衡准确率至少改善 `0.005`、每个至少 60 样本的校准分桶绝对误差不超过 `0.10`。
 
-通过只意味着 `eligible_for_human_review`，仍然明确是 `not_deployed`，不会自动生成市场信号、影响 Cron 或交给 DeepSeek。当前 Logistic 的确定性复核为 `not_eligible`，失败标签是 `brier_improvement`、`balanced_accuracy_improvement`、`calibration`：这比在页面上展示一个无上下文分数更便于排查失败案例。
+通过只意味着 `eligible_for_human_review`，仍然明确是 `not_deployed`，不会自动生成市场信号、影响 Cron 或交给 DeepSeek。当前 Logistic 与 Shallow Probability Tree 的确定性复核均为 `not_eligible`；两者都由 `brier_improvement`、`balanced_accuracy_improvement`、`calibration` 等失败标签解释，而不是展示无上下文分数。
 
 复核输出还会给出最多 5 个阶段级失败案例：每项仅比较一个冻结验证区间内候选与 `conditionalMomentum20d` 的聚合 Brier/平衡准确率差距，标签为 `probability_degradation` 与/或 `direction_degradation`。为避免把研究工件变成实时信号流，它不保留逐日预测、当前概率或任何交易指令。
 

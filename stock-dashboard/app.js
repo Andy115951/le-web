@@ -165,6 +165,8 @@ const state = {
   },
   modelReview: {
     review: null,
+    candidates: [],
+    selectedEvaluationVersion: "qqq-logistic-evaluation-v1",
     loading: false,
     error: "",
     requestId: 0
@@ -317,6 +319,14 @@ function bindEvents() {
   }
   if (els.refreshModelReviewBtn) {
     els.refreshModelReviewBtn.addEventListener("click", function () { void refreshModelReview(); });
+  }
+  if (els.modelReviewBody) {
+    els.modelReviewBody.addEventListener("click", function (event) {
+      const button = event.target.closest("[data-model-review-version]");
+      if (!button) return;
+      state.modelReview.selectedEvaluationVersion = button.getAttribute("data-model-review-version") || "";
+      renderModelReview();
+    });
   }
   if (els.researchReplayList) {
     els.researchReplayList.addEventListener("click", function (event) {
@@ -1258,11 +1268,14 @@ async function refreshModelReview() {
   modelReview.error = "";
   renderModelReview();
   try {
-    const response = await fetch("./api/nasdaq/evaluation-logistic-review");
+    const response = await fetch("./api/nasdaq/evaluation-candidate-reviews");
     const payload = await response.json().catch(function () { return {}; });
     if (!response.ok) throw new Error(payload?.error || "读取模型复核失败");
     if (requestId !== modelReview.requestId) return;
-    modelReview.review = payload?.review && typeof payload.review === "object" ? payload.review : null;
+    modelReview.candidates = Array.isArray(payload?.candidates) ? payload.candidates.filter(function (candidate) { return candidate?.review && typeof candidate.review === "object"; }) : [];
+    const selected = modelReview.candidates.find(function (candidate) { return candidate.review.candidateEvaluationVersion === modelReview.selectedEvaluationVersion; });
+    modelReview.review = selected?.review || modelReview.candidates[0]?.review || null;
+    modelReview.selectedEvaluationVersion = modelReview.review?.candidateEvaluationVersion || "";
     if (!modelReview.review) throw new Error("模型复核没有返回有效结果");
     modelReview.loading = false;
     renderModelReview();
@@ -1288,6 +1301,8 @@ function renderModelReview() {
     return;
   }
   const review = modelReview.review;
+  const candidates = modelReview.candidates;
+  const selectedCandidate = candidates.find(function (candidate) { return candidate.review.candidateEvaluationVersion === review.candidateEvaluationVersion; });
   const observed = review.observed || {};
   const checks = Array.isArray(review.checks) ? review.checks : [];
   const failures = Array.isArray(review.failureLabels) ? review.failureLabels : [];
@@ -1298,9 +1313,10 @@ function renderModelReview() {
     : "当前候选未达到固定离线门槛，已保留失败原因供后续特征与模型迭代复盘。";
   els.modelReviewBody.innerHTML = [
     '<div class="model-review-hero">',
-    '<div><span>OFFLINE CANDIDATE</span><h3>' + escapeHtml(String(review.candidateEvaluationVersion || "--")) + "</h3><p>对照：" + escapeHtml(String(review.benchmarkEvaluationVersion || "--")) + " · 策略：" + escapeHtml(String(review.policyVersion || "--")) + "</p></div>",
+    '<div><span>OFFLINE CANDIDATE</span><h3>' + escapeHtml(String(selectedCandidate?.label || review.candidateEvaluationVersion || "--")) + "</h3><p>版本：" + escapeHtml(String(review.candidateEvaluationVersion || "--")) + " · 对照：" + escapeHtml(String(review.benchmarkEvaluationVersion || "--")) + "</p></div>",
     '<div class="model-review-status ' + (isEligible ? "is-eligible" : "is-blocked") + '"><b>' + (isEligible ? "可供人工复核" : "未获晋升") + "</b><span>Runtime: " + escapeHtml(String(review.runtimeStatus || "not_deployed")) + "</span></div>",
     "</div>",
+    renderModelCandidateTabs(candidates, review.candidateEvaluationVersion),
     '<div class="model-review-metrics">',
     renderModelReviewMetric("冻结折", observed.foldCount, "要求 " + escapeHtml(String(review.policy?.minimumFoldCount || "--"))),
     renderModelReviewMetric("样本", observed.sampleCount, "要求 " + escapeHtml(String(review.policy?.minimumSampleCount || "--"))),
@@ -1315,6 +1331,15 @@ function renderModelReview() {
     renderModelFailureCases(review.failureCaseSummary),
     '<p class="model-review-note">' + escapeHtml(String(review.promotionBoundary || "该评估仅供研究复核。")) + "</p>"
   ].join("");
+}
+
+function renderModelCandidateTabs(candidates, selectedVersion) {
+  if (!candidates.length) return "";
+  return '<div class="model-candidate-tabs">' + candidates.map(function (candidate) {
+    const review = candidate.review || {};
+    const selected = review.candidateEvaluationVersion === selectedVersion;
+    return '<button type="button" class="model-candidate-tab' + (selected ? " is-selected" : "") + '" data-model-review-version="' + escapeHtml(String(review.candidateEvaluationVersion || "")) + '"><span>' + escapeHtml(String(candidate.label || review.candidateEvaluationVersion || "--")) + "</span><b>" + (review.reviewStatus === "eligible_for_human_review" ? "可复核" : "未晋升") + "</b></button>";
+  }).join("") + "</div>";
 }
 
 function renderModelReviewMetric(label, value, note) {

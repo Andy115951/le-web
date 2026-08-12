@@ -1,7 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const { evaluatePromotion } = require("../lib/model-promotion-governance");
-const { getLogisticPromotionReview } = require("../lib/evaluation-promotion-report");
+const { getCandidatePromotionReviews, getLogisticPromotionReview, getTreePromotionReview } = require("../lib/evaluation-promotion-report");
 const { buildFailureCaseSummary } = require("../lib/evaluation-failure-cases");
 
 function baseline() {
@@ -51,6 +51,20 @@ test("committed logistic candidate is not eligible and remains outside runtime",
   assert.deepEqual(review.failureLabels, ["brier_improvement", "balanced_accuracy_improvement", "calibration"]);
   assert.equal(review.failureCaseSummary.scope, "fold_level_only");
   assert.ok(review.failureCaseSummary.failureCaseCount > 0);
+});
+
+test("committed shallow tree candidate is not eligible and stays outside runtime", function () {
+  const review = getTreePromotionReview();
+  assert.equal(review.candidateEvaluationVersion, "qqq-tree-evaluation-v1");
+  assert.equal(review.reviewStatus, "not_eligible");
+  assert.equal(review.runtimeStatus, "not_deployed");
+  assert.ok(review.failureLabels.includes("brier_improvement"));
+});
+
+test("candidate review list keeps every reported candidate research-only", function () {
+  const candidates = getCandidatePromotionReviews();
+  assert.equal(candidates.length, 2);
+  assert.ok(candidates.every(function (candidate) { return candidate.review.runtimeStatus === "not_deployed"; }));
 });
 
 test("failure cases compare only matching frozen folds and omit individual predictions", function () {
