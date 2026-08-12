@@ -77,6 +77,9 @@ const els = {
   refreshModelReviewBtn: document.getElementById("refreshModelReviewBtn"),
   modelReviewHint: document.getElementById("modelReviewHint"),
   modelReviewBody: document.getElementById("modelReviewBody"),
+  refreshResearchHealthBtn: document.getElementById("refreshResearchHealthBtn"),
+  researchHealthHint: document.getElementById("researchHealthHint"),
+  researchHealthBody: document.getElementById("researchHealthBody"),
   rowTemplate: document.getElementById("rowTemplate"),
   countStat: document.getElementById("countStat"),
   upStat: document.getElementById("upStat"),
@@ -171,6 +174,7 @@ const state = {
     error: "",
     requestId: 0
   },
+  researchHealth: { value: null, loading: false, error: "" },
   targetHits: new Set(),
   dropAlerted: new Set(),
   audioCtx: null,
@@ -216,7 +220,7 @@ async function init() {
   updateCloudButtons();
   await initCloud(cloudConfig);
   await refreshQuotes();
-  await Promise.all([refreshMarketHistory(), refreshMarketCalendar(), refreshResearchReplay(), refreshModelReview()]);
+  await Promise.all([refreshMarketHistory(), refreshMarketCalendar(), refreshResearchReplay(), refreshModelReview(), refreshResearchHealth()]);
 }
 
 function getNewYorkMonth(now = new Date()) {
@@ -320,6 +324,7 @@ function bindEvents() {
   if (els.refreshModelReviewBtn) {
     els.refreshModelReviewBtn.addEventListener("click", function () { void refreshModelReview(); });
   }
+  if (els.refreshResearchHealthBtn) els.refreshResearchHealthBtn.addEventListener("click", function () { void refreshResearchHealth(); });
   if (els.modelReviewBody) {
     els.modelReviewBody.addEventListener("click", function (event) {
       const button = event.target.closest("[data-model-review-version]");
@@ -1259,6 +1264,37 @@ function replayTone(value) {
   const number = Number(value);
   return number > 0 ? "positive" : number < 0 ? "negative" : "neutral";
 }
+
+async function refreshResearchHealth() {
+  if (!els.researchHealthBody || !els.researchHealthHint) return;
+  const health = state.researchHealth;
+  health.loading = true; health.error = ""; renderResearchHealth();
+  try {
+    const response = await fetch("./api/nasdaq/research-health");
+    const payload = await response.json().catch(function () { return {}; });
+    if (!response.ok) throw new Error(payload?.error || "读取研究健康状态失败");
+    health.value = payload.health || null;
+    if (!health.value) throw new Error("没有可用的研究健康状态");
+  } catch (error) { health.error = error?.message || "读取研究健康状态失败"; }
+  health.loading = false; renderResearchHealth();
+}
+
+function renderResearchHealth() {
+  if (!els.researchHealthBody || !els.researchHealthHint) return;
+  const stateHealth = state.researchHealth;
+  if (stateHealth.loading && !stateHealth.value) { els.researchHealthBody.innerHTML = '<div class="research-health-empty">正在读取运行状态…</div>'; return; }
+  if (stateHealth.error || !stateHealth.value) { els.researchHealthHint.textContent = "健康状态暂时不可用，其他研究功能不受影响。"; els.researchHealthBody.innerHTML = '<div class="research-health-empty is-error">' + escapeHtml(stateHealth.error || "暂无状态") + "</div>"; return; }
+  const value = stateHealth.value; const run = value.latestCapture || {};
+  els.researchHealthHint.textContent = "仅展示脱敏的公共研究运行状态，不包含运维错误正文、用户数据或密钥。";
+  els.researchHealthBody.innerHTML = [
+    renderResearchHealthMetric("最近采集", run.status || "暂无", run.marketDate || "尚无完成日期"),
+    renderResearchHealthMetric("研究快照", value.snapshotCount, "已归档输入版本"),
+    renderResearchHealthMetric("待到期评估", value.pendingOutcomeCount, "等待成熟 20 日标签"),
+    renderResearchHealthMetric("研究模型", value.model?.enabled ? "已启用" : "未启用", value.model?.enabled ? "受预算和审计约束" : (value.model?.reason || "disabled"))
+  ].join("");
+}
+
+function renderResearchHealthMetric(label, value, note) { return '<article><span>' + escapeHtml(label) + "</span><strong>" + escapeHtml(String(value ?? "--")) + "</strong><small>" + escapeHtml(String(note || "--")) + "</small></article>"; }
 
 async function refreshModelReview() {
   if (!els.modelReviewBody || !els.modelReviewHint) return;

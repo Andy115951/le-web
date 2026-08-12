@@ -2037,6 +2037,10 @@ body {
 .replay-note { margin: 11px 0 0; color: #8499b8; font-size: 0.58rem; line-height: 1.5; }
 
 .model-review { order: 7; margin-bottom: 18px; }
+.research-health { order: 7; margin-bottom: 18px; padding: 20px; }
+.research-health-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.research-health-grid article { display: grid; gap: 5px; padding: 12px; border: 1px solid #e1e8f2; border-radius: 10px; background: #f8fafc; }
+.research-health-grid span,.research-health-grid small { color: #74839a; font-size: .62rem; }.research-health-grid strong { color:#263b5e; font-size:.9rem; }.research-health-empty{padding:18px;color:#74839a}.research-health-empty.is-error{color:var(--danger)}
 .model-review-heading { align-items: center; }
 .model-review-card { overflow: hidden; padding: 0; border: 1px solid #d9e4f3; background: linear-gradient(135deg, #f7fbff, #fff 56%, #f8fafc); }
 .model-review-empty { display: grid; place-content: center; gap: 6px; min-height: 240px; padding: 22px; color: #718097; text-align: center; }
@@ -2252,6 +2256,7 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(43, 97, 21
   .model-review-status { text-align: left; }
   .model-candidate-tab { min-width: 190px; }
   .model-review-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .research-health-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .model-failure-cases { margin: 5px 14px 15px; }
   .model-failure-cases-head { align-items: flex-start; flex-direction: column; }
   .model-failure-cases-head small { text-align: left; }
