@@ -62,6 +62,8 @@
 - 单日详情：同屏查看 `QQQ` 行情、统一事件时间线、原始证据链接和当日有效的 NDX 权重快照
 - 日历查询接口：`GET /api/nasdaq/calendar?month=YYYY-MM` 和 `GET /api/nasdaq/calendar?date=YYYY-MM-DD`
 - 事后研究结果与当日信息严格分区，未来 1/3/5/20 日标签不会作为实时判断输入
+- 日度特征层：`daily_market_features` 固化每个交易日当时可知的价格状态、成交量状态和事件状态，供后续相似日计算复用
+- 特征查询接口：`GET /api/nasdaq/features?symbol=QQQ&limit=365`，支持 `date=YYYY-MM-DD` 精确读取
 
 ### 当前版本重点
 
@@ -75,10 +77,9 @@
 
 ### 下一阶段
 
-1. 将价格与事件按交易日关联，形成第一版可复算且不使用未来数据的日度特征
-2. 实现历史相似日基线和结果页，展示相似依据、差异及事后收益分布
-3. 增加 NDX 新快照发现与人工审核更新流程
-4. 扩展 SEC、FRED、公司 IR 等官方事件源
+1. 实现历史相似日基线和结果页，展示相似依据、差异及事后收益分布
+2. 增加 NDX 新快照发现与人工审核更新流程
+3. 扩展 SEC、FRED、公司 IR 等官方事件源
 
 ## 技术结构
 
@@ -106,6 +107,7 @@
 - `api/nasdaq/events.js`: 无需登录的统一事件、来源和实体关系读取接口
 - `api/nasdaq/constituents.js`: 按日期读取当时有效的 NDX 成分与权重快照
 - `api/nasdaq/calendar.js`: 按月份读取市场日历，或按日期读取单日详情
+- `api/nasdaq/features.js`: 读取不含未来信息的日度市场特征
 - `api/cron/capture-market-history.js`: 收盘后自动归档入口
 - `api/cron/market-history-runs.js`: 最近采集运行记录接口
 - `lib/a-share-data.js`: A 股分析数据层
@@ -120,6 +122,8 @@
 - `lib/unified-market-events.js`: 来源规范化、事件双写、关系维护和统一读取
 - `lib/ndx-snapshots.js`: NDX 快照校验、导入、版本查询与动态雷达选择依据
 - `lib/market-calendar.js`: 按美东市场日期聚合 QQQ、后视波动、事件、研究标签和成分快照
+- `lib/daily-market-features.js`: 纯函数形式的日度价格/事件特征计算与美东收盘时间截断
+- `lib/daily-feature-store.js`: 日度特征的幂等重算、存储和查询
 - `data/ndx/`: 经校验且保留官方来源日期的 NDX 结构化快照
 - `lib/cron-auth.js`: Cron/运维接口统一鉴权与 JSON 响应
 - `vercel.json`: 每个工作日一次的收盘后 Cron 配置

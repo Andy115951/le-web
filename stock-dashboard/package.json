@@ -5,6 +5,7 @@
   "scripts": {
     "backfill:qqq": "node scripts/backfill-market-prices.js QQQ 5y",
     "events:rebuild": "node scripts/rebuild-unified-events.js 180",
+    "features:qqq": "node scripts/rebuild-daily-features.js QQQ",
     "ndx:import": "node scripts/import-ndx-snapshot.js ../data/ndx/2026-05-01.json",
     "labels:qqq": "node scripts/rebuild-market-labels.js QQQ",
     "test": "node --test"

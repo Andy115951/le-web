@@ -31,6 +31,7 @@
 
 - [ ] 当前网络没有公网 IPv6，`supabase db push --linked` 无法直连数据库；Schema 已通过 `supabase db query --linked --file` 应用，但仍需在具备 IPv6 或 Pooler 数据库密码时登记 migration 历史
 - [x] 公共 `nasdaq_market_event_history` 已建表并完成 14 个核心标的真实写入
+- [x] `daily_market_features` 已通过 Management API 应用并完成 1,254 行 QQQ 回填
 - [x] Cron 运行日志、失败诊断、手动重跑和最近运行记录接口
 - [x] Nasdaq 核心行情/新闻入口已与个人自选解耦，无登录也可运行
 
@@ -209,6 +210,7 @@ supabase projects list --agent no --output-format text
 - `market_days`
 - `price_bars_daily`
 - `market_forward_labels`
+- `daily_market_features`
 - `sources`
 - `events`
 - `event_sources`
@@ -224,6 +226,7 @@ supabase/migrations/20260812190000_add_market_price_data.sql
 supabase/migrations/20260812200000_add_market_forward_labels.sql
 supabase/migrations/20260812210000_add_unified_market_events.sql
 supabase/migrations/20260812220000_add_ndx_constituent_snapshots.sql
+supabase/migrations/20260812230000_add_daily_market_features.sql
 ```
 
 ### 5.3 配置登录回调
@@ -491,7 +494,35 @@ GET /api/nasdaq/calendar?date=2026-08-11
 - `2026-08-11` 能返回 `QQQ` 行情、统一事件证据关系和 `2026-05-01` NDX 快照
 - 非法日期（例如 `2026-02-31`）返回 `400`
 
-### 8.5 收盘归档验证
+### 8.5 日度相似日输入特征
+
+日度特征是后续“历史相似日”计算的唯一基础输入，当前只覆盖 `QQQ` 的价格、成交量和已知事件状态。它与 `market_forward_labels` 严格分表：前者只记录当日收盘时已经可知的信息，后者只用于事后研究。
+
+重建或幂等回填：
+
+```bash
+set -a
+. ./.env.local
+set +a
+npm run features:qqq
+```
+
+查询：
+
+```text
+GET /api/nasdaq/features?symbol=QQQ&limit=365
+GET /api/nasdaq/features?symbol=QQQ&date=2026-08-11
+```
+
+特征版本当前为 `qqq-daily-state-v1`。价格特征只使用该日及以前的日线；事件特征只保留 `available_at` 不晚于该日美东 `16:00` 的事件。此规则会排除事后采集、后来才发现或只有归因价值的事件，避免未来数据泄漏。
+
+当前回填验证：
+
+- `1,254` 行，`2021-08-12` 至 `2026-08-11`
+- `1,234` 行具备成熟 20 日前瞻研究标签，标签不参与特征
+- 当前可用事件天数为 `0`，因为现有 14 条统一事件都在对应交易日收盘后才被本系统获得
+
+### 8.6 收盘归档验证
 
 定时任务使用 `GET`，手动重跑使用 `POST`。两个入口都要求：
 

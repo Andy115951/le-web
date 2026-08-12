@@ -213,7 +213,7 @@ function validateMarketDate(value, field) {
   return date;
 }
 
-async function getUnifiedMarketEventsRange(startDate, endDate) {
+async function getUnifiedMarketEventsRange(startDate, endDate, options) {
   const config = getSupabaseConfig();
   const normalizedStart = validateMarketDate(startDate, "start");
   const normalizedEnd = validateMarketDate(endDate, "end");
@@ -231,6 +231,7 @@ async function getUnifiedMarketEventsRange(startDate, endDate) {
     if (rows.length < 1000) break;
   }
   if (!Array.isArray(events) || !events.length) return [];
+  if (options?.includeRelations === false) return events;
   const eventIds = events.map(function (event) { return event.id; });
   const sourceLinks = [];
   const entityLinks = [];
