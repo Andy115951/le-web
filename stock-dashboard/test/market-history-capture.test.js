@@ -50,6 +50,23 @@ test("public history rows preserve market identity without a user id", function 
   assert.equal("user_id" in row, false);
 });
 
+test("public rows preserve the exact dynamic universe version", function () {
+  const now = new Date("2026-08-12T01:00:00.000Z");
+  const row = toPublicHistoryRow({
+    date: "2026-08-11",
+    symbol: "NVDA",
+    name: "NVIDIA",
+    reasons: [],
+    news: [],
+    capturedAt: now.toISOString()
+  }, now, {
+    asOf: "2026-05-01",
+    instruments: [{ symbol: "NVDA", role: "component" }]
+  });
+  assert.equal(row.universe_as_of, "2026-05-01");
+  assert.equal(row.instrument_role, "component");
+});
+
 test("personal compatibility rows do not write unified-only time columns", function () {
   const now = new Date("2026-08-12T01:00:00.000Z");
   const row = toHistoryRow("user-id", {

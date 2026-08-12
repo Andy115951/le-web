@@ -1,9 +1,6 @@
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36";
 const {
-  NASDAQ_FOCUS_INSTRUMENTS,
-  NASDAQ_UNIVERSE_AS_OF,
-  NASDAQ_UNIVERSE_SOURCE,
-  getNasdaqFocusSymbols
+  getNasdaqFocusUniverse
 } = require("./nasdaq-universe");
 const MAX_SYMBOLS = 16;
 const FRESH_NEWS_WINDOW_MS = 36 * 60 * 60 * 1000;
@@ -214,7 +211,10 @@ async function getDailyMarketEvents(symbols, options) {
   const requested = Array.isArray(symbols) ? symbols : [];
   const normalizedRequested = Array.from(new Set(requested.map(normalizeSymbol).filter(isGlobalStockSymbol)));
   const usingDefaultUniverse = normalizedRequested.length === 0;
-  const normalized = (usingDefaultUniverse ? getNasdaqFocusSymbols() : normalizedRequested).slice(0, MAX_SYMBOLS);
+  const defaultUniverse = usingDefaultUniverse ? await getNasdaqFocusUniverse() : null;
+  const normalized = (usingDefaultUniverse
+    ? defaultUniverse.instruments.map(function (item) { return item.symbol; })
+    : normalizedRequested).slice(0, MAX_SYMBOLS);
 
   const querySymbols = normalized.includes("QQQ") ? normalized : ["QQQ"].concat(normalized);
   const settled = await mapWithConcurrency(querySymbols, 3, fetchTickerContext);
@@ -246,10 +246,10 @@ async function getDailyMarketEvents(symbols, options) {
     events,
     failedSymbols,
     universe: {
-      type: usingDefaultUniverse ? "nasdaq-focus" : "custom",
-      asOf: usingDefaultUniverse ? NASDAQ_UNIVERSE_AS_OF : null,
-      source: usingDefaultUniverse ? NASDAQ_UNIVERSE_SOURCE : null,
-      instruments: usingDefaultUniverse ? NASDAQ_FOCUS_INSTRUMENTS : []
+      type: usingDefaultUniverse ? defaultUniverse.type : "custom",
+      asOf: usingDefaultUniverse ? defaultUniverse.asOf : null,
+      source: usingDefaultUniverse ? defaultUniverse.source : null,
+      instruments: usingDefaultUniverse ? defaultUniverse.instruments : []
     }
   };
 }

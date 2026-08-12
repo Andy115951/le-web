@@ -161,6 +161,17 @@ with check (auth.uid() = user_id);
 
 当前远程验证基线：14 个唯一事件、36 个唯一 URL、39 条事件来源关系、27 条事件实体关系；每条事件均有主行情来源和主实体。公开读取统一走 `GET /api/nasdaq/events`。
 
+### NDX 成分与权重快照
+
+`20260812220000_add_ndx_constituent_snapshots.sql` 新增：
+
+- `ndx_constituent_snapshots`：指数代码、生效日、发布时间、官方来源、证券数、权重总和和版本元数据
+- `ndx_constituent_members`：快照、instrument、原始证券名、权重和排名
+
+两张表启用 RLS，仅服务端 Secret Key 直接读写。唯一键保证同一指数和生效日只有一个快照，同一快照内 instrument 与排名均唯一。
+
+首个远程快照来自 Nasdaq 官方 `2026-05-01` NDX 成分 PDF：101 个证券、权重合计 `99.96%`。权重是官方两位小数指示值，不进行二次归一化。浏览器通过 `GET /api/nasdaq/constituents?asOf=YYYY-MM-DD` 查询当时可用的最近快照。
+
 ## 2. 打开邮箱登录
 
 在 Supabase Dashboard:

@@ -213,12 +213,17 @@ supabase projects list --agent no --output-format text
 - `events`
 - `event_sources`
 - `event_entities`
+- `ndx_constituent_snapshots`
+- `ndx_constituent_members`
 - 对应索引、唯一约束和 RLS Policies
 
-最新标准行情 migration：
+当前市场数据 migrations：
 
 ```text
 supabase/migrations/20260812190000_add_market_price_data.sql
+supabase/migrations/20260812200000_add_market_forward_labels.sql
+supabase/migrations/20260812210000_add_unified_market_events.sql
+supabase/migrations/20260812220000_add_ndx_constituent_snapshots.sql
 ```
 
 ### 5.3 配置登录回调
@@ -414,7 +419,47 @@ GET /api/nasdaq/events?days=30|90|180
 
 响应中每条事件包含 `sources` 和 `entities`，便于 UI 和 Agent 直接展示证据链接及相关标的。浏览器不能直接访问四张 RLS 表。
 
-### 8.3 收盘归档验证
+### 8.3 NDX 成分与权重快照
+
+首个完整快照保存在：
+
+```text
+data/ndx/2026-05-01.json
+```
+
+来源是 Nasdaq 官方 NDX UCITS 成分 PDF。官方说明权重是指示性数值并四舍五入到两位小数，因此 101 个证券权重合计为 `99.96%`，不应强行归一化成 100%。Alphabet 的两类证券分别计数，所以证券数可以大于公司数 100。
+
+导入或幂等重导：
+
+```bash
+set -a
+. ./.env.local
+set +a
+npm run ndx:import
+```
+
+导入器校验：
+
+- 证券数在 100-110 之间
+- symbol 唯一且格式合法
+- 权重非负且总和在 99%-101%
+- 来源 URL、快照生效日和发布时间存在
+- 排名和 instrument 关联完整
+
+公开查询：
+
+```text
+GET /api/nasdaq/constituents
+GET /api/nasdaq/constituents?asOf=2026-08-12
+```
+
+查询返回 `asOf` 当日或更早的最新快照，并同时返回真实 `effective_date`。早于首个快照的日期返回 404，错误日期格式返回 400。不要把 `asOf=今天` 解读为快照也一定是今天。
+
+默认市场雷达会从数据库最新完整快照选择权重前 12，再加 `QQQ / MAGS`，总请求量保持在 16 以下。数据库或服务端环境变量不可用时，回退到代码内有明确来源日期的小型雷达，不阻断页面。
+
+当前远程验证：1 个快照、101 个唯一成员、101 个唯一排名、权重 `99.96%`、0 个缺失 instrument。后续新增快照只能追加新的 `effective_date`，不得覆盖旧日期来伪造历史。
+
+### 8.4 收盘归档验证
 
 定时任务使用 `GET`，手动重跑使用 `POST`。两个入口都要求：
 

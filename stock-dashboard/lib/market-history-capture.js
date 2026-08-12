@@ -38,13 +38,15 @@ function toHistoryRow(userId, event, now) {
   };
 }
 
-function toPublicHistoryRow(event, now) {
+function toPublicHistoryRow(event, now, universe) {
+  const instruments = Array.isArray(universe?.instruments) ? universe.instruments : NASDAQ_FOCUS_INSTRUMENTS;
+  const role = instruments.find(function (item) { return item.symbol === event.symbol; })?.role;
   return {
     market_date: event.date,
     symbol: event.symbol,
     display_name: event.name,
-    instrument_role: INSTRUMENT_ROLES.get(event.symbol) || "component",
-    universe_as_of: NASDAQ_UNIVERSE_AS_OF,
+    instrument_role: role || INSTRUMENT_ROLES.get(event.symbol) || "component",
+    universe_as_of: universe?.asOf || NASDAQ_UNIVERSE_AS_OF,
     change_percent: event.changePercent,
     benchmark_change_percent: event.benchmarkChangePercent,
     driver_type: event.driverType,
@@ -206,7 +208,7 @@ async function captureMarketHistory(input) {
     }
 
     const publicRows = publicSnapshot.events.map(function (event) {
-      return toPublicHistoryRow(event, now);
+      return toPublicHistoryRow(event, now, publicSnapshot.universe);
     });
     await upsertRows(config, PUBLIC_HISTORY_TABLE, "market_date,symbol", publicRows);
     const publicSavedEvents = publicRows.length;
@@ -297,7 +299,8 @@ async function captureMarketHistory(input) {
           unifiedSavedEvents: result.unifiedSavedEvents,
           unifiedSavedSources: result.unifiedSavedSources,
           personalSavedEvents,
-          publicUniverseAsOf: NASDAQ_UNIVERSE_AS_OF
+          publicUniverseAsOf: publicSnapshot.universe?.asOf || NASDAQ_UNIVERSE_AS_OF,
+          publicUniverseSource: publicSnapshot.universe?.source || null
         },
         failedUsers > 0 ? failedUsers + " user capture(s) failed" : null
       ));
