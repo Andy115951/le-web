@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const {
   EVENT_REVIEW_VERSION,
+  applyReviewDecisionsToEvents,
   buildEventReviewQueue,
   classifyEventForReview,
   normalizeReviewDecision
@@ -80,4 +81,25 @@ test("review queue keeps unreviewed counts separate from deterministic attention
   assert.equal(result.items[1].queueState, "accepted");
   assert.equal("reviewer" in result.items[1].latestReview, false);
   assert.equal("note" in result.items[1].latestReview, false);
+});
+
+test("review application attaches only public decision state to research events", function () {
+  const events = [{
+    id: "event-1",
+    event_type: "sec_filing",
+    confidence: 0.95,
+    available_at: "2026-08-11T20:00:00.000Z",
+    sources: [{ relationType: "primary" }]
+  }];
+  const result = applyReviewDecisionsToEvents(events, new Map([["event-1", {
+    review_status: "rejected",
+    reviewer: "apple",
+    review_note: "Sensitive private note",
+    review_version: EVENT_REVIEW_VERSION,
+    reviewed_at: "2026-08-12T00:00:00.000Z"
+  }]]));
+  assert.equal(result[0].review.status, "rejected");
+  assert.equal(result[0].review.requiresAttention, false);
+  assert.equal("reviewer" in result[0].review, false);
+  assert.equal("reviewNote" in result[0].review, false);
 });

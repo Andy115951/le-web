@@ -2,6 +2,8 @@ const { getMarketDayDetail, getPreviousTradingDate, normalizeDate } = require(".
 const { getStoredSimilarDays } = require("./similar-day-store");
 const { marketCloseAt } = require("./daily-market-features");
 const { getUnifiedMarketEventsRange } = require("./unified-market-events");
+const { applyReviewDecisionsToEvents, getLatestReviewDecisions } = require("./event-review");
+const { getSupabaseConfig } = require("./supabase-server");
 
 const RESEARCH_PACKET_VERSION = "daily-research-packet-v1";
 
@@ -36,6 +38,15 @@ function cleanEvent(event) {
     impactScope: event?.impact_scope || "unknown",
     impactLevel: event?.impact_level || "unknown",
     confidence: finiteNumber(event?.confidence),
+    review: {
+      status: event?.review?.status || null,
+      version: event?.review?.version || null,
+      reviewedAt: event?.review?.reviewedAt || null,
+      requiresAttention: Boolean(event?.review?.requiresAttention),
+      flags: Array.isArray(event?.review?.flags) ? event.review.flags.map(function (flag) {
+        return { code: String(flag?.code || ""), severity: String(flag?.severity || "unknown") };
+      }).filter(function (flag) { return flag.code; }) : []
+    },
     tickers: Array.isArray(event?.tickers) ? event.tickers.map(String) : [],
     themes: Array.isArray(event?.themes) ? event.themes.map(String) : [],
     sources
@@ -108,6 +119,7 @@ function buildDailyResearchPacket(input) {
         ? isAvailableDuringResearchSession(event, previousMarketDate, date)
         : isAvailableByMarketClose(event, date);
     })
+    .filter(function (event) { return event?.review?.status !== "rejected"; })
     .map(cleanEvent);
   const eventSummary = summarizePacketEvents(events);
   return {
@@ -124,6 +136,7 @@ function buildDailyResearchPacket(input) {
       excluded: [
         "Target-day forward returns and research labels",
         "Any event with available_at after target New York close",
+        "Any event explicitly rejected by an append-only human review decision",
         "Trading advice, target prices, model probabilities, or generated recommendations"
       ]
     },
@@ -176,7 +189,16 @@ async function getDailyResearchPacket(value, now = new Date()) {
     getPreviousTradingDate(date)
   ]);
   const sessionEvents = await getUnifiedMarketEventsRange(previousMarketDate, date);
-  return buildDailyResearchPacket({ date, detail, similar, sessionEvents, previousMarketDate, generatedAt: now.toISOString() });
+  const config = getSupabaseConfig();
+  const reviews = await getLatestReviewDecisions(config, sessionEvents.map(function (event) { return event.id; }));
+  return buildDailyResearchPacket({
+    date,
+    detail,
+    similar,
+    sessionEvents: applyReviewDecisionsToEvents(sessionEvents, reviews),
+    previousMarketDate,
+    generatedAt: now.toISOString()
+  });
 }
 
 module.exports = {

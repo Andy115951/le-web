@@ -66,6 +66,21 @@ test("research narrative contract rejects uncited sources and investment instruc
   assert.ok(validation.errors.some(function (error) { return /prohibited/.test(error); }));
 });
 
+test("research narrative contract rejects citations to events rejected by human review", function () {
+  const rejectedPacket = {
+    ...packet,
+    events: [{
+      ...packet.events[0],
+      review: { status: "rejected" }
+    }]
+  };
+  const validation = validateResearchNarrative(validNarrative(), rejectedPacket);
+  assert.equal(validation.valid, false);
+  assert.ok(validation.errors.some(function (error) { return /unknown event key/.test(error); }));
+  const instructions = buildResearchNarrativeInstructions(rejectedPacket);
+  assert.deepEqual(instructions.allowedEvidence.eventKeys, []);
+});
+
 test("research narrative audit fingerprints both accepted and rejected output", function () {
   const valid = validateResearchNarrative(validNarrative(), packet);
   const accepted = buildNarrativeAuditRecord(packet, validNarrative(), valid, { provider: "DeepSeek", model: "example" });

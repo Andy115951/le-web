@@ -93,6 +93,24 @@ function buildEventReviewQueue(events, latestReviews, days) {
   };
 }
 
+function applyReviewDecisionsToEvents(events, latestReviews) {
+  const reviews = latestReviews instanceof Map ? latestReviews : new Map();
+  return (events || []).map(function (event) {
+    const latestReview = reviews.get(event.id) || null;
+    const classification = classifyEventForReview(event);
+    return {
+      ...event,
+      review: {
+        status: latestReview?.review_status || null,
+        version: latestReview?.review_version || null,
+        reviewedAt: latestReview?.reviewed_at || null,
+        requiresAttention: classification.requiresReview,
+        flags: classification.flags
+      }
+    };
+  });
+}
+
 async function getEventReviewQueue(days) {
   const normalizedDays = normalizeHistoryDays(days);
   const config = getSupabaseConfig();
@@ -133,6 +151,7 @@ async function recordEventReviewDecision(input) {
 module.exports = {
   EVENT_REVIEW_VERSION,
   REVIEW_STATUSES,
+  applyReviewDecisionsToEvents,
   buildEventReviewQueue,
   classifyEventForReview,
   getEventReviewQueue,

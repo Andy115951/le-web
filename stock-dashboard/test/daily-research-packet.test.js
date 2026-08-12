@@ -88,3 +88,17 @@ test("daily research packet carries post-close evidence into the next research s
   assert.equal(isAvailableDuringResearchSession(afterPriorClose, "2026-08-10", date), true);
   assert.equal(isAvailableDuringResearchSession(afterTargetClose, "2026-08-10", date), false);
 });
+
+test("daily research packet excludes events explicitly rejected by append-only review", function () {
+  const accepted = { ...event("accepted-evidence", "2026-08-11T19:00:00.000Z"), review: { status: "accepted" } };
+  const rejected = { ...event("rejected-evidence", "2026-08-11T19:01:00.000Z"), review: { status: "rejected" } };
+  const packet = buildDailyResearchPacket({
+    date,
+    detail: { day: { qqq: { adjustedClose: 600 } }, ndxSnapshot: null },
+    sessionEvents: [accepted, rejected],
+    similar: { matches: [] }
+  });
+  assert.deepEqual(packet.events.map(function (item) { return item.eventKey; }), ["accepted-evidence"]);
+  assert.equal(packet.events[0].review.status, "accepted");
+  assert.match(packet.asOf.excluded.join(" "), /rejected by an append-only human review/);
+});

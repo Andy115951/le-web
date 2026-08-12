@@ -57,7 +57,7 @@ function allowedEvidence(packet) {
   const candidateDates = new Set();
   (Array.isArray(packet?.events) ? packet.events : []).forEach(function (event) {
     const eventKey = String(event?.eventKey || "");
-    if (!eventKey) return;
+    if (!eventKey || event?.review?.status === "rejected") return;
     eventByKey.set(eventKey, new Set((event.sources || []).map(function (source) { return source?.url; }).filter(Boolean)));
   });
   (packet?.historicalSimilarity?.matches || []).forEach(function (match) {

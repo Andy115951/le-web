@@ -453,7 +453,7 @@ CRON_SECRET
 
 - [ ] Collector、Labeler、Attribution、Similarity、Scenario、Reporter、Evaluator Agents
 - [x] 固定泄漏安全的日度研究输入包契约，供后续 Reporter/Attribution 使用
-- [x] 定义引用约束的研究摘要输出 Schema、拒绝规则和服务端审计表
+- [x] 定义引用约束的研究摘要输出 Schema、拒绝规则和服务端审计表，并排除人工否决事件
 - [ ] 每日/每周自动报告
 - [ ] 失败告警和任务看板
 - [ ] 某日 Agent 流程回放
