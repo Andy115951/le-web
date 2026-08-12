@@ -10,8 +10,29 @@ const BANNED_NARRATIVE_PATTERNS = [
   /预测概率|上涨概率|下跌概率|胜率预测|probability forecast/i
 ];
 
+function canonicalJsonValue(value) {
+  if (Array.isArray(value)) return value.map(canonicalJsonValue);
+  if (value && typeof value === "object") {
+    return Object.keys(value).sort().reduce(function (result, key) {
+      result[key] = canonicalJsonValue(value[key]);
+      return result;
+    }, {});
+  }
+  return value;
+}
+
 function fingerprint(value) {
-  return crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
+  return crypto.createHash("sha256").update(JSON.stringify(canonicalJsonValue(value))).digest("hex");
+}
+
+function materialResearchPacket(packet) {
+  const value = packet && typeof packet === "object" ? packet : {};
+  const { generatedAt, ...facts } = value;
+  return facts;
+}
+
+function researchPacketFingerprint(packet) {
+  return fingerprint(materialResearchPacket(packet));
 }
 
 function safeText(value, maximum = 160) {
@@ -158,7 +179,7 @@ function buildNarrativeAuditRecord(packet, output, validation, metadata = {}) {
   return {
     market_date: packet?.asOf?.marketDate || null,
     packet_contract_version: packet?.contractVersion || null,
-    packet_fingerprint: fingerprint(packet),
+    packet_fingerprint: researchPacketFingerprint(packet),
     narrative_contract_version: output?.contractVersion || null,
     output_fingerprint: fingerprint(output),
     provider: safeText(metadata.provider),
@@ -175,7 +196,10 @@ module.exports = {
   allowedEvidence,
   buildNarrativeAuditRecord,
   buildResearchNarrativeInstructions,
+  canonicalJsonValue,
   fingerprint,
+  materialResearchPacket,
+  researchPacketFingerprint,
   sanitizeAuditMetadata,
   validateResearchNarrative
 };

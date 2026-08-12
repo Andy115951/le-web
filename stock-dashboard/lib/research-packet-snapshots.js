@@ -1,5 +1,5 @@
 const { normalizeDate } = require("./market-calendar");
-const { fingerprint } = require("./research-narrative-contract");
+const { materialResearchPacket, researchPacketFingerprint } = require("./research-narrative-contract");
 const { getSupabaseConfig, requestSupabase } = require("./supabase-server");
 
 const RESEARCH_PACKET_SNAPSHOT_VERSION = "research-packet-snapshot-v1";
@@ -10,13 +10,7 @@ function normalizeSnapshotLimit(value) {
 }
 
 function materialPacket(packet) {
-  const value = packet && typeof packet === "object" ? packet : {};
-  const { generatedAt, ...facts } = value;
-  return facts;
-}
-
-function researchPacketFingerprint(packet) {
-  return fingerprint(materialPacket(packet));
+  return materialResearchPacket(packet);
 }
 
 function incrementCount(counts, key) {
@@ -101,6 +95,34 @@ async function getResearchPacketSnapshots(options = {}, config = getSupabaseConf
   };
 }
 
+async function rehashResearchPacketSnapshots(config = getSupabaseConfig(), requestImpl = requestSupabase) {
+  const rows = await requestImpl(config, "/rest/v1/research_packet_snapshots?select=id,market_date,packet_fingerprint,packet&order=market_date.desc,captured_at.desc&limit=1000");
+  const snapshots = Array.isArray(rows) ? rows : [];
+  const planned = snapshots.map(function (snapshot) {
+    return {
+      ...snapshot,
+      expectedFingerprint: researchPacketFingerprint(snapshot.packet)
+    };
+  });
+  const destinations = new Map();
+  planned.forEach(function (snapshot) {
+    const key = snapshot.market_date + ":" + snapshot.expectedFingerprint;
+    if (destinations.has(key) && destinations.get(key) !== snapshot.id) {
+      throw new Error("Cannot rehash duplicate snapshots without an explicit merge: " + snapshot.market_date);
+    }
+    destinations.set(key, snapshot.id);
+  });
+  const updates = planned.filter(function (snapshot) { return snapshot.packet_fingerprint !== snapshot.expectedFingerprint; });
+  for (const snapshot of updates) {
+    await requestImpl(config, "/rest/v1/research_packet_snapshots?id=eq." + encodeURIComponent(snapshot.id), {
+      method: "PATCH",
+      headers: { Prefer: "return=minimal" },
+      body: { packet_fingerprint: snapshot.expectedFingerprint }
+    });
+  }
+  return { scanned: snapshots.length, updated: updates.length };
+}
+
 module.exports = {
   RESEARCH_PACKET_SNAPSHOT_VERSION,
   buildResearchPacketSnapshot,
@@ -109,5 +131,6 @@ module.exports = {
   materialPacket,
   normalizeSnapshotLimit,
   persistResearchPacketSnapshot,
+  rehashResearchPacketSnapshots,
   researchPacketFingerprint
 };

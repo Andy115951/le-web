@@ -73,8 +73,9 @@
 - SEC EDGAR filings 骨架：可将核心标的的 `10-K / 10-Q / 8-K / 20-F / 40-F / 6-K` 以官方归档链接、接受时间和 CIK 写入统一事件层；配置合规 `SEC_USER_AGENT` 后启用
 - FRED 宏观观测骨架：可把 `CPIAUCSL / UNRATE / FEDFUNDS / GDPC1` 的官方 FRED 观测写入统一事件层；配置服务端 `FRED_API_KEY` 后启用，未配置时保持禁用
 - 日度研究输入包：`GET /api/nasdaq/research-packet?date=YYYY-MM-DD` 固定后续 AI/日报可读取的泄漏安全事实边界，并按“上一交易日收盘到目标日收盘”筛选可知事件；人工 `rejected` 事件不会进入模型证据集合
-- 研究输入回放：收盘任务会追加保存稳定指纹的研究包快照；看板“研究回放”以摘要列表加按需详情方式复原当时事实输入，`GET /api/nasdaq/research-packet-snapshots` 默认只返回摘要，显式 `includePacket=true` 才返回完整历史输入
-- 研究摘要输出契约：未来 DeepSeek/LLM 输出必须通过来源引用、越权语言和输入/输出指纹验证；审计表已就绪，但当前没有调用模型
+- 研究输入回放：收盘任务会追加保存字段顺序无关稳定指纹的研究包快照；看板“研究回放”以摘要列表加按需详情方式复原当时事实输入，`GET /api/nasdaq/research-packet-snapshots` 默认只返回摘要，显式 `includePacket=true` 才返回完整历史输入
+- 受控 DeepSeek 摘要执行器：只可读取已归档研究输入，默认关闭；启用后受每日请求上限、稳定输入指纹、引用/越权校验与服务端审计共同约束
+- 已验证摘要回放：研究回放会显示与所选快照指纹一致、且已通过校验的模型摘要；没有摘要时明确显示未生成，网页不会触发模型调用
 - 输出契约查询：`GET /api/nasdaq/research-narrative-contract?date=YYYY-MM-DD` 提供该日期允许引用的证据与固定 JSON 结构
 
 ### 当前版本重点
@@ -269,7 +270,7 @@ vercel
 - 页面行情与基础分析不依赖服务端私密环境变量
 - `Supabase URL` 和 `Supabase Anon Key` 由页面输入并保存在浏览器本地
 - 每日收盘历史归档依赖服务端的 `SUPABASE_URL`、`SUPABASE_SECRET_KEY` 和 `CRON_SECRET`
-- 当前也没有接 `OpenAI / DeepSeek` 这类模型密钥
+- DeepSeek 执行器已接入但 Production 尚未配置 `DEEPSEEK_*`，因此当前不会调用任何模型
 
 所以目前多端开发比较轻：
 

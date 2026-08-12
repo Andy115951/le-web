@@ -7,6 +7,7 @@ const { captureRecentSecFilings, isSecEdgarConfigured } = require("./sec-edgar")
 const { captureRecentFredObservations, isFredConfigured } = require("./fred-macro");
 const { getDailyResearchPacket } = require("./daily-research-packet");
 const { persistResearchPacketSnapshot } = require("./research-packet-snapshots");
+const { runDeepSeekResearchNarrative } = require("./deepseek-research-narrative");
 
 const RUNS_TABLE = "market_capture_runs";
 const PUBLIC_HISTORY_TABLE = "nasdaq_market_event_history";
@@ -259,17 +260,43 @@ async function captureMarketHistory(input) {
       packetFingerprint: null,
       error: null
     };
+    let researchPacket = null;
     try {
-      const packet = await getDailyResearchPacket(today, now);
-      if (!packet.marketState) {
+      researchPacket = await getDailyResearchPacket(today, now);
+      if (!researchPacket.marketState) {
         researchPacketSnapshotResult = { ...researchPacketSnapshotResult, status: "skipped", error: "Research packet has no QQQ market state" };
       } else {
-        const saved = await persistResearchPacketSnapshot(config, packet, now.toISOString());
+        const saved = await persistResearchPacketSnapshot(config, researchPacket, now.toISOString());
         researchPacketSnapshotResult = { status: "succeeded", error: null, ...saved };
       }
     } catch (error) {
       // Snapshots enable research replay but must not discard an otherwise valid close capture.
       researchPacketSnapshotResult = { ...researchPacketSnapshotResult, status: "failed", error: errorMessage(error) };
+    }
+    let researchNarrativeResult = {
+      status: "pending",
+      reason: null,
+      created: false,
+      packetFingerprint: null,
+      validationErrors: []
+    };
+    try {
+      if (researchPacketSnapshotResult.status !== "succeeded" || !researchPacket) {
+        researchNarrativeResult = {
+          ...researchNarrativeResult,
+          status: "skipped",
+          reason: "research_packet_not_archived"
+        };
+      } else {
+        researchNarrativeResult = await runDeepSeekResearchNarrative(researchPacket, { now, runId, supabaseConfig: config });
+      }
+    } catch (error) {
+      // An optional model recap never changes the result of factual market capture.
+      researchNarrativeResult = {
+        ...researchNarrativeResult,
+        status: "failed",
+        reason: errorMessage(error)
+      };
     }
 
     const states = await requestSupabase(config, "/rest/v1/watchlist_states?select=user_id,items", {
@@ -347,6 +374,9 @@ async function captureMarketHistory(input) {
       researchPacketSnapshotStatus: researchPacketSnapshotResult.status,
       researchPacketSnapshotCreated: researchPacketSnapshotResult.created,
       researchPacketFingerprint: researchPacketSnapshotResult.packetFingerprint,
+      researchNarrativeStatus: researchNarrativeResult.status,
+      researchNarrativeReason: researchNarrativeResult.reason,
+      researchNarrativeCreated: researchNarrativeResult.created,
       personalSavedEvents,
       skippedUsers,
       failedUsers,
@@ -381,6 +411,13 @@ async function captureMarketHistory(input) {
           researchPacketSnapshotCreated: researchPacketSnapshotResult.created,
           researchPacketFingerprint: researchPacketSnapshotResult.packetFingerprint,
           researchPacketSnapshotError: researchPacketSnapshotResult.error,
+          researchNarrativeStatus: researchNarrativeResult.status,
+          researchNarrativeReason: researchNarrativeResult.reason,
+          researchNarrativeCreated: researchNarrativeResult.created,
+          researchNarrativePacketFingerprint: researchNarrativeResult.packetFingerprint,
+          researchNarrativeValidationErrorCount: Array.isArray(researchNarrativeResult.validationErrors)
+            ? researchNarrativeResult.validationErrors.length
+            : 0,
           personalSavedEvents,
           publicUniverseAsOf: publicSnapshot.universe?.asOf || NASDAQ_UNIVERSE_AS_OF,
           publicUniverseSource: publicSnapshot.universe?.source || null

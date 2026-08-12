@@ -8,6 +8,7 @@ const { getStoredDailyPrices } = require("../../lib/price-history-store");
 const { getStoredSimilarDays } = require("../../lib/similar-day-store");
 const { getDailyResearchPacket } = require("../../lib/daily-research-packet");
 const { RESEARCH_NARRATIVE_VERSION, buildResearchNarrativeInstructions } = require("../../lib/research-narrative-contract");
+const { getPublishedResearchNarratives } = require("../../lib/research-narrative-audit");
 const { getEventReviewQueue } = require("../../lib/event-review");
 const { getResearchPacketSnapshots } = require("../../lib/research-packet-snapshots");
 
@@ -201,6 +202,23 @@ const resources = {
         return;
       }
       sendFailure(res, "Failed to build research narrative contract", error);
+    }
+  },
+
+  async "research-narratives"(req, res) {
+    try {
+      const result = await getPublishedResearchNarratives({
+        date: req.query?.date,
+        limit: req.query?.limit
+      });
+      res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=900");
+      sendJson(res, 200, { ok: true, researchOnly: true, ...result });
+    } catch (error) {
+      if (/Invalid calendar date/.test(error?.message || "")) {
+        sendInvalidQuery(res, "Invalid research narrative date; expected YYYY-MM-DD");
+        return;
+      }
+      sendFailure(res, "Failed to load published research narratives", error);
     }
   },
 

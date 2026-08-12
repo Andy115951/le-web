@@ -110,6 +110,15 @@ with check (auth.uid() = user_id);
 
 该表启用 RLS，不给 `anon` 和 `authenticated` 角色访问权限，只允许服务端 Secret Key 管理。浏览器不能直接读取运维日志。
 
+### 研究摘要审计与幂等性
+
+`research_narrative_audits` 保存受控模型摘要的输入/输出指纹、模型标识、校验状态和受限运行元数据。正式定义位于：
+
+- `supabase/migrations/20260812260000_add_research_narrative_audits.sql`
+- `supabase/migrations/20260812300000_add_research_narrative_idempotency.sql`
+
+只有服务端 Secret Key 可以读写。第二份 migration 增加部分唯一索引：同一个研究输入指纹、同一个 provider、同一个模型最多有一条 `accepted` 记录；`rejected` 记录仍保持追加式，便于审计模型失败或越权输出。浏览器只通过 `GET /api/nasdaq/research-narratives` 读取已经接受的摘要，永远不会获得审计表直接权限或模型 Key。
+
 ### 公共 Nasdaq 历史表
 
 `nasdaq_market_event_history` 保存不绑定用户账号的核心市场日度事件。正式定义位于：

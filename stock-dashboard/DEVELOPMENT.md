@@ -507,7 +507,7 @@ npm run fred:macro
 
 #### 8.2.2 日度研究输入包（Agent 前置契约）
 
-当前没有接入 DeepSeek 或任何其他模型。先固定只读输入契约，避免模型直接访问数据库、未来标签或不受控的网页文本：
+模型执行器只允许读取这份已归档的输入契约，不能直接访问数据库、未来标签或不受控的网页文本：
 
 ```text
 GET /api/nasdaq/research-packet?date=2026-08-11
@@ -526,7 +526,7 @@ GET /api/nasdaq/research-packet?date=2026-08-11
 
 #### 8.2.3 研究摘要输出契约与审计
 
-目前仍未调用 DeepSeek。已先实现 `research-narrative-v1` 输出校验器和 `research_narrative_audits` 服务端审计表，避免模型接入后先产生日志与事实不可追溯的问题。
+已实现 `research-narrative-v1` 输出校验器、`research_narrative_audits` 服务端审计表与默认关闭的 DeepSeek 执行器。Production 目前没有配置任何 `DEEPSEEK_*` 变量，因此不会产生模型请求或费用。
 
 获取某市场日允许引用的证据与输出形状：
 
@@ -548,13 +548,57 @@ GET /api/nasdaq/research-narrative-contract?date=2026-08-11
 npm run narrative:validate -- /tmp/research-packet.json /tmp/narrative.json
 ```
 
-后续模型调用必须始终先校验，再调用 `persistResearchNarrativeAudit` 写入接受或拒绝结果。审计记录保存输入/输出 SHA-256 指纹、模型标识、完整 JSON 和验证错误；该表仅服务端可读写，不能向浏览器或 LLM 反向暴露密钥。
+启用后，收盘 Cron 会先保存稳定研究快照，再将该同一份输入交给 DeepSeek。执行器在请求前检查：显式开关、当日美东请求上限、同一输入指纹与同一模型的已接受摘要；响应必须是完整 JSON、通过来源引用和非建议语言校验，才会成为 `accepted`。失败或违规响应仍以 `rejected` 形式追加审计，但不保存原始非 JSON 文本。数据库还有部分唯一索引，避免并发下对同一快照和同一模型发布两条接受结果。
+
+已接受摘要可通过只读接口读取：
+
+```text
+GET /api/nasdaq/research-narratives?date=2026-08-11
+```
+
+“研究回放”只显示与当前快照指纹一致的已接受摘要；网页不提供模型调用按钮。审计记录保存输入/输出 SHA-256 指纹、模型标识、受限元数据和验证错误；该表仅服务端可读写，不能向浏览器或 LLM 反向暴露密钥。
 
 审计 `metadata` 不透传调用方对象，仅允许 `runId`、生成时间、延迟、输入/输出 token 数和 temperature。不要将 API Key、Authorization、请求头或完整模型响应放入该参数。
 
-#### 8.2.4 研究输入快照与回放
+#### 8.2.4 启用一次受控 DeepSeek 验证
+
+先在本机 `.env.local` 和 Vercel Production 配置相同的服务器变量，不要写入 Git、浏览器或 `VITE_` 前缀变量：
+
+```dotenv
+DEEPSEEK_RESEARCH_ENABLED=false
+DEEPSEEK_API_KEY=<只放服务器的 DeepSeek Key>
+DEEPSEEK_MODEL=<DeepSeek 控制台当前可用的模型 ID>
+DEEPSEEK_MAX_DAILY_REQUESTS=1
+DEEPSEEK_MAX_OUTPUT_TOKENS=900
+```
+
+第一次保持开关为 `false` 部署并检查运行日志；确认模型 ID、每日预算和账户归属后，才把 `DEEPSEEK_RESEARCH_ENABLED` 改为 `true`。代码层硬性限制每日最多 `3` 次请求、单次最多 `1400` 输出 token，即使环境变量误填更大也不会放宽。DeepSeek 的 JSON 模式需要请求 `response_format: { type: "json_object" }` 且提示词明确要求 JSON；实现已经固定这两点，参考 [DeepSeek JSON Output](https://api-docs.deepseek.com/guides/json_mode)。
+
+启用前先使用已归档的历史快照做一次人工、可审计验证：
+
+```bash
+set -a
+. ./.env.local
+set +a
+npm run narrative:run -- 2026-08-11
+```
+
+命令只打印状态、快照指纹、审计 ID 和校验错误数量，不会输出 Key、请求头或完整上游响应。成功后再次执行应返回 `already_accepted` 而不重复请求模型。若返回 `rejected`，先在 `research_narrative_audits` 排查校验错误，不应手动修改审计记录。
+
+#### 8.2.5 研究输入快照与回放
 
 每次收盘归档在公共行情、可选 SEC/FRED 采集完成后，会尝试生成当天研究输入包并写入 `research_packet_snapshots`。快照保存完整输入 JSON、去除 `generatedAt` 后的稳定 SHA-256 指纹、来源/事件/审核状态聚合摘要和真实捕获时间。相同市场日、相同事实输入只保留一份，不会因重新运行而覆盖或复制。
+
+指纹使用字段顺序无关的规范 JSON 序列化，因此 Postgres `jsonb` 读回时重排对象键也不会把同一份事实误判为新输入。已在 `2026-08-12` 对远程既有快照执行一次迁移；只有导入了更早版本数据库时，才需再次运行：
+
+```bash
+set -a
+. ./.env.local
+set +a
+npm run research-packet:rehash
+```
+
+命令会先检查同一市场日是否会归并为重复指纹；存在冲突时会停止，而不会删除或合并任何快照。
 
 默认读取只返回摘要：
 
@@ -1007,7 +1051,9 @@ Could not find the table 'public.watchlist_states' in the schema cache
 
 ## 13. 后续环境变量
 
-当前版本不要求 OpenAI、DeepSeek 或付费行情 API Key。以后增加 AI 摘要或收费数据源时，应在接入代码的同一变更中：
+DeepSeek 摘要是可选功能，默认关闭。它使用下列服务端变量：`DEEPSEEK_RESEARCH_ENABLED`、`DEEPSEEK_API_KEY`、`DEEPSEEK_MODEL`、`DEEPSEEK_MAX_DAILY_REQUESTS`、`DEEPSEEK_MAX_OUTPUT_TOKENS`。启用前必须先设置不超过预算的每日请求数，并在 Vercel Production 与本机 `.env.local` 分别配置；无需在 Vercel Development 保存 Secret。
+
+以后增加其他 AI 摘要或收费数据源时，应在接入代码的同一变更中：
 
 1. 更新 `.env.example`，只增加变量名和占位值。
 2. 更新本文档的用途、获取路径和安全边界。

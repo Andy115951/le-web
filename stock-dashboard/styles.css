@@ -2009,6 +2009,16 @@ body {
 .replay-block-head strong { color: #f4f7ff; font-size: 0.79rem; }
 .replay-block-head span { color: #e9bf70; font-size: 0.59rem; font-weight: 850; }
 .replay-block > p { margin: 7px 0 0; color: #a5b5ce; font-size: 0.68rem; line-height: 1.48; }
+.replay-narrative { border-color: rgba(232, 179, 75, 0.3); background: linear-gradient(135deg, rgba(232, 179, 75, 0.11), rgba(255, 255, 255, 0.045)); }
+.replay-narrative h4 { margin: 9px 0 0; color: #fff4d9; font-size: 0.82rem; line-height: 1.35; }
+.replay-claims { display: grid; gap: 6px; margin-top: 9px; }
+.replay-claims > div { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 7px 8px; border-left: 2px solid rgba(232, 179, 75, 0.5); background: rgba(4, 13, 30, 0.18); }
+.replay-claims span { color: #d8e3f3; font-size: 0.63rem; line-height: 1.45; }
+.replay-claims b { flex: 0 0 auto; color: #f1cd84; font-size: 0.56rem; white-space: nowrap; }
+.replay-uncertainties { display: grid; gap: 4px; margin-top: 9px; padding: 8px; border-radius: 8px; background: rgba(114, 132, 167, 0.14); }
+.replay-uncertainties b { color: #b5c8e2; font-size: 0.58rem; }
+.replay-uncertainties span { color: #9fb0c7; font-size: 0.61rem; line-height: 1.42; }
+.replay-narrative small { display: block; margin-top: 9px; color: #8499b8; font-size: 0.55rem; line-height: 1.45; }
 .replay-event-list { display: grid; gap: 7px; margin-top: 8px; }
 .replay-event { display: grid; gap: 5px; padding: 9px; border: 1px solid rgba(182, 206, 244, 0.11); border-radius: 9px; background: rgba(5, 15, 32, 0.18); }
 .replay-event > div { display: flex; align-items: center; gap: 6px; min-width: 0; }

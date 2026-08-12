@@ -154,6 +154,9 @@ const state = {
     detail: null,
     detailLoading: false,
     detailError: "",
+    narratives: [],
+    narrativesLoading: false,
+    narrativeError: "",
     requestId: 0,
     detailRequestId: 0
   },
@@ -1044,25 +1047,38 @@ async function selectResearchSnapshot(snapshot) {
   replay.selectedFingerprint = snapshot.packet_fingerprint || "";
   replay.detail = null;
   replay.detailError = "";
+  replay.narratives = [];
+  replay.narrativeError = "";
   const requestId = ++replay.detailRequestId;
   replay.detailLoading = true;
+  replay.narrativesLoading = true;
   renderResearchReplay();
   try {
     const date = String(snapshot.market_date || "");
-    const response = await fetch("./api/nasdaq/research-packet-snapshots?date=" + encodeURIComponent(date) + "&includePacket=true&limit=30");
-    const payload = await response.json().catch(function () { return {}; });
-    if (!response.ok) throw new Error(payload?.error || "读取完整研究输入失败");
+    const responses = await Promise.all([
+      fetch("./api/nasdaq/research-packet-snapshots?date=" + encodeURIComponent(date) + "&includePacket=true&limit=30"),
+      fetch("./api/nasdaq/research-narratives?date=" + encodeURIComponent(date) + "&limit=5")
+    ]);
+    const payload = await responses[0].json().catch(function () { return {}; });
+    const narrativePayload = await responses[1].json().catch(function () { return {}; });
+    if (!responses[0].ok) throw new Error(payload?.error || "读取完整研究输入失败");
     if (requestId !== replay.detailRequestId) return;
     const snapshots = Array.isArray(payload?.snapshots) ? payload.snapshots : [];
     replay.detail = snapshots.find(function (item) {
       return item.id === replay.selectedId || item.packet_fingerprint === replay.selectedFingerprint;
     }) || null;
     if (!replay.detail) throw new Error("找不到所选快照的完整输入");
+    replay.narratives = responses[1].ok && Array.isArray(narrativePayload?.narratives)
+      ? narrativePayload.narratives.filter(function (item) { return item?.packet_fingerprint === replay.detail.packet_fingerprint; })
+      : [];
+    replay.narrativeError = responses[1].ok ? "" : (narrativePayload?.error || "读取已验证摘要失败");
     replay.detailLoading = false;
+    replay.narrativesLoading = false;
     renderResearchReplay();
   } catch (error) {
     if (requestId !== replay.detailRequestId) return;
     replay.detailLoading = false;
+    replay.narrativesLoading = false;
     replay.detailError = error?.message || "读取完整研究输入失败";
     renderResearchReplay();
   }
@@ -1147,10 +1163,41 @@ function renderResearchReplayDetail() {
     '<div><span>相似样本</span><strong>' + matches.length + "</strong></div>",
     "</div>",
     renderReplaySourceSummary(summary),
+    renderReplayNarrative(replay),
     renderReplayEvents(events),
     renderReplayMatches(matches),
     '<details class="replay-json"><summary>查看原始输入 JSON <span>' + escapeHtml(String(snapshot.packet_fingerprint || "").slice(0, 16)) + "…</span></summary><pre>" + escapeHtml(JSON.stringify(packet, null, 2)) + "</pre></details>",
     '<p class="replay-note">该包为已归档输入。它不包含模型输出、用户持仓、服务器密钥或请求头；已人工拒绝的事件不会进入此证据集。</p>'
+  ].join("");
+}
+
+function renderReplayNarrative(replay) {
+  if (replay.narrativesLoading) {
+    return '<section class="replay-block replay-narrative"><div class="replay-block-head"><strong>已验证摘要</strong><span>LOADING</span></div><p>正在检查该研究包是否已有通过引用与越权校验的模型摘要。</p></section>';
+  }
+  if (replay.narrativeError) {
+    return '<section class="replay-block replay-narrative"><div class="replay-block-head"><strong>已验证摘要</strong><span>UNAVAILABLE</span></div><p>' + escapeHtml(replay.narrativeError) + '</p></section>';
+  }
+  const row = Array.isArray(replay.narratives) ? replay.narratives[0] : null;
+  const narrative = row?.narrative && typeof row.narrative === "object" ? row.narrative : null;
+  if (!narrative) {
+    return '<section class="replay-block replay-narrative"><div class="replay-block-head"><strong>已验证摘要</strong><span>NOT GENERATED</span></div><p>该日期尚未归档通过校验的模型摘要。模型功能默认关闭，且不会由网页触发。</p></section>';
+  }
+  const claims = Array.isArray(narrative.claims) ? narrative.claims : [];
+  const uncertainties = Array.isArray(narrative.uncertainties) ? narrative.uncertainties : [];
+  return [
+    '<section class="replay-block replay-narrative">',
+    '<div class="replay-block-head"><strong>已验证摘要</strong><span>' + escapeHtml(String(row.provider || "MODEL").toUpperCase()) + " · " + escapeHtml(String(row.model || "--")) + "</span></div>",
+    '<h4>' + escapeHtml(narrative.title || "市场摘要") + '</h4>',
+    '<p>' + escapeHtml(narrative.recap || "") + '</p>',
+    claims.length ? '<div class="replay-claims">' + claims.map(function (claim) {
+      const citations = claim?.citations || {};
+      const count = (Array.isArray(citations.eventKeys) ? citations.eventKeys.length : 0) + (Array.isArray(citations.candidateMarketDates) ? citations.candidateMarketDates.length : 0);
+      return '<div><span>' + escapeHtml(claim?.text || "") + '</span><b>' + count + " 条引用</b></div>";
+    }).join("") + "</div>" : "",
+    uncertainties.length ? '<div class="replay-uncertainties"><b>不确定性</b><span>' + escapeHtml(uncertainties.join(" · ")) + "</span></div>" : "",
+    '<small>此文本只在服务端通过固定输入、来源引用和非建议语言校验后才会显示，不构成投资建议。</small>',
+    "</section>"
   ].join("");
 }
 

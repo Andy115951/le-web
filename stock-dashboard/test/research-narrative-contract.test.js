@@ -4,6 +4,7 @@ const {
   RESEARCH_NARRATIVE_VERSION,
   buildNarrativeAuditRecord,
   buildResearchNarrativeInstructions,
+  researchPacketFingerprint,
   sanitizeAuditMetadata,
   validateResearchNarrative
 } = require("../lib/research-narrative-contract");
@@ -101,6 +102,15 @@ test("research narrative audit fingerprints both accepted and rejected output", 
   const rejected = buildNarrativeAuditRecord(packet, {}, invalid);
   assert.equal(rejected.status, "rejected");
   assert.ok(rejected.validation_errors.length > 0);
+});
+
+test("research narrative audit uses the same stable fact fingerprint as a replay snapshot", function () {
+  const first = { ...packet, generatedAt: "2026-08-11T20:00:00.000Z" };
+  const second = { ...packet, generatedAt: "2026-08-11T22:00:00.000Z" };
+  const validation = validateResearchNarrative(validNarrative(), first);
+  const audit = buildNarrativeAuditRecord(first, validNarrative(), validation, {});
+  assert.equal(researchPacketFingerprint(first), researchPacketFingerprint(second));
+  assert.equal(audit.packet_fingerprint, researchPacketFingerprint(second));
 });
 
 test("research narrative audit metadata never retains credentials or arbitrary upstream responses", function () {
