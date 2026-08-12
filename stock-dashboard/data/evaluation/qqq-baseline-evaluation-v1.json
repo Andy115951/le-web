@@ -1,0 +1,786 @@
+{
+  "evaluationVersion": "qqq-baseline-evaluation-v1",
+  "splitVersion": "qqq-walk-forward-v1",
+  "instrument": "QQQ",
+  "featureVersion": "qqq-daily-state-v1",
+  "labelVersion": "adjusted-close-forward-v1",
+  "outcome": {
+    "horizonTradingDays": 20,
+    "definition": "return_20d_percent > 0"
+  },
+  "baselineDefinitions": {
+    "alwaysUp": "Always predicts a positive 20-trading-day return with probability 1.",
+    "conditionalMomentum20d": "Uses only each fold's training rows to estimate positive-return frequency conditional on trailing 20-day return sign."
+  },
+  "folds": [
+    {
+      "id": "fold-01",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2022-08-11",
+        "observationCount": 252
+      },
+      "embargo": {
+        "startDate": "2022-08-12",
+        "endDate": "2022-09-09",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2022-09-12",
+        "endDate": "2022-12-08",
+        "observationCount": 63
+      },
+      "momentumFit": {
+        "fallbackProbability": 0.412698,
+        "bucketProbabilities": {
+          "negative": 0.471014,
+          "nonnegative": 0.340426,
+          "unknown": 0.35
+        },
+        "bucketSampleCounts": {
+          "negative": 138,
+          "nonnegative": 94,
+          "unknown": 20
+        }
+      },
+      "baselines": {
+        "alwaysUp": {
+          "sampleCount": 63,
+          "accuracy": 0.460317,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.539683,
+          "actualUpRate": 0.460317
+        },
+        "conditionalMomentum20d": {
+          "sampleCount": 63,
+          "accuracy": 0.539683,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.238755,
+          "actualUpRate": 0.460317
+        }
+      }
+    },
+    {
+      "id": "fold-02",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2022-11-09",
+        "observationCount": 315
+      },
+      "embargo": {
+        "startDate": "2022-11-10",
+        "endDate": "2022-12-08",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2022-12-09",
+        "endDate": "2023-03-13",
+        "observationCount": 63
+      },
+      "momentumFit": {
+        "fallbackProbability": 0.419048,
+        "bucketProbabilities": {
+          "negative": 0.464481,
+          "nonnegative": 0.357143,
+          "unknown": 0.35
+        },
+        "bucketSampleCounts": {
+          "negative": 183,
+          "nonnegative": 112,
+          "unknown": 20
+        }
+      },
+      "baselines": {
+        "alwaysUp": {
+          "sampleCount": 63,
+          "accuracy": 0.714286,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.285714,
+          "actualUpRate": 0.714286
+        },
+        "conditionalMomentum20d": {
+          "sampleCount": 63,
+          "accuracy": 0.285714,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.273594,
+          "actualUpRate": 0.714286
+        }
+      }
+    },
+    {
+      "id": "fold-03",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2023-02-10",
+        "observationCount": 378
+      },
+      "embargo": {
+        "startDate": "2023-02-13",
+        "endDate": "2023-03-13",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2023-03-14",
+        "endDate": "2023-06-12",
+        "observationCount": 63
+      },
+      "momentumFit": {
+        "fallbackProbability": 0.425926,
+        "bucketProbabilities": {
+          "negative": 0.509709,
+          "nonnegative": 0.322368,
+          "unknown": 0.35
+        },
+        "bucketSampleCounts": {
+          "negative": 206,
+          "nonnegative": 152,
+          "unknown": 20
+        }
+      },
+      "baselines": {
+        "alwaysUp": {
+          "sampleCount": 63,
+          "accuracy": 0.968254,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.031746,
+          "actualUpRate": 0.968254
+        },
+        "conditionalMomentum20d": {
+          "sampleCount": 63,
+          "accuracy": 0.111111,
+          "balancedAccuracy": 0.540984,
+          "brierScore": 0.430541,
+          "actualUpRate": 0.968254
+        }
+      }
+    },
+    {
+      "id": "fold-04",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2023-05-12",
+        "observationCount": 441
+      },
+      "embargo": {
+        "startDate": "2023-05-15",
+        "endDate": "2023-06-12",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2023-06-13",
+        "endDate": "2023-09-12",
+        "observationCount": 63
+      },
+      "momentumFit": {
+        "fallbackProbability": 0.496599,
+        "bucketProbabilities": {
+          "negative": 0.545045,
+          "nonnegative": 0.457286,
+          "unknown": 0.35
+        },
+        "bucketSampleCounts": {
+          "negative": 222,
+          "nonnegative": 199,
+          "unknown": 20
+        }
+      },
+      "baselines": {
+        "alwaysUp": {
+          "sampleCount": 63,
+          "accuracy": 0.539683,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.460317,
+          "actualUpRate": 0.539683
+        },
+        "conditionalMomentum20d": {
+          "sampleCount": 63,
+          "accuracy": 0.539683,
+          "balancedAccuracy": 0.560852,
+          "brierScore": 0.248298,
+          "actualUpRate": 0.539683
+        }
+      }
+    },
+    {
+      "id": "fold-05",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2023-08-14",
+        "observationCount": 504
+      },
+      "embargo": {
+        "startDate": "2023-08-15",
+        "endDate": "2023-09-12",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2023-09-13",
+        "endDate": "2023-12-11",
+        "observationCount": 63
+      },
+      "momentumFit": {
+        "fallbackProbability": 0.529762,
+        "bucketProbabilities": {
+          "negative": 0.553097,
+          "nonnegative": 0.523256,
+          "unknown": 0.35
+        },
+        "bucketSampleCounts": {
+          "negative": 226,
+          "nonnegative": 258,
+          "unknown": 20
+        }
+      },
+      "baselines": {
+        "alwaysUp": {
+          "sampleCount": 63,
+          "accuracy": 0.777778,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.222222,
+          "actualUpRate": 0.777778
+        },
+        "conditionalMomentum20d": {
+          "sampleCount": 63,
+          "accuracy": 0.777778,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.232949,
+          "actualUpRate": 0.777778
+        }
+      }
+    },
+    {
+      "id": "fold-06",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2023-11-10",
+        "observationCount": 567
+      },
+      "embargo": {
+        "startDate": "2023-11-13",
+        "endDate": "2023-12-11",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2023-12-12",
+        "endDate": "2024-03-13",
+        "observationCount": 63
+      },
+      "momentumFit": {
+        "fallbackProbability": 0.532628,
+        "bucketProbabilities": {
+          "negative": 0.569811,
+          "nonnegative": 0.510638,
+          "unknown": 0.35
+        },
+        "bucketSampleCounts": {
+          "negative": 265,
+          "nonnegative": 282,
+          "unknown": 20
+        }
+      },
+      "baselines": {
+        "alwaysUp": {
+          "sampleCount": 63,
+          "accuracy": 0.904762,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.095238,
+          "actualUpRate": 0.904762
+        },
+        "conditionalMomentum20d": {
+          "sampleCount": 63,
+          "accuracy": 0.904762,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.241501,
+          "actualUpRate": 0.904762
+        }
+      }
+    },
+    {
+      "id": "fold-07",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2024-02-13",
+        "observationCount": 630
+      },
+      "embargo": {
+        "startDate": "2024-02-14",
+        "endDate": "2024-03-13",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2024-03-14",
+        "endDate": "2024-06-12",
+        "observationCount": 63
+      },
+      "momentumFit": {
+        "fallbackProbability": 0.579365,
+        "bucketProbabilities": {
+          "negative": 0.569811,
+          "nonnegative": 0.6,
+          "unknown": 0.35
+        },
+        "bucketSampleCounts": {
+          "negative": 265,
+          "nonnegative": 345,
+          "unknown": 20
+        }
+      },
+      "baselines": {
+        "alwaysUp": {
+          "sampleCount": 63,
+          "accuracy": 0.698413,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.301587,
+          "actualUpRate": 0.698413
+        },
+        "conditionalMomentum20d": {
+          "sampleCount": 63,
+          "accuracy": 0.698413,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.225471,
+          "actualUpRate": 0.698413
+        }
+      }
+    },
+    {
+      "id": "fold-08",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2024-05-14",
+        "observationCount": 693
+      },
+      "embargo": {
+        "startDate": "2024-05-15",
+        "endDate": "2024-06-12",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2024-06-13",
+        "endDate": "2024-09-12",
+        "observationCount": 63
+      },
+      "momentumFit": {
+        "fallbackProbability": 0.58153,
+        "bucketProbabilities": {
+          "negative": 0.589655,
+          "nonnegative": 0.587467,
+          "unknown": 0.35
+        },
+        "bucketSampleCounts": {
+          "negative": 290,
+          "nonnegative": 383,
+          "unknown": 20
+        }
+      },
+      "baselines": {
+        "alwaysUp": {
+          "sampleCount": 63,
+          "accuracy": 0.587302,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.412698,
+          "actualUpRate": 0.587302
+        },
+        "conditionalMomentum20d": {
+          "sampleCount": 63,
+          "accuracy": 0.587302,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.242138,
+          "actualUpRate": 0.587302
+        }
+      }
+    },
+    {
+      "id": "fold-09",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2024-08-14",
+        "observationCount": 756
+      },
+      "embargo": {
+        "startDate": "2024-08-15",
+        "endDate": "2024-09-12",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2024-09-13",
+        "endDate": "2024-12-11",
+        "observationCount": 63
+      },
+      "momentumFit": {
+        "fallbackProbability": 0.585979,
+        "bucketProbabilities": {
+          "negative": 0.605178,
+          "nonnegative": 0.583138,
+          "unknown": 0.35
+        },
+        "bucketSampleCounts": {
+          "negative": 309,
+          "nonnegative": 427,
+          "unknown": 20
+        }
+      },
+      "baselines": {
+        "alwaysUp": {
+          "sampleCount": 63,
+          "accuracy": 0.888889,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.111111,
+          "actualUpRate": 0.888889
+        },
+        "conditionalMomentum20d": {
+          "sampleCount": 63,
+          "accuracy": 0.888889,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.191397,
+          "actualUpRate": 0.888889
+        }
+      }
+    },
+    {
+      "id": "fold-10",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2024-11-12",
+        "observationCount": 819
+      },
+      "embargo": {
+        "startDate": "2024-11-13",
+        "endDate": "2024-12-11",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2024-12-12",
+        "endDate": "2025-03-17",
+        "observationCount": 63
+      },
+      "momentumFit": {
+        "fallbackProbability": 0.614164,
+        "bucketProbabilities": {
+          "negative": 0.60443,
+          "nonnegative": 0.63147,
+          "unknown": 0.35
+        },
+        "bucketSampleCounts": {
+          "negative": 316,
+          "nonnegative": 483,
+          "unknown": 20
+        }
+      },
+      "baselines": {
+        "alwaysUp": {
+          "sampleCount": 63,
+          "accuracy": 0.301587,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.698413,
+          "actualUpRate": 0.301587
+        },
+        "conditionalMomentum20d": {
+          "sampleCount": 63,
+          "accuracy": 0.301587,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.312453,
+          "actualUpRate": 0.301587
+        }
+      }
+    },
+    {
+      "id": "fold-11",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2025-02-14",
+        "observationCount": 882
+      },
+      "embargo": {
+        "startDate": "2025-02-18",
+        "endDate": "2025-03-17",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2025-03-18",
+        "endDate": "2025-06-16",
+        "observationCount": 63
+      },
+      "momentumFit": {
+        "fallbackProbability": 0.606576,
+        "bucketProbabilities": {
+          "negative": 0.612121,
+          "nonnegative": 0.612782,
+          "unknown": 0.35
+        },
+        "bucketSampleCounts": {
+          "negative": 330,
+          "nonnegative": 532,
+          "unknown": 20
+        }
+      },
+      "baselines": {
+        "alwaysUp": {
+          "sampleCount": 63,
+          "accuracy": 0.873016,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.126984,
+          "actualUpRate": 0.873016
+        },
+        "conditionalMomentum20d": {
+          "sampleCount": 63,
+          "accuracy": 0.873016,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.178641,
+          "actualUpRate": 0.873016
+        }
+      }
+    },
+    {
+      "id": "fold-12",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2025-05-16",
+        "observationCount": 945
+      },
+      "embargo": {
+        "startDate": "2025-05-19",
+        "endDate": "2025-06-16",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2025-06-17",
+        "endDate": "2025-09-16",
+        "observationCount": 63
+      },
+      "momentumFit": {
+        "fallbackProbability": 0.603175,
+        "bucketProbabilities": {
+          "negative": 0.592,
+          "nonnegative": 0.62,
+          "unknown": 0.35
+        },
+        "bucketSampleCounts": {
+          "negative": 375,
+          "nonnegative": 550,
+          "unknown": 20
+        }
+      },
+      "baselines": {
+        "alwaysUp": {
+          "sampleCount": 63,
+          "accuracy": 0.968254,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.031746,
+          "actualUpRate": 0.968254
+        },
+        "conditionalMomentum20d": {
+          "sampleCount": 63,
+          "accuracy": 0.968254,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.152719,
+          "actualUpRate": 0.968254
+        }
+      }
+    },
+    {
+      "id": "fold-13",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2025-08-18",
+        "observationCount": 1008
+      },
+      "embargo": {
+        "startDate": "2025-08-19",
+        "endDate": "2025-09-16",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2025-09-17",
+        "endDate": "2025-12-15",
+        "observationCount": 63
+      },
+      "momentumFit": {
+        "fallbackProbability": 0.625992,
+        "bucketProbabilities": {
+          "negative": 0.593085,
+          "nonnegative": 0.655229,
+          "unknown": 0.35
+        },
+        "bucketSampleCounts": {
+          "negative": 376,
+          "nonnegative": 612,
+          "unknown": 20
+        }
+      },
+      "baselines": {
+        "alwaysUp": {
+          "sampleCount": 63,
+          "accuracy": 0.714286,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.285714,
+          "actualUpRate": 0.714286
+        },
+        "conditionalMomentum20d": {
+          "sampleCount": 63,
+          "accuracy": 0.714286,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.212521,
+          "actualUpRate": 0.714286
+        }
+      }
+    },
+    {
+      "id": "fold-14",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2025-11-14",
+        "observationCount": 1071
+      },
+      "embargo": {
+        "startDate": "2025-11-17",
+        "endDate": "2025-12-15",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2025-12-16",
+        "endDate": "2026-03-18",
+        "observationCount": 63
+      },
+      "momentumFit": {
+        "fallbackProbability": 0.636788,
+        "bucketProbabilities": {
+          "negative": 0.594164,
+          "nonnegative": 0.669139,
+          "unknown": 0.35
+        },
+        "bucketSampleCounts": {
+          "negative": 377,
+          "nonnegative": 674,
+          "unknown": 20
+        }
+      },
+      "baselines": {
+        "alwaysUp": {
+          "sampleCount": 63,
+          "accuracy": 0.31746,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.68254,
+          "actualUpRate": 0.31746
+        },
+        "conditionalMomentum20d": {
+          "sampleCount": 63,
+          "accuracy": 0.31746,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.311539,
+          "actualUpRate": 0.31746
+        }
+      }
+    },
+    {
+      "id": "fold-15",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2026-02-18",
+        "observationCount": 1134
+      },
+      "embargo": {
+        "startDate": "2026-02-19",
+        "endDate": "2026-03-18",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2026-03-19",
+        "endDate": "2026-06-17",
+        "observationCount": 63
+      },
+      "momentumFit": {
+        "fallbackProbability": 0.626102,
+        "bucketProbabilities": {
+          "negative": 0.587224,
+          "nonnegative": 0.656294,
+          "unknown": 0.35
+        },
+        "bucketSampleCounts": {
+          "negative": 407,
+          "nonnegative": 707,
+          "unknown": 20
+        }
+      },
+      "baselines": {
+        "alwaysUp": {
+          "sampleCount": 63,
+          "accuracy": 0.730159,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.269841,
+          "actualUpRate": 0.730159
+        },
+        "conditionalMomentum20d": {
+          "sampleCount": 63,
+          "accuracy": 0.730159,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.215753,
+          "actualUpRate": 0.730159
+        }
+      }
+    },
+    {
+      "id": "fold-16",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2026-05-19",
+        "observationCount": 1197
+      },
+      "embargo": {
+        "startDate": "2026-05-20",
+        "endDate": "2026-06-17",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2026-06-18",
+        "endDate": "2026-07-14",
+        "observationCount": 17
+      },
+      "momentumFit": {
+        "fallbackProbability": 0.632414,
+        "bucketProbabilities": {
+          "negative": 0.589041,
+          "nonnegative": 0.665765,
+          "unknown": 0.35
+        },
+        "bucketSampleCounts": {
+          "negative": 438,
+          "nonnegative": 739,
+          "unknown": 20
+        }
+      },
+      "baselines": {
+        "alwaysUp": {
+          "sampleCount": 17,
+          "accuracy": 0.176471,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.823529,
+          "actualUpRate": 0.176471
+        },
+        "conditionalMomentum20d": {
+          "sampleCount": 17,
+          "accuracy": 0.176471,
+          "balancedAccuracy": 0.5,
+          "brierScore": 0.334832,
+          "actualUpRate": 0.176471
+        }
+      }
+    }
+  ],
+  "summary": {
+    "aggregation": "sample-weighted mean of per-fold metrics; balanced accuracy remains a fold-level diagnostic",
+    "alwaysUp": {
+      "sampleCount": 962,
+      "accuracy": 0.68711,
+      "balancedAccuracy": 0.5,
+      "brierScore": 0.31289,
+      "actualUpRate": 0.68711
+    },
+    "conditionalMomentum20d": {
+      "sampleCount": 962,
+      "accuracy": 0.608108,
+      "balancedAccuracy": 0.506669,
+      "brierScore": 0.248766,
+      "actualUpRate": 0.68711
+    }
+  }
+}

@@ -71,6 +71,7 @@
 - 相似日查询接口：`GET /api/nasdaq/similar-days?date=YYYY-MM-DD&limit=5`，已嵌入日历单日详情
 - 相似日结果分布：对当前候选集计算 5/20 日历史胜率、中位收益、四分位范围和 20 日回撤，不把小样本写成预测概率
 - 冻结 walk-forward 评估基线：提交了 `QQQ` 16 折扩展式时间切分，训练到验证间隔离 20 个交易日结果期；`GET /api/nasdaq/evaluation-splits` 提供后续概率模型共用的只读边界
+- 概率对照基线：在冻结切分上生成“永远看涨”和训练期条件动量报告，包含准确率、平衡准确率和 Brier 分数；`GET /api/nasdaq/evaluation-baselines` 仅供研究评估，不是当前预测
 - SEC EDGAR filings 骨架：可将核心标的的 `10-K / 10-Q / 8-K / 20-F / 40-F / 6-K` 以官方归档链接、接受时间和 CIK 写入统一事件层；配置合规 `SEC_USER_AGENT` 后启用
 - FRED 宏观观测骨架：可把 `CPIAUCSL / UNRATE / FEDFUNDS / GDPC1` 的官方 FRED 观测写入统一事件层；配置服务端 `FRED_API_KEY` 后启用，未配置时保持禁用
 - 日度研究输入包：`GET /api/nasdaq/research-packet?date=YYYY-MM-DD` 固定后续 AI/日报可读取的泄漏安全事实边界，并按“上一交易日收盘到目标日收盘”筛选可知事件；人工 `rejected` 事件不会进入模型证据集合

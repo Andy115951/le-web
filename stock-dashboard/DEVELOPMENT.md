@@ -657,6 +657,33 @@ GET /api/nasdaq/evaluation-splits
 
 此工件仅定义评估边界，不包含预测、方向准确率或概率，因此不能被解释为投资信号。
 
+#### 8.2.7 概率对照基线
+
+第一份冻结报告为 [data/evaluation/qqq-baseline-evaluation-v1.json](data/evaluation/qqq-baseline-evaluation-v1.json)，只能使用 `qqq-walk-forward-v1` 的 16 折边界。它刻意从两个弱而可解释的参考开始：
+
+- `alwaysUp`：始终以 `1.0` 输出 20 交易日上涨概率
+- `conditionalMomentum20d`：按每一折训练集里“当日过去 20 日收益为负 / 非负 / 缺失”的实际后续上涨频率估计概率；验证期的结果不参与拟合
+
+报告只记录每折训练边界、embargo、估计频率和 `Accuracy`、`Balanced Accuracy`、`Brier Score`。`summary` 的普通指标是按验证样本数加权的折级均值，`Balanced Accuracy` 保持折级诊断口径，不能误读为完整生产模型评价。
+
+重建报告：
+
+```bash
+set -a
+. ./.env.local
+set +a
+npm run evaluation:baselines
+git diff -- data/evaluation/qqq-baseline-evaluation-v1.json
+```
+
+只读查询：
+
+```text
+GET /api/nasdaq/evaluation-baselines
+```
+
+它的用途是为后续 Logistic Regression、校准和情景概率建立“必须优于什么”的对照线；绝不能把报告里的历史分数当作今天上涨概率或交易建议。
+
 ### 8.3 NDX 成分与权重快照
 
 首个完整快照保存在：
