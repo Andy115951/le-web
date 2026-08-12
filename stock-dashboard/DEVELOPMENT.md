@@ -348,6 +348,31 @@ GET /api/nasdaq/prices?symbol=QQQ&limit=1254
 
 接口只允许查询 `instruments` 中已登记的标的，返回按市场日期升序排列的 OHLCV、调整收盘价、涨跌幅、来源与采集时间。
 
+生成或重算研究标签：
+
+```bash
+set -a
+. ./.env.local
+set +a
+npm run labels:qqq
+```
+
+脚本生成以下字段：
+
+- `return_1d_percent / return_3d_percent / return_5d_percent / return_20d_percent`：当前调整收盘价到未来第 N 个交易日调整收盘价的收益率
+- `max_drawdown_20d_percent`：当前日至未来第 20 个交易日窗口内，峰值到后续低点的最大回撤
+- `realized_volatility_20d_percent`：窗口内 20 个日对数收益率的总体标准差，乘 `sqrt(252)` 后年化
+
+最近尚未走完对应窗口的字段必须保持 `null`。这些数据只能用于历史研究、回测和预测到期评估，不能作为当日模型输入，否则会产生未来数据泄漏。
+
+公开读取接口：
+
+```text
+GET /api/nasdaq/labels?symbol=QQQ&limit=1254
+```
+
+响应包含 `researchOnly: true`。当前已验证 1,254 行唯一日期，其中完整 20 日标签 1,234 行；重复执行使用 upsert，不产生重复记录。
+
 ### 8.2 收盘归档验证
 
 定时任务使用 `GET`，手动重跑使用 `POST`。两个入口都要求：

@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "scripts": {
     "backfill:qqq": "node scripts/backfill-market-prices.js QQQ 5y",
+    "labels:qqq": "node scripts/rebuild-market-labels.js QQQ",
     "test": "node --test"
   },
   "engines": {

@@ -51,6 +51,8 @@
 - 标准公共行情层：`instruments`、`market_days`、`price_bars_daily`，均由服务端密钥访问
 - `QQQ` 五年日线已回填：1,254 个唯一交易日，覆盖 `2021-08-12` 至 `2026-08-11`
 - 公共日线查询接口：`GET /api/nasdaq/prices?symbol=QQQ&limit=1254`
+- 前瞻研究标签：未来 1/3/5/20 日收益、20 日最大回撤和年化实现波动率
+- 标签查询接口：`GET /api/nasdaq/labels?symbol=QQQ&limit=1254`，明确标记为研究专用
 
 ### 当前版本重点
 
@@ -64,10 +66,10 @@
 
 ### 下一阶段
 
-1. 计算未来 1/3/5/20 个交易日收益标签，形成可回测的监督数据
-2. 建立统一 `sources` 与 `events`，继续增强可复核的涨跌归因
-3. 建立 Nasdaq-100 成分/权重快照和自动更新机制
-4. 实现第一个动态日历和单日详情页
+1. 建立统一 `sources` 与 `events`，继续增强可复核的涨跌归因
+2. 建立 Nasdaq-100 成分/权重快照和自动更新机制
+3. 实现第一个动态日历和单日详情页
+4. 将价格、事件与成熟标签按交易日关联，为历史相似日准备输入特征
 
 ## 技术结构
 
@@ -91,6 +93,7 @@
 - `api/global-stock/daily-events.js`: 当日行情事件接口
 - `api/nasdaq/history.js`: 无需登录的公共 Nasdaq 历史读取接口
 - `api/nasdaq/prices.js`: 无需登录的标准日线读取接口
+- `api/nasdaq/labels.js`: 无需登录的历史研究标签读取接口
 - `api/cron/capture-market-history.js`: 收盘后自动归档入口
 - `api/cron/market-history-runs.js`: 最近采集运行记录接口
 - `lib/a-share-data.js`: A 股分析数据层
@@ -100,6 +103,8 @@
 - `lib/market-history-capture.js`: 受保护的 Supabase 历史归档任务
 - `lib/historical-market-data.js`: Yahoo 日线抓取、时区转换和数据校验
 - `lib/price-history-store.js`: 标准日线回填与查询
+- `lib/market-forward-labels.js`: 前瞻收益、回撤和波动率纯计算逻辑
+- `lib/market-label-store.js`: 标签重算、写库与查询
 - `lib/cron-auth.js`: Cron/运维接口统一鉴权与 JSON 响应
 - `vercel.json`: 每个工作日一次的收盘后 Cron 配置
 - `SUPABASE_SETUP.md`: 云同步建表与配置说明

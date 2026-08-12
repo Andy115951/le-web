@@ -137,6 +137,17 @@ with check (auth.uid() = user_id);
 
 当前已执行并验证 `QQQ` 五年回填：1,254 个唯一交易日，覆盖 `2021-08-12` 至 `2026-08-11`。重复执行使用 upsert，不产生重复记录。
 
+### 前瞻研究标签表
+
+`20260812200000_add_market_forward_labels.sql` 新增 `market_forward_labels`，按 `instrument_id + market_date` 唯一保存：
+
+- 未来 1/3/5/20 个交易日收益率
+- 未来 20 日窗口最大回撤
+- 未来 20 日年化实现波动率
+- 调整价格口径、交易日窗口单位、标签版本和计算时间
+
+该表启用 RLS，仅服务端 Secret Key 可直接读写；浏览器通过 `GET /api/nasdaq/labels` 读取，并收到 `researchOnly: true` 标识。当前 `QQQ` 已生成 1,254 行标签，其中 1,234 行具备完整 20 日窗口。靠近最新交易日的未成熟字段保留 `null`，不可用当前日期或推测值补齐。
+
 ## 2. 打开邮箱登录
 
 在 Supabase Dashboard:
