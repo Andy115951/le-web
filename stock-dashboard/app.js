@@ -186,6 +186,7 @@ const state = {
     review: null,
     candidates: [],
     selectedEvaluationVersion: "qqq-logistic-evaluation-v1",
+    failureRegime: "all",
     loading: false,
     error: "",
     requestId: 0
@@ -360,8 +361,15 @@ function bindEvents() {
   if (els.modelReviewBody) {
     els.modelReviewBody.addEventListener("click", function (event) {
       const button = event.target.closest("[data-model-review-version]");
-      if (!button) return;
-      state.modelReview.selectedEvaluationVersion = button.getAttribute("data-model-review-version") || "";
+      if (button) {
+        state.modelReview.selectedEvaluationVersion = button.getAttribute("data-model-review-version") || "";
+        state.modelReview.failureRegime = "all";
+        renderModelReview();
+        return;
+      }
+      const filter = event.target.closest("[data-failure-regime]");
+      if (!filter) return;
+      state.modelReview.failureRegime = filter.getAttribute("data-failure-regime") || "all";
       renderModelReview();
     });
   }
@@ -1734,7 +1742,7 @@ function renderModelReview() {
     '<div class="model-review-checks-head"><strong>固定门槛</strong><span>' + passedCount + "/" + checks.length + " 通过" + (failures.length ? " · " + failures.length + " 项待改进" : "") + "</span></div>",
     checks.map(renderModelReviewCheck).join(""),
     "</div>",
-    renderModelFailureCases(review.failureCaseSummary),
+    renderModelFailureCases(review.failureCaseSummary, modelReview.failureRegime),
     '<p class="model-review-note">' + escapeHtml(String(review.promotionBoundary || "该评估仅供研究复核。")) + "</p>"
   ].join("");
 }
@@ -1756,18 +1764,37 @@ function renderModelReviewCheck(item) {
   return '<div class="model-review-check ' + (item?.passed ? "is-passed" : "is-failed") + '"><b>' + (item?.passed ? "通过" : "未通过") + "</b><div><strong>" + escapeHtml(String(item?.id || "unknown")) + "</strong><p>" + escapeHtml(String(item?.detail || "")) + "</p></div></div>";
 }
 
-function renderModelFailureCases(summary) {
+const regimeLabels = {
+  stress_drawdown: "压力回撤",
+  volatile: "高波动",
+  strong_uptrend: "强上行",
+  strong_downtrend: "强下行",
+  range_bound: "区间震荡",
+  mixed: "混合阶段",
+  unavailable: "不可用"
+};
+
+function renderModelFailureCases(summary, selectedRegime) {
   const cases = Array.isArray(summary?.cases) ? summary.cases : [];
   if (!cases.length) return "";
+  const availableRegimes = Object.keys(summary?.regimeCounts || {}).filter(function (label) { return label !== "unavailable"; });
+  const currentRegime = availableRegimes.includes(selectedRegime) ? selectedRegime : "all";
+  const filteredCases = currentRegime === "all" ? cases : cases.filter(function (item) { return item?.posthocRegime?.label === currentRegime; });
   return [
     '<section class="model-failure-cases">',
-    '<div class="model-failure-cases-head"><div><span>FAILURE CASES</span><strong>阶段级失败案例</strong></div><small>' + Number(summary.failureCaseCount || 0) + " / " + Number(summary.evaluatedFoldCount || 0) + " 个冻结折出现相对退化</small></div>",
-    '<p>按验证期聚合比较候选与条件动量基线，不包含逐日预测、当前概率或交易指令。</p>',
+    '<div class="model-failure-cases-head"><div><span>FAILURE CASES</span><strong>阶段级失败案例</strong></div><small>' + filteredCases.length + " / " + Number(summary.failureCaseCount || 0) + " 条显示 · " + Number(summary.evaluatedFoldCount || 0) + " 个冻结折</small></div>",
+    '<p>按验证期聚合比较候选与条件动量基线；阶段标签仅来自该已完成区间的事后 QQQ 价格路径，不参与训练、晋升或实时输出。</p>',
+    '<div class="model-failure-regime-filters"><button type="button" class="' + (currentRegime === "all" ? "is-active" : "") + '" data-failure-regime="all">全部阶段</button>' + availableRegimes.map(function (label) { return '<button type="button" class="' + (currentRegime === label ? "is-active" : "") + '" data-failure-regime="' + escapeHtml(label) + '">' + escapeHtml(regimeLabels[label] || label) + " · " + Number(summary.regimeCounts?.[label] || 0) + "</button>"; }).join("") + "</div>",
     '<div class="model-failure-case-list">',
-    cases.map(function (item) {
+    filteredCases.map(function (item) {
       const evaluation = item?.evaluation || {};
       const labels = Array.isArray(item?.labels) ? item.labels : [];
-      return '<article><div><b>' + escapeHtml(String(item?.foldId || "--")) + "</b><span>" + escapeHtml(formatMarketDate(evaluation.startDate)) + " - " + escapeHtml(formatMarketDate(evaluation.endDate)) + "</span></div><div class=\"model-failure-tags\">" + labels.map(function (label) { return "<i>" + escapeHtml(label) + "</i>"; }).join("") + "</div><dl><div><dt>Brier 差距</dt><dd>" + escapeHtml(formatModelDelta(item?.probabilityGap)) + "</dd></div><div><dt>平衡准确率差距</dt><dd>" + escapeHtml(formatModelDelta(item?.directionGap)) + "</dd></div></dl></article>";
+      const regime = item?.posthocRegime || {};
+      const metrics = regime.metrics || {};
+      const regimeCard = regime.label
+        ? '<div class="model-failure-regime"><b>' + escapeHtml(regimeLabels[regime.label] || regime.label) + '</b><span>区间 ' + escapeHtml(formatSigned(Number(metrics.observedReturnPercent)) + "%") + " · 回撤 " + escapeHtml(formatSigned(Number(metrics.maximumDrawdownPercent)) + "%") + " · 波动 " + escapeHtml(formatModelNumber(metrics.annualizedVolatilityPercent)) + "%</span></div>"
+        : "";
+      return '<article><div><b>' + escapeHtml(String(item?.foldId || "--")) + "</b><span>" + escapeHtml(formatMarketDate(evaluation.startDate)) + " - " + escapeHtml(formatMarketDate(evaluation.endDate)) + "</span></div><div class=\"model-failure-tags\">" + labels.map(function (label) { return "<i>" + escapeHtml(label) + "</i>"; }).join("") + "</div>" + regimeCard + "<dl><div><dt>Brier 差距</dt><dd>" + escapeHtml(formatModelDelta(item?.probabilityGap)) + "</dd></div><div><dt>平衡准确率差距</dt><dd>" + escapeHtml(formatModelDelta(item?.directionGap)) + "</dd></div></dl></article>";
     }).join(""),
     "</div>",
     "</section>"

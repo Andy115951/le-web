@@ -3,12 +3,18 @@ const { getLogisticEvaluationReport } = require("./evaluation-logistic-report");
 const { getTreeEvaluationReport } = require("./evaluation-tree-report");
 const { evaluatePromotion } = require("./model-promotion-governance");
 const { buildFailureCaseSummary } = require("./evaluation-failure-cases");
+const { getAvailableRegimesByFold, getEvaluationRegimeDiagnosticReport } = require("./evaluation-regime-diagnostic-report");
 
 function buildPromotionReview(candidate) {
   const baseline = getBaselineEvaluationReport();
+  const regimeReport = getEvaluationRegimeDiagnosticReport();
   return {
     ...evaluatePromotion(candidate, baseline),
-    failureCaseSummary: buildFailureCaseSummary(candidate, baseline)
+    failureCaseSummary: buildFailureCaseSummary(candidate, baseline, {
+      maxCases: 16,
+      regimeByFold: getAvailableRegimesByFold(regimeReport),
+      regimeDiagnosticVersion: regimeReport.diagnosticVersion
+    })
   };
 }
 

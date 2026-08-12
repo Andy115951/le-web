@@ -29,6 +29,7 @@ function buildFailureCaseSummary(candidateReport, baselineReport, options = {}) 
   const candidateFolds = Array.isArray(candidateReport?.folds) ? candidateReport.folds : [];
   const baselineById = new Map((Array.isArray(baselineReport?.folds) ? baselineReport.folds : []).map(function (fold) { return [fold.id, fold]; }));
   const maxCases = Math.max(1, Math.min(16, Math.round(Number(options.maxCases) || 5)));
+  const regimes = options.regimeByFold instanceof Map ? options.regimeByFold : new Map();
   const cases = candidateFolds.map(function (fold) {
     const baseline = baselineById.get(fold.id);
     const comparison = classifyFailure(fold.metrics, getMomentumMetrics(baseline));
@@ -45,7 +46,8 @@ function buildFailureCaseSummary(candidateReport, baselineReport, options = {}) 
         balancedAccuracy: number(getMomentumMetrics(baseline)?.balancedAccuracy)
       },
       probabilityGap: comparison.probabilityGap,
-      directionGap: comparison.directionGap
+      directionGap: comparison.directionGap,
+      posthocRegime: regimes.get(fold.id) || null
     };
   }).filter(function (item) { return item.labels.length; });
   cases.sort(function (left, right) {
@@ -58,6 +60,12 @@ function buildFailureCaseSummary(candidateReport, baselineReport, options = {}) 
     limitation: "Cases compare frozen evaluation-period aggregates. They intentionally exclude individual predictions, current probabilities, and trading instructions.",
     evaluatedFoldCount: candidateFolds.length,
     failureCaseCount: cases.length,
+    posthocRegimeDiagnosticVersion: options.regimeDiagnosticVersion || null,
+    regimeCounts: cases.reduce(function (result, item) {
+      const label = item.posthocRegime?.label || "unavailable";
+      result[label] = (result[label] || 0) + 1;
+      return result;
+    }, {}),
     labelCounts: cases.reduce(function (result, item) {
       item.labels.forEach(function (label) { result[label] = (result[label] || 0) + 1; });
       return result;

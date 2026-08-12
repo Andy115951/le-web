@@ -847,6 +847,21 @@ GET /api/nasdaq/research-tasks?limit=20
 
 该接口不触发 Cron、模型或写入。Collector、Labeler、Attribution 的独立运行记录仍未关联到快照，因此“完整跨 Agent 运维回放”仍属于后续任务。
 
+#### 8.2.18 冻结失败案例的事后市场阶段诊断
+
+`data/evaluation/qqq-evaluation-regime-diagnostic-v1.json` 是独立冻结的 `posthoc_evaluation_interval_diagnostic` 工件。它以 `qqq-walk-forward-v1` 的每个验证区间为边界，基于该区间**已经发生**的 QQQ 调整后收盘路径计算区间收益、最大回撤和年化实现波动，并按固定 `posthoc-qqq-63d-regime-rules-v1` 分类为 `stress_drawdown`、`volatile`、`strong_uptrend`、`strong_downtrend`、`range_bound` 或 `mixed`。
+
+生成命令为：
+
+```bash
+set -a; source .env.local; set +a
+npm run evaluation:regimes
+```
+
+脚本只读 `price_bars_daily`，要求所有冻结验证区间都具有完整价格覆盖；任一折缺失、端点不一致或行数不等于冻结 `observationCount` 时会失败，不会猜测阶段。输出仅保存每折聚合指标、规则、来源覆盖和限制说明，不保存逐日价格、个别预测、当前概率或交易指令。
+
+模型晋升复核将该工件作为事后展示字段加入失败案例，并支持按阶段筛选。它明确不进入训练特征、交叉验证拟合、概率校准、固定晋升门槛、实时市场输入或 Agent 指令，因此不会改变既有候选的 `not_eligible` 结论。
+
 首次部署不会用旧版 `market_capture_runs.details` 猜测补填历史任务。下一次完整美股收盘采集后才会出现第一批真实阶段记录；尚未进入收盘窗口或被提前跳过的运行没有伪造的阶段账本。网页不提供重试按钮，诊断或手动重跑必须继续使用受 `CRON_SECRET` 保护的运维入口。
 
 ### 8.3 NDX 成分与权重快照

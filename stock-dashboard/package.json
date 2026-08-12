@@ -23,6 +23,7 @@
     "evaluation:baselines": "node scripts/build-walk-forward-baselines.js",
     "evaluation:logistic": "node scripts/build-walk-forward-logistic.js",
     "evaluation:tree": "node scripts/build-walk-forward-tree.js",
+    "evaluation:regimes": "node scripts/build-evaluation-regime-diagnostics.js",
     "evaluation:backtest": "node scripts/build-walk-forward-backtest.js",
     "test": "node --test"
   },

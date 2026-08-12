@@ -51,6 +51,8 @@ test("committed logistic candidate is not eligible and remains outside runtime",
   assert.deepEqual(review.failureLabels, ["brier_improvement", "balanced_accuracy_improvement", "calibration"]);
   assert.equal(review.failureCaseSummary.scope, "fold_level_only");
   assert.ok(review.failureCaseSummary.failureCaseCount > 0);
+  assert.equal(review.failureCaseSummary.posthocRegimeDiagnosticVersion, "qqq-evaluation-regime-diagnostic-v1");
+  assert.ok(review.failureCaseSummary.cases.every(function (item) { return item.posthocRegime?.label; }));
 });
 
 test("committed shallow tree candidate is not eligible and stays outside runtime", function () {
@@ -80,4 +82,5 @@ test("failure cases compare only matching frozen folds and omit individual predi
   assert.equal(summary.failureCaseCount, 1);
   assert.deepEqual(summary.cases[0].labels, ["probability_degradation", "direction_degradation"]);
   assert.equal("predictions" in summary.cases[0], false);
+  assert.equal(summary.cases[0].posthocRegime, null);
 });

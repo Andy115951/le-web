@@ -2115,6 +2115,7 @@ body {
 .model-failure-cases-head strong { color: #30415c; font-size: 0.76rem; }
 .model-failure-cases-head small { color: #7d899b; font-size: 0.59rem; text-align: right; }
 .model-failure-cases > p { margin: 8px 0 10px; color: #7a879a; font-size: 0.61rem; line-height: 1.45; }
+.model-failure-regime-filters { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 10px; }.model-failure-regime-filters button { padding: 5px 7px; border: 1px solid #dae3ee; border-radius: 6px; color: #667891; background: #fff; font-size: 0.56rem; font-weight: 800; }.model-failure-regime-filters button:hover, .model-failure-regime-filters button.is-active { border-color: #79a8c1; color: #27637f; background: #edf8fc; }
 .model-failure-case-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .model-failure-case-list article { display: grid; gap: 8px; padding: 10px; border: 1px solid #e1e7ef; border-radius: 9px; background: #fff; }
 .model-failure-case-list article > div:first-child { display: flex; align-items: baseline; justify-content: space-between; gap: 7px; }
@@ -2122,6 +2123,7 @@ body {
 .model-failure-case-list article span { color: #8794a6; font-size: 0.57rem; text-align: right; }
 .model-failure-tags { display: flex; flex-wrap: wrap; gap: 4px; }
 .model-failure-tags i { padding: 3px 5px; border-radius: 5px; color: #a04759; background: #fff0f1; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.52rem; font-style: normal; }
+.model-failure-regime { display: flex; align-items: baseline; justify-content: space-between; gap: 7px; min-width: 0; padding: 6px 7px; border: 1px solid #d9e9e2; border-radius: 7px; background: #f5fbf8; }.model-failure-regime b { color: #287052; font-size: 0.57rem; }.model-failure-regime span { overflow: hidden; color: #6f857b; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.5rem; text-overflow: ellipsis; white-space: nowrap; }
 .model-failure-case-list dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin: 0; }
 .model-failure-case-list dl div { display: grid; gap: 2px; }
 .model-failure-case-list dt { color: #8794a6; font-size: 0.54rem; }

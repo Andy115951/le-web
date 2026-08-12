@@ -78,7 +78,7 @@
 - 到期结果审计：收盘任务会对已有研究输入快照检查成熟的 20 日标签，并以只追加记录保存真实收益、回撤和波动；`npm run research-outcomes:evaluate` 可手动幂等重跑，`GET /api/nasdaq/research-outcomes` 只读查看公共结果
 - 研究运行健康：`GET /api/nasdaq/research-health` 以 Supabase 精确计数显示脱敏的最新运行状态、快照/成熟结果数量、模型启用状态与确定性告警代码；不会暴露 Cron 错误正文
 - 模型晋升治理：固定 `qqq-model-promotion-policy-v1` 对候选执行样本、冻结切分、相对 Brier/平衡准确率及校准门槛检查；当前 Logistic 的失败标签可由 `GET /api/nasdaq/evaluation-logistic-review` 复核，永不自动部署
-- 看板模型复核：新增“模型复核”导航区，可切换 Logistic 与浅层树候选，直接呈现冻结候选的门槛通过情况、指标差距和失败标签；它只读取离线评估，不会调用模型或输出投资指令
+- 看板模型复核：可切换 Logistic 与浅层树候选，直接呈现冻结候选的门槛通过情况、指标差距、失败标签和事后市场阶段筛选；阶段标签来自每个已完成验证区间的 QQQ 收益/回撤/实现波动，不参与训练、晋升或实时输出
 - SEC EDGAR filings 骨架：可将核心标的的 `10-K / 10-Q / 8-K / 20-F / 40-F / 6-K` 以官方归档链接、接受时间和 CIK 写入统一事件层；配置合规 `SEC_USER_AGENT` 后启用
 - FRED 宏观观测骨架：可把 `CPIAUCSL / UNRATE / FEDFUNDS / GDPC1` 的官方 FRED 观测写入统一事件层；配置服务端 `FRED_API_KEY` 后启用，未配置时保持禁用
 - 日度研究输入包：`GET /api/nasdaq/research-packet?date=YYYY-MM-DD` 固定后续 AI/日报可读取的泄漏安全事实边界，并按“上一交易日收盘到目标日收盘”筛选可知事件；人工 `rejected` 事件不会进入模型证据集合

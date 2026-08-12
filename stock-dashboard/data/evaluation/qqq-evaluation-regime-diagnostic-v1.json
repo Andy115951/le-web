@@ -1,0 +1,334 @@
+{
+  "diagnosticVersion": "qqq-evaluation-regime-diagnostic-v1",
+  "kind": "posthoc_evaluation_interval_diagnostic",
+  "generatedAt": "2026-08-12T11:51:24.748Z",
+  "instrument": "QQQ",
+  "splitVersion": "qqq-walk-forward-v1",
+  "priceCoverage": {
+    "firstDate": "2021-08-12",
+    "lastDate": "2026-08-11",
+    "rowCount": 1254,
+    "sources": [
+      "Yahoo Finance chart"
+    ]
+  },
+  "rules": {
+    "version": "posthoc-qqq-63d-regime-rules-v1",
+    "stressDrawdownPercent": -10,
+    "annualizedVolatilityPercent": 28,
+    "strongTrendReturnPercent": 8,
+    "rangeBoundReturnPercent": 4,
+    "rangeBoundDrawdownPercent": -8
+  },
+  "folds": [
+    {
+      "foldId": "fold-01",
+      "evaluation": {
+        "startDate": "2022-09-12",
+        "endDate": "2022-12-08",
+        "observationCount": 63
+      },
+      "status": "available",
+      "regime": {
+        "ruleVersion": "posthoc-qqq-63d-regime-rules-v1",
+        "label": "stress_drawdown",
+        "metrics": {
+          "observedReturnPercent": -7.401704,
+          "maximumDrawdownPercent": -16.020417,
+          "annualizedVolatilityPercent": 33.369263,
+          "observedTradingDays": 63
+        }
+      }
+    },
+    {
+      "foldId": "fold-02",
+      "evaluation": {
+        "startDate": "2022-12-09",
+        "endDate": "2023-03-13",
+        "observationCount": 63
+      },
+      "status": "available",
+      "regime": {
+        "ruleVersion": "posthoc-qqq-63d-regime-rules-v1",
+        "label": "mixed",
+        "metrics": {
+          "observedReturnPercent": 2.654925,
+          "maximumDrawdownPercent": -9.675153,
+          "annualizedVolatilityPercent": 23.666544,
+          "observedTradingDays": 63
+        }
+      }
+    },
+    {
+      "foldId": "fold-03",
+      "evaluation": {
+        "startDate": "2023-03-14",
+        "endDate": "2023-06-12",
+        "observationCount": 63
+      },
+      "status": "available",
+      "regime": {
+        "ruleVersion": "posthoc-qqq-63d-regime-rules-v1",
+        "label": "strong_uptrend",
+        "metrics": {
+          "observedReturnPercent": 24.203792,
+          "maximumDrawdownPercent": -3.408859,
+          "annualizedVolatilityPercent": 17.421172,
+          "observedTradingDays": 63
+        }
+      }
+    },
+    {
+      "foldId": "fold-04",
+      "evaluation": {
+        "startDate": "2023-06-13",
+        "endDate": "2023-09-12",
+        "observationCount": 63
+      },
+      "status": "available",
+      "regime": {
+        "ruleVersion": "posthoc-qqq-63d-regime-rules-v1",
+        "label": "range_bound",
+        "metrics": {
+          "observedReturnPercent": 3.55389,
+          "maximumDrawdownPercent": -7.157653,
+          "annualizedVolatilityPercent": 16.057155,
+          "observedTradingDays": 63
+        }
+      }
+    },
+    {
+      "foldId": "fold-05",
+      "evaluation": {
+        "startDate": "2023-09-13",
+        "endDate": "2023-12-11",
+        "observationCount": 63
+      },
+      "status": "available",
+      "regime": {
+        "ruleVersion": "posthoc-qqq-63d-regime-rules-v1",
+        "label": "mixed",
+        "metrics": {
+          "observedReturnPercent": 6.250825,
+          "maximumDrawdownPercent": -8.776878,
+          "annualizedVolatilityPercent": 16.532527,
+          "observedTradingDays": 63
+        }
+      }
+    },
+    {
+      "foldId": "fold-06",
+      "evaluation": {
+        "startDate": "2023-12-12",
+        "endDate": "2024-03-13",
+        "observationCount": 63
+      },
+      "status": "available",
+      "regime": {
+        "ruleVersion": "posthoc-qqq-63d-regime-rules-v1",
+        "label": "strong_uptrend",
+        "metrics": {
+          "observedReturnPercent": 11.590154,
+          "maximumDrawdownPercent": -3.698664,
+          "annualizedVolatilityPercent": 15.817202,
+          "observedTradingDays": 63
+        }
+      }
+    },
+    {
+      "foldId": "fold-07",
+      "evaluation": {
+        "startDate": "2024-03-14",
+        "endDate": "2024-06-12",
+        "observationCount": 63
+      },
+      "status": "available",
+      "regime": {
+        "ruleVersion": "posthoc-qqq-63d-regime-rules-v1",
+        "label": "mixed",
+        "metrics": {
+          "observedReturnPercent": 7.842585,
+          "maximumDrawdownPercent": -7.108294,
+          "annualizedVolatilityPercent": 14.709612,
+          "observedTradingDays": 63
+        }
+      }
+    },
+    {
+      "foldId": "fold-08",
+      "evaluation": {
+        "startDate": "2024-06-13",
+        "endDate": "2024-09-12",
+        "observationCount": 63
+      },
+      "status": "available",
+      "regime": {
+        "ruleVersion": "posthoc-qqq-63d-regime-rules-v1",
+        "label": "stress_drawdown",
+        "metrics": {
+          "observedReturnPercent": -0.037495,
+          "maximumDrawdownPercent": -13.557746,
+          "annualizedVolatilityPercent": 23.154737,
+          "observedTradingDays": 63
+        }
+      }
+    },
+    {
+      "foldId": "fold-09",
+      "evaluation": {
+        "startDate": "2024-09-13",
+        "endDate": "2024-12-11",
+        "observationCount": 63
+      },
+      "status": "available",
+      "regime": {
+        "ruleVersion": "posthoc-qqq-63d-regime-rules-v1",
+        "label": "strong_uptrend",
+        "metrics": {
+          "observedReturnPercent": 12.139097,
+          "maximumDrawdownPercent": -3.417374,
+          "annualizedVolatilityPercent": 15.153067,
+          "observedTradingDays": 63
+        }
+      }
+    },
+    {
+      "foldId": "fold-10",
+      "evaluation": {
+        "startDate": "2024-12-12",
+        "endDate": "2025-03-17",
+        "observationCount": 63
+      },
+      "status": "available",
+      "regime": {
+        "ruleVersion": "posthoc-qqq-63d-regime-rules-v1",
+        "label": "stress_drawdown",
+        "metrics": {
+          "observedReturnPercent": -8.750665,
+          "maximumDrawdownPercent": -13.193213,
+          "annualizedVolatilityPercent": 22.187365,
+          "observedTradingDays": 63
+        }
+      }
+    },
+    {
+      "foldId": "fold-11",
+      "evaluation": {
+        "startDate": "2025-03-18",
+        "endDate": "2025-06-16",
+        "observationCount": 63
+      },
+      "status": "available",
+      "regime": {
+        "ruleVersion": "posthoc-qqq-63d-regime-rules-v1",
+        "label": "stress_drawdown",
+        "metrics": {
+          "observedReturnPercent": 10.836774,
+          "maximumDrawdownPercent": -15.685162,
+          "annualizedVolatilityPercent": 36.87705,
+          "observedTradingDays": 63
+        }
+      }
+    },
+    {
+      "foldId": "fold-12",
+      "evaluation": {
+        "startDate": "2025-06-17",
+        "endDate": "2025-09-16",
+        "observationCount": 63
+      },
+      "status": "available",
+      "regime": {
+        "ruleVersion": "posthoc-qqq-63d-regime-rules-v1",
+        "label": "strong_uptrend",
+        "metrics": {
+          "observedReturnPercent": 10.772052,
+          "maximumDrawdownPercent": -2.939653,
+          "annualizedVolatilityPercent": 11.47371,
+          "observedTradingDays": 63
+        }
+      }
+    },
+    {
+      "foldId": "fold-13",
+      "evaluation": {
+        "startDate": "2025-09-17",
+        "endDate": "2025-12-15",
+        "observationCount": 63
+      },
+      "status": "available",
+      "regime": {
+        "ruleVersion": "posthoc-qqq-63d-regime-rules-v1",
+        "label": "range_bound",
+        "metrics": {
+          "observedReturnPercent": 3.394534,
+          "maximumDrawdownPercent": -7.880208,
+          "annualizedVolatilityPercent": 17.358683,
+          "observedTradingDays": 63
+        }
+      }
+    },
+    {
+      "foldId": "fold-14",
+      "evaluation": {
+        "startDate": "2025-12-16",
+        "endDate": "2026-03-18",
+        "observationCount": 63
+      },
+      "status": "available",
+      "regime": {
+        "ruleVersion": "posthoc-qqq-63d-regime-rules-v1",
+        "label": "range_bound",
+        "metrics": {
+          "observedReturnPercent": -2.436117,
+          "maximumDrawdownPercent": -6.237964,
+          "annualizedVolatilityPercent": 15.913357,
+          "observedTradingDays": 63
+        }
+      }
+    },
+    {
+      "foldId": "fold-15",
+      "evaluation": {
+        "startDate": "2026-03-19",
+        "endDate": "2026-06-17",
+        "observationCount": 63
+      },
+      "status": "available",
+      "regime": {
+        "ruleVersion": "posthoc-qqq-63d-regime-rules-v1",
+        "label": "strong_uptrend",
+        "metrics": {
+          "observedReturnPercent": 21.60379,
+          "maximumDrawdownPercent": -7.031998,
+          "annualizedVolatilityPercent": 23.17765,
+          "observedTradingDays": 63
+        }
+      }
+    },
+    {
+      "foldId": "fold-16",
+      "evaluation": {
+        "startDate": "2026-06-18",
+        "endDate": "2026-07-14",
+        "observationCount": 17
+      },
+      "status": "available",
+      "regime": {
+        "ruleVersion": "posthoc-qqq-63d-regime-rules-v1",
+        "label": "range_bound",
+        "metrics": {
+          "observedReturnPercent": -0.280838,
+          "maximumDrawdownPercent": -4.499415,
+          "annualizedVolatilityPercent": 27.382549,
+          "observedTradingDays": 17
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "Regimes are post-hoc descriptions of already completed frozen evaluation intervals, not inputs to model fitting, calibration, promotion, or runtime.",
+    "The labels summarize return, realized volatility, and maximum drawdown from the recorded QQQ price path; they do not identify causes or predict a future regime.",
+    "The artifact omits daily price rows, individual predictions, current probabilities, and trading instructions."
+  ]
+}
