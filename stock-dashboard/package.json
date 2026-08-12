@@ -15,6 +15,7 @@
     "labels:qqq": "node scripts/rebuild-market-labels.js QQQ",
     "similar-days:qqq": "node scripts/rebuild-similar-days.js QQQ",
     "narrative:validate": "node scripts/validate-research-narrative.js",
+    "research-packet:snapshot": "node scripts/capture-research-packet-snapshot.js",
     "test": "node --test"
   },
   "engines": {

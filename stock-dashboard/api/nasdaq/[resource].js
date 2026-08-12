@@ -9,6 +9,7 @@ const { getStoredSimilarDays } = require("../../lib/similar-day-store");
 const { getDailyResearchPacket } = require("../../lib/daily-research-packet");
 const { RESEARCH_NARRATIVE_VERSION, buildResearchNarrativeInstructions } = require("../../lib/research-narrative-contract");
 const { getEventReviewQueue } = require("../../lib/event-review");
+const { getResearchPacketSnapshots } = require("../../lib/research-packet-snapshots");
 
 function sendJson(res, statusCode, payload) {
   res.statusCode = statusCode;
@@ -210,6 +211,24 @@ const resources = {
       sendJson(res, 200, { ok: true, researchOnly: true, ...queue });
     } catch (error) {
       sendFailure(res, "Failed to load event review queue", error);
+    }
+  },
+
+  async "research-packet-snapshots"(req, res) {
+    try {
+      const result = await getResearchPacketSnapshots({
+        date: req.query?.date,
+        limit: req.query?.limit,
+        includePacket: req.query?.includePacket
+      });
+      res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=900");
+      sendJson(res, 200, { ok: true, researchOnly: true, ...result });
+    } catch (error) {
+      if (/Invalid calendar date/.test(error?.message || "")) {
+        sendInvalidQuery(res, "Invalid research packet snapshot date; expected YYYY-MM-DD");
+        return;
+      }
+      sendFailure(res, "Failed to load research packet snapshots", error);
     }
   }
 };

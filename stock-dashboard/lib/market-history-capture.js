@@ -5,6 +5,8 @@ const { getSupabaseConfig, requestSupabase } = require("./supabase-server");
 const { persistUnifiedMarketEvents } = require("./unified-market-events");
 const { captureRecentSecFilings, isSecEdgarConfigured } = require("./sec-edgar");
 const { captureRecentFredObservations, isFredConfigured } = require("./fred-macro");
+const { getDailyResearchPacket } = require("./daily-research-packet");
+const { persistResearchPacketSnapshot } = require("./research-packet-snapshots");
 
 const RUNS_TABLE = "market_capture_runs";
 const PUBLIC_HISTORY_TABLE = "nasdaq_market_event_history";
@@ -251,6 +253,24 @@ async function captureMarketHistory(input) {
         fredMacroResult = { ...fredMacroResult, status: "failed", error: errorMessage(error) };
       }
     }
+    let researchPacketSnapshotResult = {
+      status: "pending",
+      created: false,
+      packetFingerprint: null,
+      error: null
+    };
+    try {
+      const packet = await getDailyResearchPacket(today, now);
+      if (!packet.marketState) {
+        researchPacketSnapshotResult = { ...researchPacketSnapshotResult, status: "skipped", error: "Research packet has no QQQ market state" };
+      } else {
+        const saved = await persistResearchPacketSnapshot(config, packet, now.toISOString());
+        researchPacketSnapshotResult = { status: "succeeded", error: null, ...saved };
+      }
+    } catch (error) {
+      // Snapshots enable research replay but must not discard an otherwise valid close capture.
+      researchPacketSnapshotResult = { ...researchPacketSnapshotResult, status: "failed", error: errorMessage(error) };
+    }
 
     const states = await requestSupabase(config, "/rest/v1/watchlist_states?select=user_id,items", {
       headers: { Range: "0-999" }
@@ -324,6 +344,9 @@ async function captureMarketHistory(input) {
       fredMacroStatus: fredMacroResult.status,
       fredMacroEvents: fredMacroResult.eventsWritten,
       fredMacroSources: fredMacroResult.sourcesWritten,
+      researchPacketSnapshotStatus: researchPacketSnapshotResult.status,
+      researchPacketSnapshotCreated: researchPacketSnapshotResult.created,
+      researchPacketFingerprint: researchPacketSnapshotResult.packetFingerprint,
       personalSavedEvents,
       skippedUsers,
       failedUsers,
@@ -354,6 +377,10 @@ async function captureMarketHistory(input) {
           fredMacroSeriesIds: fredMacroResult.seriesIds,
           fredMacroObservationCount: fredMacroResult.observations.length,
           fredMacroError: fredMacroResult.error,
+          researchPacketSnapshotStatus: researchPacketSnapshotResult.status,
+          researchPacketSnapshotCreated: researchPacketSnapshotResult.created,
+          researchPacketFingerprint: researchPacketSnapshotResult.packetFingerprint,
+          researchPacketSnapshotError: researchPacketSnapshotResult.error,
           personalSavedEvents,
           publicUniverseAsOf: publicSnapshot.universe?.asOf || NASDAQ_UNIVERSE_AS_OF,
           publicUniverseSource: publicSnapshot.universe?.source || null

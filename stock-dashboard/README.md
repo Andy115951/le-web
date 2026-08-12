@@ -73,6 +73,7 @@
 - SEC EDGAR filings 骨架：可将核心标的的 `10-K / 10-Q / 8-K / 20-F / 40-F / 6-K` 以官方归档链接、接受时间和 CIK 写入统一事件层；配置合规 `SEC_USER_AGENT` 后启用
 - FRED 宏观观测骨架：可把 `CPIAUCSL / UNRATE / FEDFUNDS / GDPC1` 的官方 FRED 观测写入统一事件层；配置服务端 `FRED_API_KEY` 后启用，未配置时保持禁用
 - 日度研究输入包：`GET /api/nasdaq/research-packet?date=YYYY-MM-DD` 固定后续 AI/日报可读取的泄漏安全事实边界，并按“上一交易日收盘到目标日收盘”筛选可知事件；人工 `rejected` 事件不会进入模型证据集合
+- 研究输入回放：收盘任务会追加保存稳定指纹的研究包快照；`GET /api/nasdaq/research-packet-snapshots` 默认只返回摘要，显式 `includePacket=true` 才返回完整历史输入
 - 研究摘要输出契约：未来 DeepSeek/LLM 输出必须通过来源引用、越权语言和输入/输出指纹验证；审计表已就绪，但当前没有调用模型
 - 输出契约查询：`GET /api/nasdaq/research-narrative-contract?date=YYYY-MM-DD` 提供该日期允许引用的证据与固定 JSON 结构
 
@@ -141,6 +142,8 @@
 - `lib/fred-macro.js`: FRED 宏观观测采集、稳定事件键与不伪造发布时间的时间边界
 - `scripts/capture-fred-macro.js`: 手动采集 FRED 宏观观测的受控入口
 - `lib/daily-research-packet.js`: 为未来报告/Agent 固定市场状态、跨收盘可知事件、来源与历史相似日的只读契约
+- `lib/research-packet-snapshots.js`: 研究输入的稳定指纹、来源摘要、追加式快照写入与回放读取
+- `scripts/capture-research-packet-snapshot.js`: 手动生成某个市场日研究输入快照的受控入口
 - `lib/research-narrative-contract.js`: 未来 LLM 市场复盘的引用约束、禁止语义与输出验证
 - `lib/research-narrative-audit.js`: 服务端审计写入；记录版本、指纹、验证结果与原始模型 JSON
 - `data/ndx/`: 经校验且保留官方来源日期的 NDX 结构化快照

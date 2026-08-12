@@ -242,6 +242,12 @@ FRED API Key 只放在服务端 `FRED_API_KEY`。API 请求 URL 不会写库，�
 
 可通过 `GET /api/nasdaq/research-narrative-contract?date=YYYY-MM-DD` 读取该日期允许引用的 event key 与历史候选日期，以及 `research-narrative-v1` 的固定输出形状。人工 `rejected` 事件会被契约二次过滤，即使调用方自行构造旧输入包也不能通过引用校验。这个端点只提供规则和证据标识，不会调用或代理任何模型。
 
+### 研究输入快照回放
+
+`20260812280000_add_research_packet_snapshots.sql` 新增 `research_packet_snapshots`。每行是一次可重放的研究输入事实快照，包含市场日期、输入契约版本、忽略 `generatedAt` 的 SHA-256 指纹、完整 JSON、仅含统计计数的来源摘要和捕获时间。唯一键 `(market_date, packet_fingerprint)` 使同一输入幂等，审计记录不会更新或删除旧快照。
+
+表启用 RLS，只授予服务端 Secret Key `select / insert`。读取 API 默认不返回 `packet` JSON，只有 `includePacket=true` 的明确回放请求才返回；输入包本身只含公共市场证据、审核状态和相似日事实，不包含服务器密钥、请求头或个人 watchlist 数据。Cron 如果无法构成带 QQQ 市场状态的输入包，会记录 `skipped` 而非保存不完整快照。
+
 ## 2. 打开邮箱登录
 
 在 Supabase Dashboard:

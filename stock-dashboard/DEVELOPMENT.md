@@ -37,6 +37,7 @@
 - [x] SEC EDGAR filings 采集器、统一事件写入和离线测试已实现；当前未配置真实 `SEC_USER_AGENT`，生产采集保持禁用
 - [x] FRED 宏观观测采集器、稳定去重和离线测试已实现；当前未配置 `FRED_API_KEY`，生产采集保持禁用
 - [x] `event_review_decisions` 已在远程创建；确定性分类、只读队列和追加式人工审核 CLI 已实现
+- [x] `research_packet_snapshots` 已在远程创建；首份 `2026-08-11` 输入快照已验证可幂等重跑
 - [x] `research_narrative_audits` 已在远程创建；等待未来首条模型研究输出写入审计记录
 - [x] Cron 运行日志、失败诊断、手动重跑和最近运行记录接口
 - [x] Nasdaq 核心行情/新闻入口已与个人自选解耦，无登录也可运行
@@ -546,6 +547,33 @@ npm run narrative:validate -- /tmp/research-packet.json /tmp/narrative.json
 后续模型调用必须始终先校验，再调用 `persistResearchNarrativeAudit` 写入接受或拒绝结果。审计记录保存输入/输出 SHA-256 指纹、模型标识、完整 JSON 和验证错误；该表仅服务端可读写，不能向浏览器或 LLM 反向暴露密钥。
 
 审计 `metadata` 不透传调用方对象，仅允许 `runId`、生成时间、延迟、输入/输出 token 数和 temperature。不要将 API Key、Authorization、请求头或完整模型响应放入该参数。
+
+#### 8.2.4 研究输入快照与回放
+
+每次收盘归档在公共行情、可选 SEC/FRED 采集完成后，会尝试生成当天研究输入包并写入 `research_packet_snapshots`。快照保存完整输入 JSON、去除 `generatedAt` 后的稳定 SHA-256 指纹、来源/事件/审核状态聚合摘要和真实捕获时间。相同市场日、相同事实输入只保留一份，不会因重新运行而覆盖或复制。
+
+默认读取只返回摘要：
+
+```text
+GET /api/nasdaq/research-packet-snapshots?date=2026-08-11&limit=10
+```
+
+需要回放某次完整 Agent 输入时，显式请求：
+
+```text
+GET /api/nasdaq/research-packet-snapshots?date=2026-08-11&includePacket=true
+```
+
+手动补一份历史日快照：
+
+```bash
+set -a
+. ./.env.local
+set +a
+npm run research-packet:snapshot -- 2026-08-11
+```
+
+若当天研究包没有 `QQQ` 市场状态，Cron 记录 `researchPacketSnapshotStatus: skipped`，不会把不完整输入伪装成可回放结论；若快照写入失败，主行情归档仍会成功并在运行详情记录安全错误摘要。
 
 ### 8.3 NDX 成分与权重快照
 
