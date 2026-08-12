@@ -1,0 +1,304 @@
+{
+  "splitVersion": "qqq-walk-forward-v1",
+  "instrument": "QQQ",
+  "featureVersion": "qqq-daily-state-v1",
+  "labelVersion": "adjusted-close-forward-v1",
+  "horizonTradingDays": 20,
+  "minTrainingDays": 252,
+  "evaluationDays": 63,
+  "stepDays": 63,
+  "dataStartDate": "2021-08-12",
+  "dataEndDate": "2026-08-11",
+  "lastMatureOutcomeDate": "2026-07-14",
+  "eligibleObservationCount": 1234,
+  "splits": [
+    {
+      "id": "fold-01",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2022-08-11",
+        "observationCount": 252
+      },
+      "embargo": {
+        "startDate": "2022-08-12",
+        "endDate": "2022-09-09",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2022-09-12",
+        "endDate": "2022-12-08",
+        "observationCount": 63
+      }
+    },
+    {
+      "id": "fold-02",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2022-11-09",
+        "observationCount": 315
+      },
+      "embargo": {
+        "startDate": "2022-11-10",
+        "endDate": "2022-12-08",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2022-12-09",
+        "endDate": "2023-03-13",
+        "observationCount": 63
+      }
+    },
+    {
+      "id": "fold-03",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2023-02-10",
+        "observationCount": 378
+      },
+      "embargo": {
+        "startDate": "2023-02-13",
+        "endDate": "2023-03-13",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2023-03-14",
+        "endDate": "2023-06-12",
+        "observationCount": 63
+      }
+    },
+    {
+      "id": "fold-04",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2023-05-12",
+        "observationCount": 441
+      },
+      "embargo": {
+        "startDate": "2023-05-15",
+        "endDate": "2023-06-12",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2023-06-13",
+        "endDate": "2023-09-12",
+        "observationCount": 63
+      }
+    },
+    {
+      "id": "fold-05",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2023-08-14",
+        "observationCount": 504
+      },
+      "embargo": {
+        "startDate": "2023-08-15",
+        "endDate": "2023-09-12",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2023-09-13",
+        "endDate": "2023-12-11",
+        "observationCount": 63
+      }
+    },
+    {
+      "id": "fold-06",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2023-11-10",
+        "observationCount": 567
+      },
+      "embargo": {
+        "startDate": "2023-11-13",
+        "endDate": "2023-12-11",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2023-12-12",
+        "endDate": "2024-03-13",
+        "observationCount": 63
+      }
+    },
+    {
+      "id": "fold-07",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2024-02-13",
+        "observationCount": 630
+      },
+      "embargo": {
+        "startDate": "2024-02-14",
+        "endDate": "2024-03-13",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2024-03-14",
+        "endDate": "2024-06-12",
+        "observationCount": 63
+      }
+    },
+    {
+      "id": "fold-08",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2024-05-14",
+        "observationCount": 693
+      },
+      "embargo": {
+        "startDate": "2024-05-15",
+        "endDate": "2024-06-12",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2024-06-13",
+        "endDate": "2024-09-12",
+        "observationCount": 63
+      }
+    },
+    {
+      "id": "fold-09",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2024-08-14",
+        "observationCount": 756
+      },
+      "embargo": {
+        "startDate": "2024-08-15",
+        "endDate": "2024-09-12",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2024-09-13",
+        "endDate": "2024-12-11",
+        "observationCount": 63
+      }
+    },
+    {
+      "id": "fold-10",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2024-11-12",
+        "observationCount": 819
+      },
+      "embargo": {
+        "startDate": "2024-11-13",
+        "endDate": "2024-12-11",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2024-12-12",
+        "endDate": "2025-03-17",
+        "observationCount": 63
+      }
+    },
+    {
+      "id": "fold-11",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2025-02-14",
+        "observationCount": 882
+      },
+      "embargo": {
+        "startDate": "2025-02-18",
+        "endDate": "2025-03-17",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2025-03-18",
+        "endDate": "2025-06-16",
+        "observationCount": 63
+      }
+    },
+    {
+      "id": "fold-12",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2025-05-16",
+        "observationCount": 945
+      },
+      "embargo": {
+        "startDate": "2025-05-19",
+        "endDate": "2025-06-16",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2025-06-17",
+        "endDate": "2025-09-16",
+        "observationCount": 63
+      }
+    },
+    {
+      "id": "fold-13",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2025-08-18",
+        "observationCount": 1008
+      },
+      "embargo": {
+        "startDate": "2025-08-19",
+        "endDate": "2025-09-16",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2025-09-17",
+        "endDate": "2025-12-15",
+        "observationCount": 63
+      }
+    },
+    {
+      "id": "fold-14",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2025-11-14",
+        "observationCount": 1071
+      },
+      "embargo": {
+        "startDate": "2025-11-17",
+        "endDate": "2025-12-15",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2025-12-16",
+        "endDate": "2026-03-18",
+        "observationCount": 63
+      }
+    },
+    {
+      "id": "fold-15",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2026-02-18",
+        "observationCount": 1134
+      },
+      "embargo": {
+        "startDate": "2026-02-19",
+        "endDate": "2026-03-18",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2026-03-19",
+        "endDate": "2026-06-17",
+        "observationCount": 63
+      }
+    },
+    {
+      "id": "fold-16",
+      "training": {
+        "startDate": "2021-08-12",
+        "endDate": "2026-05-19",
+        "observationCount": 1197
+      },
+      "embargo": {
+        "startDate": "2026-05-20",
+        "endDate": "2026-06-17",
+        "tradingDays": 20
+      },
+      "evaluation": {
+        "startDate": "2026-06-18",
+        "endDate": "2026-07-14",
+        "observationCount": 17
+      }
+    }
+  ]
+}

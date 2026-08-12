@@ -18,6 +18,7 @@
     "narrative:run": "node scripts/run-research-narrative.js",
     "research-packet:snapshot": "node scripts/capture-research-packet-snapshot.js",
     "research-packet:rehash": "node scripts/rehash-research-packet-snapshots.js",
+    "evaluation:splits": "node scripts/build-walk-forward-splits.js",
     "test": "node --test"
   },
   "engines": {

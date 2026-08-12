@@ -625,6 +625,38 @@ npm run research-packet:snapshot -- 2026-08-11
 
 若当天研究包没有 `QQQ` 市场状态，Cron 记录 `researchPacketSnapshotStatus: skipped`，不会把不完整输入伪装成可回放结论；若快照写入失败，主行情归档仍会成功并在运行详情记录安全错误摘要。
 
+#### 8.2.6 冻结 walk-forward 评估边界
+
+在任何概率模型、校准曲线或 Agent 情景数字上线前，先提交固定评估工件：[data/evaluation/qqq-walk-forward-v1.json](data/evaluation/qqq-walk-forward-v1.json)。它由已存的 `daily_market_features` 与 `market_forward_labels` 生成，当前版本固定为：
+
+- 标的：`QQQ`
+- 特征版本：`qqq-daily-state-v1`
+- 标签版本：`adjusted-close-forward-v1`
+- 目标结果期：未来 20 个交易日
+- 初始训练：252 个交易日
+- 验证窗口 / 滚动步长：各 63 个交易日
+- 训练与验证间 embargo：20 个交易日
+
+每个新验证折的训练集可以包含更早折已经结束的日期，但绝不包含在新验证日尚未成熟的 20 日标签。这样符合扩展式 walk-forward，而不是随机打乱或把未来结果倒灌给训练。
+
+重建候选工件时运行：
+
+```bash
+set -a
+. ./.env.local
+set +a
+npm run evaluation:splits
+git diff -- data/evaluation/qqq-walk-forward-v1.json
+```
+
+只有当特征/标签版本或数据边界发生有意变更，并经过 review 后才提交新工件；不要让日常 Cron 重写它。网页和后续评估器通过只读接口获取已提交版本：
+
+```text
+GET /api/nasdaq/evaluation-splits
+```
+
+此工件仅定义评估边界，不包含预测、方向准确率或概率，因此不能被解释为投资信号。
+
 ### 8.3 NDX 成分与权重快照
 
 首个完整快照保存在：

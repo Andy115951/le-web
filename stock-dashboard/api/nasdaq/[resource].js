@@ -11,6 +11,7 @@ const { RESEARCH_NARRATIVE_VERSION, buildResearchNarrativeInstructions } = requi
 const { getPublishedResearchNarratives } = require("../../lib/research-narrative-audit");
 const { getEventReviewQueue } = require("../../lib/event-review");
 const { getResearchPacketSnapshots } = require("../../lib/research-packet-snapshots");
+const { getWalkForwardSplitManifest } = require("../../lib/evaluation-split-manifest");
 
 function sendJson(res, statusCode, payload) {
   res.statusCode = statusCode;
@@ -247,6 +248,16 @@ const resources = {
         return;
       }
       sendFailure(res, "Failed to load research packet snapshots", error);
+    }
+  },
+
+  async "evaluation-splits"(_req, res) {
+    try {
+      const manifest = getWalkForwardSplitManifest();
+      res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=86400");
+      sendJson(res, 200, { ok: true, researchOnly: true, manifest });
+    } catch (error) {
+      sendFailure(res, "Failed to load frozen evaluation splits", error);
     }
   }
 };
