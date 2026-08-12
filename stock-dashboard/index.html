@@ -34,6 +34,7 @@
         <button type="button" class="command-link" data-scroll-target="marketEvents">动态新闻</button>
         <button type="button" class="command-link" data-scroll-target="marketCalendar">市场日历</button>
         <button type="button" class="command-link" data-scroll-target="researchReplay">研究回放</button>
+        <button type="button" class="command-link" data-scroll-target="modelReview">模型复核</button>
         <button type="button" class="command-link" data-scroll-target="watchlist">个人持仓</button>
       </div>
       <div class="command-actions">
@@ -274,6 +275,18 @@
         <div class="replay-list card" id="researchReplayList" aria-live="polite"></div>
         <aside class="replay-detail card" id="researchReplayDetail" aria-live="polite"></aside>
       </div>
+    </section>
+
+    <section class="model-review" id="modelReview">
+      <div class="section-heading model-review-heading">
+        <div>
+          <p class="eyebrow">MODEL GOVERNANCE</p>
+          <h2>候选模型复核</h2>
+        </div>
+        <button type="button" class="btn btn-ghost" id="refreshModelReviewBtn">刷新复核</button>
+      </div>
+      <p class="muted model-review-hint" id="modelReviewHint">读取冻结回测及固定晋升门槛。通过仅代表可供人工审阅，不会自动生成交易信号。</p>
+      <div class="model-review-card card" id="modelReviewBody" aria-live="polite"></div>
     </section>
 
     <section class="overview-grid" id="marketOverview">

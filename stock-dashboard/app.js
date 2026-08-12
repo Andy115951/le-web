@@ -74,6 +74,9 @@ const els = {
   researchReplayHint: document.getElementById("researchReplayHint"),
   researchReplayList: document.getElementById("researchReplayList"),
   researchReplayDetail: document.getElementById("researchReplayDetail"),
+  refreshModelReviewBtn: document.getElementById("refreshModelReviewBtn"),
+  modelReviewHint: document.getElementById("modelReviewHint"),
+  modelReviewBody: document.getElementById("modelReviewBody"),
   rowTemplate: document.getElementById("rowTemplate"),
   countStat: document.getElementById("countStat"),
   upStat: document.getElementById("upStat"),
@@ -160,6 +163,12 @@ const state = {
     requestId: 0,
     detailRequestId: 0
   },
+  modelReview: {
+    review: null,
+    loading: false,
+    error: "",
+    requestId: 0
+  },
   targetHits: new Set(),
   dropAlerted: new Set(),
   audioCtx: null,
@@ -205,7 +214,7 @@ async function init() {
   updateCloudButtons();
   await initCloud(cloudConfig);
   await refreshQuotes();
-  await Promise.all([refreshMarketHistory(), refreshMarketCalendar(), refreshResearchReplay()]);
+  await Promise.all([refreshMarketHistory(), refreshMarketCalendar(), refreshResearchReplay(), refreshModelReview()]);
 }
 
 function getNewYorkMonth(now = new Date()) {
@@ -305,6 +314,9 @@ function bindEvents() {
 
   if (els.refreshResearchReplayBtn) {
     els.refreshResearchReplayBtn.addEventListener("click", function () { void refreshResearchReplay(); });
+  }
+  if (els.refreshModelReviewBtn) {
+    els.refreshModelReviewBtn.addEventListener("click", function () { void refreshModelReview(); });
   }
   if (els.researchReplayList) {
     els.researchReplayList.addEventListener("click", function (event) {
@@ -1236,6 +1248,90 @@ function renderReplayMatches(matches) {
 function replayTone(value) {
   const number = Number(value);
   return number > 0 ? "positive" : number < 0 ? "negative" : "neutral";
+}
+
+async function refreshModelReview() {
+  if (!els.modelReviewBody || !els.modelReviewHint) return;
+  const modelReview = state.modelReview;
+  const requestId = ++modelReview.requestId;
+  modelReview.loading = true;
+  modelReview.error = "";
+  renderModelReview();
+  try {
+    const response = await fetch("./api/nasdaq/evaluation-logistic-review");
+    const payload = await response.json().catch(function () { return {}; });
+    if (!response.ok) throw new Error(payload?.error || "读取模型复核失败");
+    if (requestId !== modelReview.requestId) return;
+    modelReview.review = payload?.review && typeof payload.review === "object" ? payload.review : null;
+    if (!modelReview.review) throw new Error("模型复核没有返回有效结果");
+    modelReview.loading = false;
+    renderModelReview();
+  } catch (error) {
+    if (requestId !== modelReview.requestId) return;
+    modelReview.loading = false;
+    modelReview.error = error?.message || "读取模型复核失败";
+    renderModelReview();
+  }
+}
+
+function renderModelReview() {
+  if (!els.modelReviewBody || !els.modelReviewHint) return;
+  const modelReview = state.modelReview;
+  if (modelReview.loading && !modelReview.review) {
+    els.modelReviewHint.textContent = "正在读取冻结评估和固定治理门槛…";
+    els.modelReviewBody.innerHTML = '<div class="model-review-empty"><strong>正在加载模型复核</strong><span>这不会请求模型或改变任何市场数据。</span></div>';
+    return;
+  }
+  if (modelReview.error || !modelReview.review) {
+    els.modelReviewHint.textContent = "模型复核暂时不可用，市场数据和研究回放不受影响。";
+    els.modelReviewBody.innerHTML = '<div class="model-review-empty is-error"><strong>读取失败</strong><span>' + escapeHtml(modelReview.error || "没有可用的模型复核") + "</span></div>";
+    return;
+  }
+  const review = modelReview.review;
+  const observed = review.observed || {};
+  const checks = Array.isArray(review.checks) ? review.checks : [];
+  const failures = Array.isArray(review.failureLabels) ? review.failureLabels : [];
+  const passedCount = checks.filter(function (item) { return item.passed; }).length;
+  const isEligible = review.reviewStatus === "eligible_for_human_review";
+  els.modelReviewHint.textContent = isEligible
+    ? "该候选满足固定离线门槛，下一步仍需人工审阅；它没有被部署到实时市场链路。"
+    : "当前候选未达到固定离线门槛，已保留失败原因供后续特征与模型迭代复盘。";
+  els.modelReviewBody.innerHTML = [
+    '<div class="model-review-hero">',
+    '<div><span>OFFLINE CANDIDATE</span><h3>' + escapeHtml(String(review.candidateEvaluationVersion || "--")) + "</h3><p>对照：" + escapeHtml(String(review.benchmarkEvaluationVersion || "--")) + " · 策略：" + escapeHtml(String(review.policyVersion || "--")) + "</p></div>",
+    '<div class="model-review-status ' + (isEligible ? "is-eligible" : "is-blocked") + '"><b>' + (isEligible ? "可供人工复核" : "未获晋升") + "</b><span>Runtime: " + escapeHtml(String(review.runtimeStatus || "not_deployed")) + "</span></div>",
+    "</div>",
+    '<div class="model-review-metrics">',
+    renderModelReviewMetric("冻结折", observed.foldCount, "要求 " + escapeHtml(String(review.policy?.minimumFoldCount || "--"))),
+    renderModelReviewMetric("样本", observed.sampleCount, "要求 " + escapeHtml(String(review.policy?.minimumSampleCount || "--"))),
+    renderModelReviewMetric("Brier 改善", formatModelDelta(observed.brierImprovement), "要求 ≥ " + escapeHtml(formatModelNumber(review.policy?.minimumBrierImprovement))),
+    renderModelReviewMetric("平衡准确率改善", formatModelDelta(observed.balancedAccuracyImprovement), "要求 ≥ " + escapeHtml(formatModelNumber(review.policy?.minimumBalancedAccuracyImprovement))),
+    renderModelReviewMetric("最坏校准误差", formatModelNumber(observed.worstCalibrationError), "要求 ≤ " + escapeHtml(formatModelNumber(review.policy?.calibration?.maximumAbsoluteError))),
+    "</div>",
+    '<div class="model-review-checks">',
+    '<div class="model-review-checks-head"><strong>固定门槛</strong><span>' + passedCount + "/" + checks.length + " 通过" + (failures.length ? " · " + failures.length + " 项待改进" : "") + "</span></div>",
+    checks.map(renderModelReviewCheck).join(""),
+    "</div>",
+    '<p class="model-review-note">' + escapeHtml(String(review.promotionBoundary || "该评估仅供研究复核。")) + "</p>"
+  ].join("");
+}
+
+function renderModelReviewMetric(label, value, note) {
+  return '<div><span>' + escapeHtml(label) + "</span><strong>" + escapeHtml(value === null || value === undefined || value === "" ? "--" : String(value)) + "</strong><small>" + note + "</small></div>";
+}
+
+function renderModelReviewCheck(item) {
+  return '<div class="model-review-check ' + (item?.passed ? "is-passed" : "is-failed") + '"><b>' + (item?.passed ? "通过" : "未通过") + "</b><div><strong>" + escapeHtml(String(item?.id || "unknown")) + "</strong><p>" + escapeHtml(String(item?.detail || "")) + "</p></div></div>";
+}
+
+function formatModelNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number.toFixed(3) : "--";
+}
+
+function formatModelDelta(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? (number > 0 ? "+" : "") + number.toFixed(3) : "--";
 }
 
 async function refreshSimilarDays(date) {
