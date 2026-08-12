@@ -55,6 +55,8 @@
 - 标签查询接口：`GET /api/nasdaq/labels?symbol=QQQ&limit=1254`，明确标记为研究专用
 - 统一事件与来源层：`sources / events / event_sources / event_entities`，支持 URL 去重、证据关系和标的关系
 - 统一事件接口：`GET /api/nasdaq/events?days=30|90|180`
+- 事件人工复核：追加式 `event_review_decisions` 审计记录、确定性待复核规则和只读队列；不会覆盖原始事件
+- 待复核队列接口：`GET /api/nasdaq/review-queue?days=30|90|180`
 - NDX 历史成分与权重快照：首个完整官方快照含 101 个证券，生效日 `2026-05-01`，权重合计 `99.96%`
 - 成分查询接口：`GET /api/nasdaq/constituents?asOf=YYYY-MM-DD`
 - NDX 候选快照审核：先发现候选、生成并检查差异报告，再以显式 `--approve` 导入；导入后会保存加入、移除和权重变化事件
@@ -123,6 +125,8 @@
 - `lib/market-forward-labels.js`: 前瞻收益、回撤和波动率纯计算逻辑
 - `lib/market-label-store.js`: 标签重算、写库与查询
 - `lib/unified-market-events.js`: 来源规范化、事件双写、关系维护和统一读取
+- `lib/event-review.js`: 确定性复核分类、最新人工结论读取与追加式审核写入
+- `scripts/review-unified-events.js`: 列出待复核事件或追加人工审核结论的受控 CLI
 - `lib/ndx-snapshots.js`: NDX 快照校验、导入、版本查询与动态雷达选择依据
 - `lib/ndx-snapshot-review.js`: NDX 快照差异计算与成分变更事件行生成
 - `data/ndx/candidates/`: 待人工审核的官方候选快照

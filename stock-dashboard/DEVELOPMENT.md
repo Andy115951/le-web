@@ -36,6 +36,7 @@
 - [x] `ndx_constituent_changes` 已通过 Management API 应用；首份快照没有前序版本，因此当前尚无变更行
 - [x] SEC EDGAR filings 采集器、统一事件写入和离线测试已实现；当前未配置真实 `SEC_USER_AGENT`，生产采集保持禁用
 - [x] FRED 宏观观测采集器、稳定去重和离线测试已实现；当前未配置 `FRED_API_KEY`，生产采集保持禁用
+- [x] `event_review_decisions` 已在远程创建；确定性分类、只读队列和追加式人工审核 CLI 已实现
 - [x] `research_narrative_audits` 已在远程创建；等待未来首条模型研究输出写入审计记录
 - [x] Cron 运行日志、失败诊断、手动重跑和最近运行记录接口
 - [x] Nasdaq 核心行情/新闻入口已与个人自选解耦，无登录也可运行
@@ -439,6 +440,32 @@ GET /api/nasdaq/events?days=30|90|180
 
 响应中每条事件包含 `sources` 和 `entities`，便于 UI 和 Agent 直接展示证据链接及相关标的。浏览器不能直接访问四张 RLS 表。
 
+#### 8.2.1 人工复核队列
+
+原始 `events` 和 `sources` 是事实记录，人工审核永远不覆盖它们。每次结论只会向 `event_review_decisions` 追加一行，保留审核人、结论、备注、规则版本和时间。当前确定性规则会把以下项目送入待复核：缺少 primary source、低置信度、缺少可知时间、市场涨跌启发式归因，以及缺少精确发布时间的 FRED 宏观观测。
+
+读取队列（只读、不会写数据库）：
+
+```text
+GET /api/nasdaq/review-queue?days=30
+```
+
+本地人工审核使用服务端 `.env.local`，不提供浏览器写入接口：
+
+```bash
+set -a
+. ./.env.local
+set +a
+
+# 查看 30 / 90 / 180 天事件及待复核原因
+npm run events:review -- list 30
+
+# 追加审核结论，不改写原始事件
+npm run events:review -- decide 'market-move:2026-08-11:NVDA:v1' needs_attention apple 'Check the cited evidence before using this attribution.'
+```
+
+结论只能是 `accepted`、`rejected` 或 `needs_attention`。同一事件可以追加多次结论，读取队列时只显示最新一条；CLI 不接受匿名审核人。公开队列只返回审核状态、规则版本与时间，不返回审核人或备注；完整记录只允许服务端和本地 CLI 读取。后续模型只能读取队列中的原始来源和最新结论，不能自行写入审核表。
+
 #### SEC EDGAR filings
 
 SEC collector 使用公司 ticker 映射和 `https://data.sec.gov/submissions/CIK##########.json`，只处理 `10-K`、`10-Q`、`8-K`、`20-F`、`40-F`、`6-K`。事件的可知时间严格采用 EDGAR 的 `acceptanceDateTime`，不是本系统的抓取时间；每个事件的 primary source 指向 SEC Archive 原始文档。
@@ -473,7 +500,7 @@ npm run fred:macro
 
 命令只输出 series id 与写入数量，不会回显 Key。请求走 FRED 官方 `series/observations` API，但持久化的来源 URL 始终是公开的 `https://fred.stlouisfed.org/series/<SERIES_ID>`，不会把含 Key 的 API 请求 URL 写入数据库。首次启用会捕获每个系列最近 3 个有效观测；之后相同的 series、观测日期和数值会被稳定事件键去重，只有新观测或数值修订才会写入新事件。参考：[FRED series observations API](https://fred.stlouisfed.org/docs/api/fred/series_observations.html)。
 
-#### 8.2.1 日度研究输入包（Agent 前置契约）
+#### 8.2.2 日度研究输入包（Agent 前置契约）
 
 当前没有接入 DeepSeek 或任何其他模型。先固定只读输入契约，避免模型直接访问数据库、未来标签或不受控的网页文本：
 
@@ -492,7 +519,7 @@ GET /api/nasdaq/research-packet?date=2026-08-11
 
 该接口明确不包含 `researchOutcome`，也不输出交易建议、目标价或模型概率。收盘后才采集或发布的事件会进入下一交易日的研究窗口，而不是被丢弃或倒灌到前一日。未来接 LLM 时，只能向模型传入这个 JSON 或其更严格的裁剪版本；模型输出必须单独保存，不能回写或覆盖本接口中的原始事实。
 
-#### 8.2.2 研究摘要输出契约与审计
+#### 8.2.3 研究摘要输出契约与审计
 
 目前仍未调用 DeepSeek。已先实现 `research-narrative-v1` 输出校验器和 `research_narrative_audits` 服务端审计表，避免模型接入后先产生日志与事实不可追溯的问题。
 

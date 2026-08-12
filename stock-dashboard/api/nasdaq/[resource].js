@@ -8,6 +8,7 @@ const { getStoredDailyPrices } = require("../../lib/price-history-store");
 const { getStoredSimilarDays } = require("../../lib/similar-day-store");
 const { getDailyResearchPacket } = require("../../lib/daily-research-packet");
 const { RESEARCH_NARRATIVE_VERSION, buildResearchNarrativeInstructions } = require("../../lib/research-narrative-contract");
+const { getEventReviewQueue } = require("../../lib/event-review");
 
 function sendJson(res, statusCode, payload) {
   res.statusCode = statusCode;
@@ -199,6 +200,16 @@ const resources = {
         return;
       }
       sendFailure(res, "Failed to build research narrative contract", error);
+    }
+  },
+
+  async "review-queue"(req, res) {
+    try {
+      const queue = await getEventReviewQueue(req.query?.days);
+      res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=900");
+      sendJson(res, 200, { ok: true, researchOnly: true, ...queue });
+    } catch (error) {
+      sendFailure(res, "Failed to load event review queue", error);
     }
   }
 };

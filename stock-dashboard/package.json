@@ -7,6 +7,7 @@
     "fred:macro": "node scripts/capture-fred-macro.js",
     "sec:filings": "node scripts/capture-sec-filings.js",
     "events:rebuild": "node scripts/rebuild-unified-events.js 180",
+    "events:review": "node scripts/review-unified-events.js",
     "features:qqq": "node scripts/rebuild-daily-features.js QQQ",
     "ndx:discover": "node scripts/discover-ndx-candidates.js",
     "ndx:import": "node scripts/import-ndx-snapshot.js",

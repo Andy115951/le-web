@@ -188,6 +188,12 @@ with check (auth.uid() = user_id);
 
 当前远程验证基线：14 个唯一事件、36 个唯一 URL、39 条事件来源关系、27 条事件实体关系；每条事件均有主行情来源和主实体。公开读取统一走 `GET /api/nasdaq/events`。
 
+### 事件人工复核审计
+
+`20260812270000_add_event_review_decisions.sql` 新增 `event_review_decisions`，用于保存对统一事件的追加式人工结论。字段包括关联 `event_id`、`accepted / rejected / needs_attention` 状态、审核人、备注、规则版本和审核时间。表只授予服务端 Secret Key `select / insert`，没有浏览器或匿名写入权限，也不允许更新或删除历史结论。
+
+原始事件和来源不会因审核而被覆盖。读取层通过 `GET /api/nasdaq/review-queue?days=30|90|180` 组合确定性风险标记和最新结论；公开响应不回传审核人和备注。写入只允许本地受控 CLI `npm run events:review -- decide ...`。这使得后续 Agent 能引用“原始事实 + 人工审核记录”，而不是把人工判断混入原始事件字段。
+
 ### NDX 成分与权重快照
 
 `20260812220000_add_ndx_constituent_snapshots.sql` 新增：
