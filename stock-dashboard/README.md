@@ -53,6 +53,8 @@
 - 公共日线查询接口：`GET /api/nasdaq/prices?symbol=QQQ&limit=1254`
 - 前瞻研究标签：未来 1/3/5/20 日收益、20 日最大回撤和年化实现波动率
 - 标签查询接口：`GET /api/nasdaq/labels?symbol=QQQ&limit=1254`，明确标记为研究专用
+- 统一事件与来源层：`sources / events / event_sources / event_entities`，支持 URL 去重、证据关系和标的关系
+- 统一事件接口：`GET /api/nasdaq/events?days=30|90|180`
 
 ### 当前版本重点
 
@@ -66,10 +68,10 @@
 
 ### 下一阶段
 
-1. 建立统一 `sources` 与 `events`，继续增强可复核的涨跌归因
-2. 建立 Nasdaq-100 成分/权重快照和自动更新机制
-3. 实现第一个动态日历和单日详情页
-4. 将价格、事件与成熟标签按交易日关联，为历史相似日准备输入特征
+1. 建立 Nasdaq-100 成分/权重快照和自动更新机制
+2. 实现第一个动态日历和单日详情页
+3. 将价格、事件与成熟标签按交易日关联，为历史相似日准备输入特征
+4. 扩展 SEC、FRED、公司 IR 等官方事件源
 
 ## 技术结构
 
@@ -94,6 +96,7 @@
 - `api/nasdaq/history.js`: 无需登录的公共 Nasdaq 历史读取接口
 - `api/nasdaq/prices.js`: 无需登录的标准日线读取接口
 - `api/nasdaq/labels.js`: 无需登录的历史研究标签读取接口
+- `api/nasdaq/events.js`: 无需登录的统一事件、来源和实体关系读取接口
 - `api/cron/capture-market-history.js`: 收盘后自动归档入口
 - `api/cron/market-history-runs.js`: 最近采集运行记录接口
 - `lib/a-share-data.js`: A 股分析数据层
@@ -105,6 +108,7 @@
 - `lib/price-history-store.js`: 标准日线回填与查询
 - `lib/market-forward-labels.js`: 前瞻收益、回撤和波动率纯计算逻辑
 - `lib/market-label-store.js`: 标签重算、写库与查询
+- `lib/unified-market-events.js`: 来源规范化、事件双写、关系维护和统一读取
 - `lib/cron-auth.js`: Cron/运维接口统一鉴权与 JSON 响应
 - `vercel.json`: 每个工作日一次的收盘后 Cron 配置
 - `SUPABASE_SETUP.md`: 云同步建表与配置说明

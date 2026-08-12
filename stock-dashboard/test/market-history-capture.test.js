@@ -5,6 +5,7 @@ const {
   determineRunStatus,
   normalizeHistoryDays,
   normalizeCaptureOptions,
+  toHistoryRow,
   toPublicHistoryRow
 } = require("../lib/market-history-capture");
 
@@ -38,11 +39,31 @@ test("public history rows preserve market identity without a user id", function 
     summary: "Market summary",
     reasons: ["Reason"],
     news: [],
+    eventTime: "2026-08-11T20:00:00.000Z",
+    availableAt: "2026-08-11T20:00:12.000Z",
     capturedAt: now.toISOString()
   }, now);
   assert.equal(row.instrument_role, "benchmark");
   assert.equal(row.universe_as_of, "2026-06-30");
+  assert.equal(row.event_time, "2026-08-11T20:00:00.000Z");
+  assert.equal(row.available_at, "2026-08-11T20:00:12.000Z");
   assert.equal("user_id" in row, false);
+});
+
+test("personal compatibility rows do not write unified-only time columns", function () {
+  const now = new Date("2026-08-12T01:00:00.000Z");
+  const row = toHistoryRow("user-id", {
+    date: "2026-08-11",
+    symbol: "QQQ",
+    name: "Invesco QQQ Trust",
+    reasons: [],
+    news: [],
+    eventTime: "2026-08-11T20:00:00.000Z",
+    availableAt: "2026-08-11T20:00:12.000Z",
+    capturedAt: now.toISOString()
+  }, now);
+  assert.equal("event_time" in row, false);
+  assert.equal("available_at" in row, false);
 });
 
 test("normalizeCaptureOptions preserves cron and manual triggers", function () {

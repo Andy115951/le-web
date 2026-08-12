@@ -208,6 +208,11 @@ supabase projects list --agent no --output-format text
 - `instruments`
 - `market_days`
 - `price_bars_daily`
+- `market_forward_labels`
+- `sources`
+- `events`
+- `event_sources`
+- `event_entities`
 - 对应索引、唯一约束和 RLS Policies
 
 最新标准行情 migration：
@@ -373,7 +378,43 @@ GET /api/nasdaq/labels?symbol=QQQ&limit=1254
 
 响应包含 `researchOnly: true`。当前已验证 1,254 行唯一日期，其中完整 20 日标签 1,234 行；重复执行使用 upsert，不产生重复记录。
 
-### 8.2 收盘归档验证
+### 8.2 统一事件与来源
+
+当前收盘采集同时写入两层：
+
+- `nasdaq_market_event_history`：兼容现有首页与历史 UI 的每日快照
+- `sources / events / event_sources / event_entities`：后续日历、相似日和 Agent 使用的规范模型
+
+统一层将行情 URL 和新闻 URL 规范化，移除 `utm_* / fbclid / gclid` 等跟踪参数，并用规范 URL 与 SHA-256 指纹去重。事件通过稳定 `event_key` 幂等写入；来源和实体使用关联表，不在事件 JSON 中重复复制。
+
+时间语义：
+
+- `event_time`：事件真实发生或原始行情时间；旧记录无法可靠恢复时保持 `null`
+- `published_at`：来源首次发布时间
+- `available_at`：系统/市场可获得时间
+- `captured_at`：本系统抓取时间
+- `market_date`：归属的美股交易日
+
+用兼容快照重建统一层：
+
+```bash
+set -a
+. ./.env.local
+set +a
+npm run events:rebuild
+```
+
+重建脚本默认读取最近 180 天，使用 upsert，可安全重复执行。当前真实基线是 14 个事件、36 个唯一来源、39 条事件来源关系和 27 条事件实体关系。
+
+公开读取接口：
+
+```text
+GET /api/nasdaq/events?days=30|90|180
+```
+
+响应中每条事件包含 `sources` 和 `entities`，便于 UI 和 Agent 直接展示证据链接及相关标的。浏览器不能直接访问四张 RLS 表。
+
+### 8.3 收盘归档验证
 
 定时任务使用 `GET`，手动重跑使用 `POST`。两个入口都要求：
 
@@ -466,6 +507,8 @@ npx vercel --global-config $vercelConfigDir --prod
 ### 归因表达
 
 - 新闻与价格变化只能描述为关联线索或归因假设
+- Agent 只能引用 `sources` 中已有的 URL；没有来源时必须明确证据不足
+- 实时预测输入不得读取未来标签，`market_forward_labels` 仅供历史研究与到期评估
 - 没有足够证据时使用 `unclear` 和低置信度
 - 所有新闻证据保留原始链接，方便人工复核
 - 不输出“必涨”“必跌”等确定性投资结论

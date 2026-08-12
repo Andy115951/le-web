@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const { getDailyMarketEvents, isAfterUsMarketClose, marketDate } = require("./daily-market-events");
 const { NASDAQ_FOCUS_INSTRUMENTS, NASDAQ_UNIVERSE_AS_OF } = require("./nasdaq-universe");
 const { getSupabaseConfig, requestSupabase } = require("./supabase-server");
+const { persistUnifiedMarketEvents } = require("./unified-market-events");
 
 const RUNS_TABLE = "market_capture_runs";
 const PUBLIC_HISTORY_TABLE = "nasdaq_market_event_history";
@@ -51,6 +52,8 @@ function toPublicHistoryRow(event, now) {
     summary: event.summary,
     reasons: Array.isArray(event.reasons) ? event.reasons : [],
     news: Array.isArray(event.news) ? event.news : [],
+    event_time: event.eventTime || null,
+    available_at: event.availableAt || event.capturedAt,
     captured_at: event.capturedAt,
     updated_at: now.toISOString()
   };
@@ -207,6 +210,7 @@ async function captureMarketHistory(input) {
     });
     await upsertRows(config, PUBLIC_HISTORY_TABLE, "market_date,symbol", publicRows);
     const publicSavedEvents = publicRows.length;
+    const unifiedResult = await persistUnifiedMarketEvents(config, publicSnapshot.events, now);
 
     const states = await requestSupabase(config, "/rest/v1/watchlist_states?select=user_id,items", {
       headers: { Range: "0-999" }
@@ -272,6 +276,8 @@ async function captureMarketHistory(input) {
       processedUsers,
       savedEvents,
       publicSavedEvents,
+      unifiedSavedEvents: unifiedResult.eventsWritten,
+      unifiedSavedSources: unifiedResult.sourcesWritten,
       personalSavedEvents,
       skippedUsers,
       failedUsers,
@@ -288,6 +294,8 @@ async function captureMarketHistory(input) {
           failedSymbols: result.failedSymbols,
           userFailures,
           publicSavedEvents,
+          unifiedSavedEvents: result.unifiedSavedEvents,
+          unifiedSavedSources: result.unifiedSavedSources,
           personalSavedEvents,
           publicUniverseAsOf: NASDAQ_UNIVERSE_AS_OF
         },
@@ -335,6 +343,8 @@ async function getNasdaqMarketHistory(days) {
     "summary",
     "reasons",
     "news",
+    "event_time",
+    "available_at",
     "captured_at"
   ].join(",");
   const rows = await requestSupabase(
@@ -382,5 +392,6 @@ module.exports = {
   getRecentCaptureRuns,
   normalizeCaptureOptions,
   normalizeHistoryDays,
+  toHistoryRow,
   toPublicHistoryRow
 };

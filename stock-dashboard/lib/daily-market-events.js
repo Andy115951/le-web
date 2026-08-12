@@ -197,6 +197,8 @@ function buildEvent(context, benchmark, now) {
     symbol: context.symbol,
     name: context.name,
     date: marketDate(marketAt),
+    eventTime: marketAt.toISOString(),
+    availableAt: now.toISOString(),
     capturedAt: now.toISOString(),
     changePercent: context.changePercent,
     benchmarkChangePercent: benchmarkChange,

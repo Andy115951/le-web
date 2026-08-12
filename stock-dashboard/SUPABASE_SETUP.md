@@ -148,6 +148,19 @@ with check (auth.uid() = user_id);
 
 该表启用 RLS，仅服务端 Secret Key 可直接读写；浏览器通过 `GET /api/nasdaq/labels` 读取，并收到 `researchOnly: true` 标识。当前 `QQQ` 已生成 1,254 行标签，其中 1,234 行具备完整 20 日窗口。靠近最新交易日的未成熟字段保留 `null`，不可用当前日期或推测值补齐。
 
+### 统一事件和来源表
+
+`20260812210000_add_unified_market_events.sql` 新增：
+
+- `sources`：规范 URL、内容指纹、来源类型、发布/可用/采集时间
+- `events`：稳定事件键、市场日期、事件类型、影响范围、置信度、规则版本和结构化属性
+- `event_sources`：事件与主来源、证据、上下文来源的多对多关系
+- `event_entities`：事件与主标的、QQQ 基准及相关标的的多对多关系
+
+四张表启用 RLS，仅允许服务端 Secret Key 直接读写。migration 会把已有 `nasdaq_market_event_history` 兼容记录幂等回填到统一层；旧记录无法可靠恢复的 `event_time` 保持 `null`，不会伪造为采集时间或 Unix epoch。
+
+当前远程验证基线：14 个唯一事件、36 个唯一 URL、39 条事件来源关系、27 条事件实体关系；每条事件均有主行情来源和主实体。公开读取统一走 `GET /api/nasdaq/events`。
+
 ## 2. 打开邮箱登录
 
 在 Supabase Dashboard:
