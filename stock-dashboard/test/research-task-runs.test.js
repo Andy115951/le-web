@@ -28,7 +28,7 @@ test("task run rows append only public stage summaries without raw errors", func
   assert.equal(JSON.stringify(rows).includes("2026-08-14"), false);
   assert.deepEqual(rows[0].details, { publicRowsWritten: 8, unifiedEventsWritten: 7, unifiedSourcesWritten: 9, failedSymbolCount: 1 });
   assert.deepEqual(rows[1].details, { deterministicAttributions: 7, heuristicAttributionCount: 7, primarySourcesLinked: 7, evidenceSourcesLinked: 3 });
-  assert.deepEqual(rows[4].details, { created: false, expectedBusinessDateCount: 5, archivedDailyReportCount: 2 });
+  assert.deepEqual(rows[4].details, { created: false, expectedBusinessDateCount: 5, archivedDailyReportCount: 2, calendarStatus: "unknown" });
   assert.equal(rows[6].details.matureOutcomesWritten, 2);
 });
 

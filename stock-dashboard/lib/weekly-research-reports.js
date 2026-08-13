@@ -1,6 +1,7 @@
 const { getDailyResearchReports } = require("./daily-research-reports");
 const { getSupabaseConfig, requestSupabase } = require("./supabase-server");
 const { normalizeDate } = require("./market-calendar");
+const { getNyseTradingWeek } = require("./nyse-trading-calendar");
 
 const WEEKLY_RESEARCH_REPORT_VERSION = "weekly-research-report-v1";
 const FROZEN_WEEKLY_REPORTS_TABLE = "frozen_weekly_research_reports";
@@ -39,8 +40,7 @@ function shiftDate(value, days) {
 }
 
 function expectedBusinessDatesForWeek(weekStart) {
-  const start = weekStartForDate(weekStart);
-  return [0, 1, 2, 3, 4].map(function (offset) { return shiftDate(start, offset); });
+  return getNyseTradingWeek(weekStart).expectedDates;
 }
 
 function latestDailyReportsByDate(rows, expectedDates) {
@@ -57,16 +57,17 @@ function latestDailyReportsByDate(rows, expectedDates) {
 
 function assessWeeklyFreezeEligibility(weekStart, rows, asOfDate) {
   const normalizedWeekStart = weekStartForDate(weekStart);
-  const expectedDates = expectedBusinessDatesForWeek(normalizedWeekStart);
+  const tradingWeek = getNyseTradingWeek(normalizedWeekStart);
+  const expectedDates = tradingWeek.expectedDates;
   const completedWeekEnd = expectedDates[expectedDates.length - 1];
   const asOf = normalizeDate(asOfDate || completedWeekEnd);
   const reportsByDate = latestDailyReportsByDate(rows, expectedDates);
   const missingDates = expectedDates.filter(function (date) { return !reportsByDate.has(date); });
   if (asOf < completedWeekEnd) {
-    return { eligible: false, reason: "week_not_complete", weekStart: normalizedWeekStart, expectedDates, missingDates };
+    return { eligible: false, reason: "week_not_complete", weekStart: normalizedWeekStart, expectedDates, missingDates, tradingWeek };
   }
   if (missingDates.length) {
-    return { eligible: false, reason: "incomplete_business_week", weekStart: normalizedWeekStart, expectedDates, missingDates };
+    return { eligible: false, reason: "incomplete_business_week", weekStart: normalizedWeekStart, expectedDates, missingDates, tradingWeek };
   }
   return {
     eligible: true,
@@ -74,6 +75,7 @@ function assessWeeklyFreezeEligibility(weekStart, rows, asOfDate) {
     weekStart: normalizedWeekStart,
     expectedDates,
     missingDates: [],
+    tradingWeek,
     reports: expectedDates.map(function (date) { return reportsByDate.get(date); })
   };
 }
@@ -122,7 +124,7 @@ function buildWeeklyResearchReport(rows) {
     evidence,
     limitations: [
       "Aggregates only immutable daily fact reports already archived for the displayed week.",
-      "Coverage reflects available archived report dates; it does not infer holidays, missing sessions, or unrecorded evidence.",
+      "Coverage reflects actual archived report dates. Dynamic reports do not infer holidays or missing sessions; frozen reports can only exclude explicitly listed official full-day closures.",
       "Does not contain a forecast, recommendation, target price, allocation, or trade instruction."
     ]
   };
@@ -136,13 +138,28 @@ function buildFrozenWeeklyResearchReport(eligibility, frozenAt) {
     coverage: {
       ...report.coverage,
       status: "frozen_complete",
-      expectedBusinessDates: eligibility.expectedDates
+      expectedBusinessDates: eligibility.expectedDates,
+      expectedTradingDates: eligibility.expectedDates,
+      fullClosureDates: eligibility.tradingWeek.fullClosureDates,
+      tradingCalendar: {
+        status: eligibility.tradingWeek.calendarStatus,
+        version: eligibility.tradingWeek.calendarVersion,
+        source: eligibility.tradingWeek.calendarSource
+      }
     },
     freeze: {
       frozenAt: new Date(frozenAt || new Date()).toISOString(),
-      rule: "complete_monday_to_friday_archived_daily_reports_v1"
+      rule: "complete_expected_nyse_trading_days_archived_daily_reports_v1"
     }
   };
+}
+
+function freezeCandidateWeekStart(asOfDate) {
+  const asOf = normalizeDate(asOfDate);
+  const currentWeekStart = weekStartForDate(asOf);
+  const currentWeek = getNyseTradingWeek(currentWeekStart);
+  const finalExpectedTradingDate = currentWeek.expectedDates[currentWeek.expectedDates.length - 1];
+  return asOf >= finalExpectedTradingDate ? currentWeekStart : shiftDate(currentWeekStart, -7);
 }
 
 function normalizeWeeklyReportLimit(value) {
@@ -185,9 +202,13 @@ async function getWeeklyResearchReports(options = {}, config, requestImpl) {
 
 async function freezeWeeklyResearchReport(options = {}, config = getSupabaseConfig(), requestImpl = requestSupabase) {
   const asOfDate = normalizeDate(options.asOfDate);
-  const weekStart = weekStartForDate(options.weekStart || asOfDate);
-  const expectedDates = expectedBusinessDatesForWeek(weekStart);
-  const daily = await getDailyResearchReports({ startDate: expectedDates[0], endDate: expectedDates[4], limit: 30 }, config, requestImpl);
+  const weekStart = options.weekStart ? weekStartForDate(options.weekStart) : freezeCandidateWeekStart(asOfDate);
+  const tradingWeek = getNyseTradingWeek(weekStart);
+  const daily = await getDailyResearchReports({
+    startDate: tradingWeek.weekdayDates[0],
+    endDate: tradingWeek.weekdayDates[tradingWeek.weekdayDates.length - 1],
+    limit: 30
+  }, config, requestImpl);
   const eligibility = assessWeeklyFreezeEligibility(weekStart, daily.reports, asOfDate);
   if (!eligibility.eligible) {
     return {
@@ -195,7 +216,8 @@ async function freezeWeeklyResearchReport(options = {}, config = getSupabaseConf
       reason: eligibility.reason,
       weekStart,
       expectedBusinessDateCount: eligibility.expectedDates.length,
-      archivedDailyReportCount: eligibility.expectedDates.length - eligibility.missingDates.length
+      archivedDailyReportCount: eligibility.expectedDates.length - eligibility.missingDates.length,
+      calendarStatus: eligibility.tradingWeek.calendarStatus
     };
   }
   const report = buildFrozenWeeklyResearchReport(eligibility, options.frozenAt);
@@ -215,6 +237,7 @@ async function freezeWeeklyResearchReport(options = {}, config = getSupabaseConf
     weekStart,
     expectedBusinessDateCount: eligibility.expectedDates.length,
     archivedDailyReportCount: eligibility.reports.length,
+    calendarStatus: eligibility.tradingWeek.calendarStatus,
     created: Array.isArray(rows) && rows.length > 0
   };
 }
@@ -225,6 +248,7 @@ module.exports = {
   buildWeeklyResearchReport,
   buildFrozenWeeklyResearchReport,
   expectedBusinessDatesForWeek,
+  freezeCandidateWeekStart,
   freezeWeeklyResearchReport,
   getWeeklyResearchReports,
   latestDailyReportsByDate,

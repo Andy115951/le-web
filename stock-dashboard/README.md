@@ -85,7 +85,7 @@
 - 研究输入回放：收盘任务会追加保存字段顺序无关稳定指纹的研究包快照；看板“研究回放”以摘要列表加按需详情方式复原当时事实输入，`GET /api/nasdaq/research-packet-snapshots` 默认只返回摘要，显式 `includePacket=true` 才返回完整历史输入
 - 快照级流程回放：`GET /api/nasdaq/research-flow?snapshotId=<uuid>` 对新快照还会精确关联同一次收盘运行的安全阶段摘要，再串联输入归档、确定性日报、已验证模型摘要状态和 20 日结果审计；历史未关联快照明确标记，不会按日期猜测 Agent 运行结果
 - 每日研究事实摘要：每次成功归档研究快照后，系统会按同一快照与报告版本幂等写入日报；`GET /api/nasdaq/daily-reports?limit=7` 只返回 QQQ 收盘、涨跌和证据计数，不含预测、建议或交易指令
-- 每周研究事实汇总：`GET /api/nasdaq/weekly-reports?limit=6` 按纽约自然周聚合已归档日报，明确展示实际归档日数与观察区间；完整周一至周五五份日报时会追加冻结周报，节假日或缺失日不补全、不冻结
+- 每周研究事实汇总：`GET /api/nasdaq/weekly-reports?limit=6` 按纽约自然周聚合已归档日报，明确展示实际归档日数与观察区间；2026–2028 年会按 NYSE 官方“全天休市”日历减少应有日报数，提前收盘仍算交易日，未知年份保守维持五个工作日校验
 - 研究任务看板：收盘采集会为市场采集、确定性事件归因、研究输入、日报、模型摘要与到期评估追加阶段运行摘要；归因阶段只记录归因/来源计数，市场采集以 `partial` 明确标记部分标的失败，`GET /api/nasdaq/research-tasks?limit=20` 不公开原始错误、来源 URL 或提供网页重试
 - 研究覆盖面板：`GET /api/nasdaq/research-quality` 汇总实际归档的研究快照、日报/周报、到期结果、归因审核积压与任务账本状态；它只做可回放性观察，不宣称资料完整、正确或可用于交易决策
 - 研究集成准备度：覆盖面板还会显示内置市场采集、SEC 公司披露、FRED 宏观观测和模型研究摘要的 `就绪 / 待配置` 状态，便于多端开发核对；接口不会返回任何密钥、联系人、环境变量值或具体失败原因
@@ -160,7 +160,8 @@
 - `lib/daily-research-packet.js`: 为未来报告/Agent 固定市场状态、跨收盘可知事件、来源与历史相似日的只读契约
 - `lib/research-packet-snapshots.js`: 研究输入的稳定指纹、来源摘要、追加式快照写入与回放读取
 - `lib/daily-research-reports.js`: 基于不可变研究快照的确定性日报构建、幂等写入与只读查询
-- `lib/weekly-research-reports.js`: 基于不可变日报的纽约自然周事实聚合与只读查询，不写入新表
+- `lib/nyse-trading-calendar.js`: 固定 2026–2028 年 NYSE 官方全天休市日历；覆盖外自动回退为严格工作日校验
+- `lib/weekly-research-reports.js`: 基于不可变日报与 NYSE 交易周契约的纽约自然周事实聚合、冻结和只读查询
 - `lib/research-task-runs.js`: 追加式研究阶段账本、幂等写入和脱敏只读查询
 - `scripts/capture-research-packet-snapshot.js`: 手动生成某个市场日研究输入快照的受控入口
 - `lib/research-narrative-contract.js`: 未来 LLM 市场复盘的引用约束、禁止语义与输出验证

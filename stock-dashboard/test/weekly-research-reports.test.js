@@ -4,6 +4,7 @@ const {
   assessWeeklyFreezeEligibility,
   buildFrozenWeeklyResearchReport,
   buildWeeklyResearchReport,
+  freezeCandidateWeekStart,
   freezeWeeklyResearchReport,
   getWeeklyResearchReports,
   normalizeWeeklyReportLimit,
@@ -41,7 +42,7 @@ test("weekly report calendar grouping starts on Monday and has safe limits", fun
   assert.equal(normalizeWeeklyReportLimit(-2), 1);
 });
 
-test("weekly freezing requires all Monday-to-Friday reports and preserves the fixed coverage rule", function () {
+test("weekly freezing requires every expected NYSE trading-day report and preserves coverage", function () {
   const complete = [
     daily("2026-08-10", 500, 1), daily("2026-08-11", 501, 0.2), daily("2026-08-12", 502, 0.2),
     daily("2026-08-13", 503, 0.2), daily("2026-08-14", 504, 0.2)
@@ -59,7 +60,69 @@ test("weekly freezing requires all Monday-to-Friday reports and preserves the fi
   assert.equal(frozen.coverage.status, "frozen_complete");
   assert.equal(frozen.coverage.archivedDailyReports, 5);
   assert.deepEqual(frozen.coverage.expectedBusinessDates, ["2026-08-10", "2026-08-11", "2026-08-12", "2026-08-13", "2026-08-14"]);
-  assert.equal(frozen.freeze.rule, "complete_monday_to_friday_archived_daily_reports_v1");
+  assert.equal(frozen.freeze.rule, "complete_expected_nyse_trading_days_archived_daily_reports_v1");
+  assert.equal(frozen.coverage.tradingCalendar.status, "official_full_closures");
+});
+
+test("official full-day closures reduce only the expected report set and retain early-close sessions", function () {
+  const goodFridayWeek = [
+    daily("2026-03-30", 500, 1), daily("2026-03-31", 501, 0.2),
+    daily("2026-04-01", 502, 0.2), daily("2026-04-02", 503, 0.2)
+  ];
+  const eligible = assessWeeklyFreezeEligibility("2026-03-30", goodFridayWeek, "2026-04-02");
+  assert.equal(eligible.eligible, true);
+  assert.deepEqual(eligible.expectedDates, ["2026-03-30", "2026-03-31", "2026-04-01", "2026-04-02"]);
+  assert.deepEqual(eligible.tradingWeek.fullClosureDates, ["2026-04-03"]);
+  assert.equal(eligible.tradingWeek.calendarStatus, "official_full_closures");
+
+  const thanksgivingWeek = [
+    daily("2026-11-23", 500, 1), daily("2026-11-24", 501, 0.2),
+    daily("2026-11-25", 502, 0.2), daily("2026-11-27", 503, 0.2)
+  ];
+  const thanksgiving = assessWeeklyFreezeEligibility("2026-11-23", thanksgivingWeek, "2026-11-27");
+  assert.equal(thanksgiving.eligible, true);
+  assert.deepEqual(thanksgiving.tradingWeek.fullClosureDates, ["2026-11-26"]);
+  assert.deepEqual(thanksgiving.expectedDates, ["2026-11-23", "2026-11-24", "2026-11-25", "2026-11-27"]);
+});
+
+test("weekly freeze selects the prior completed week when the current week is still open", function () {
+  assert.equal(freezeCandidateWeekStart("2026-04-02"), "2026-03-30");
+  assert.equal(freezeCandidateWeekStart("2026-04-06"), "2026-03-30");
+  assert.equal(freezeCandidateWeekStart("2026-08-13"), "2026-08-03");
+  assert.equal(freezeCandidateWeekStart("2026-08-14"), "2026-08-10");
+});
+
+test("holiday-week freezing writes four archived reports after the final expected trading day", async function () {
+  const reports = [
+    daily("2026-03-30", 500, 1), daily("2026-03-31", 501, 0.2),
+    daily("2026-04-01", 502, 0.2), daily("2026-04-02", 503, 0.2)
+  ];
+  const calls = [];
+  const client = async function (_config, path, options) {
+    calls.push({ path, options });
+    if (path.includes("daily_research_reports")) return reports;
+    if (path.includes("frozen_weekly_research_reports")) return [{ id: "holiday-week" }];
+    return [];
+  };
+  const frozen = await freezeWeeklyResearchReport({ asOfDate: "2026-04-02", frozenAt: "2026-04-03T01:00:00.000Z" }, {}, client);
+  assert.equal(frozen.status, "succeeded");
+  assert.equal(frozen.weekStart, "2026-03-30");
+  assert.equal(frozen.expectedBusinessDateCount, 4);
+  assert.equal(frozen.archivedDailyReportCount, 4);
+  assert.equal(frozen.calendarStatus, "official_full_closures");
+  const write = calls.find(function (call) { return call.options?.method === "POST"; });
+  assert.deepEqual(write.options.body.report.coverage.fullClosureDates, ["2026-04-03"]);
+});
+
+test("unknown calendar years conservatively retain the five-weekday requirement", function () {
+  const complete = [
+    daily("2029-08-13", 500, 1), daily("2029-08-14", 501, 0.2), daily("2029-08-15", 502, 0.2),
+    daily("2029-08-16", 503, 0.2), daily("2029-08-17", 504, 0.2)
+  ];
+  const eligible = assessWeeklyFreezeEligibility("2029-08-13", complete, "2029-08-17");
+  assert.equal(eligible.eligible, true);
+  assert.equal(eligible.tradingWeek.calendarStatus, "strict_weekday_fallback");
+  assert.equal(eligible.expectedDates.length, 5);
 });
 
 test("weekly freezing writes only an eligible immutable week and frozen rows override dynamic views", async function () {
@@ -82,7 +145,7 @@ test("weekly freezing writes only an eligible immutable week and frozen rows ove
   };
   const frozen = await freezeWeeklyResearchReport({ asOfDate: "2026-08-14", frozenAt: "2026-08-15T01:00:00.000Z" }, {}, client);
   assert.deepEqual(frozen, {
-    status: "succeeded", reason: null, weekStart: "2026-08-10", expectedBusinessDateCount: 5, archivedDailyReportCount: 5, created: true
+    status: "succeeded", reason: null, weekStart: "2026-08-10", expectedBusinessDateCount: 5, archivedDailyReportCount: 5, calendarStatus: "official_full_closures", created: true
   });
   assert.equal(calls.some(function (call) { return call.options?.method === "POST" && call.path.includes("on_conflict=week_start,report_version"); }), true);
   const result = await getWeeklyResearchReports({ limit: 6 }, {}, client);

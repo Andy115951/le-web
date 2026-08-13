@@ -528,7 +528,7 @@ GET /api/nasdaq/research-packet?date=2026-08-11
 
 #### 8.2.3 研究摘要输出契约与审计
 
-已实现 `research-narrative-v1` 输出校验器、`research_narrative_audits` 服务端审计表与默认关闭的 DeepSeek 执行器。Production 目前没有配置任何 `DEEPSEEK_*` 变量，因此不会产生模型请求或费用。
+已实现 `research-narrative-v1` 输出校验器、`research_narrative_audits` 服务端审计表与默认关闭的 DeepSeek 执行器。Production 已配置受限网关参数，但 `DEEPSEEK_RESEARCH_ENABLED` 与 `DEEPSEEK_RESEARCH_DATA_APPROVED` 均保持 `false`，因此不会产生模型请求或费用。
 
 获取某市场日允许引用的证据与输出形状：
 
@@ -818,9 +818,9 @@ GET /api/nasdaq/daily-reports?limit=7
 
 动态周汇总不会由页面或接口写库：它实时派生自不可变日报。`coverage.status` 为 `limited` 表示当周不足 3 个归档日，`substantial` 仅表示已有至少 3 个归档日，均不表示市场周完整或数据质量已经通过人工审核。缺失交易日、假日、未采集会保留为未知，绝不补零或推断。
 
-收盘流程还会尝试冻结当前周：只有周一至周五五个日期各自已有至少一份实际归档日报，并且执行日期不早于周五时，才会向只追加的 `frozen_weekly_research_reports` 写入 `weekly-research-report-v1`。冻结记录保存 `frozen_at`、完整的五日期覆盖和固定事实内容，唯一键 `(week_start, report_version)` 使其不可被同周重跑覆盖。接口优先返回冻结周报；尚未冻结或不符合完整条件的周继续返回动态汇总。
+收盘流程会选择最近一个已经走到最后预期交易日的周来尝试冻结：正常周在周五冻结；如果周五是全天休市，则周四可冻结；假日周若当天没有收盘任务，则会在下一次交易日任务中补做上一个周。只有该周每个预期交易日各自已有至少一份实际归档日报，才会向只追加的 `frozen_weekly_research_reports` 写入 `weekly-research-report-v1`。冻结记录保存 `frozen_at`、预期交易日、全天休市日与日历版本；唯一键 `(week_start, report_version)` 使其不可被同周重跑覆盖。接口优先返回冻结周报；尚未冻结或不符合完整条件的周继续返回动态汇总。
 
-该首版故意采用严格的“周一至周五均有日报”规则，而非猜测交易所节假日：遇到市场假期、漏采或历史缺口会明确跳过冻结并保留动态周报。后续接入可靠交易所日历后，才能扩展为节假日感知的完整周规则；在此之前不能把四日假期周错误标成最终版本。周报不调用模型、不保留用户数据、不输出预测或交易指令。
+`lib/nyse-trading-calendar.js` 固定了 [NYSE Holidays & Trading Hours](https://www.nyse.com/trade/hours-calendars) 已公布的 2026–2028 年**全天休市**日期。提前收盘仍是有效收盘交易日，必须保留日报。任何跨出这三年范围的周都会显式使用 `strict_weekday_fallback`，继续要求五个工作日，不会把漏采或未知休市猜成完整周。周报不调用模型、不保留用户数据、不输出预测或交易指令。
 
 #### 8.2.15 研究任务账本与看板
 

@@ -66,7 +66,10 @@ function buildResearchTaskRunRows(input) {
       details: {
         created: Boolean(stages.weeklyReport?.created),
         expectedBusinessDateCount: finiteNonNegative(stages.weeklyReport?.expectedBusinessDateCount),
-        archivedDailyReportCount: finiteNonNegative(stages.weeklyReport?.archivedDailyReportCount)
+        archivedDailyReportCount: finiteNonNegative(stages.weeklyReport?.archivedDailyReportCount),
+        calendarStatus: ["official_full_closures", "strict_weekday_fallback"].includes(stages.weeklyReport?.calendarStatus)
+          ? stages.weeklyReport.calendarStatus
+          : "unknown"
       }
     },
     {
