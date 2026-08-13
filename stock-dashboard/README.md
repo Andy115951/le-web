@@ -70,6 +70,7 @@
 - 历史相似日基线：按目标日之前的特征分布匹配非连续历史阶段，并展示已成熟的后续表现
 - 相似日查询接口：`GET /api/nasdaq/similar-days?date=YYYY-MM-DD&limit=5`，已嵌入日历单日详情
 - 相似日结果分布：对当前候选集计算 5/20 日历史胜率、中位收益、四分位范围和 20 日回撤，不把小样本写成预测概率
+- 首页当前历史情景：自动读取最新已物化的 QQQ 相似日，展示最多 5 个成熟历史候选的 5/20 日经验分布与回撤范围；它不调用 AI、不读取个人持仓，也不将历史正收益频率写成当前预测概率
 - 冻结 walk-forward 评估基线：提交了 `QQQ` 16 折扩展式时间切分，训练到验证间隔离 20 个交易日结果期；`GET /api/nasdaq/evaluation-splits` 提供后续概率模型共用的只读边界
 - 概率对照基线：在冻结切分上生成“永远看涨”和训练期条件动量报告，包含准确率、平衡准确率和 Brier 分数；`GET /api/nasdaq/evaluation-baselines` 仅供研究评估，不是当前预测
 - Logistic Regression 候选：基于训练期标准化与 L2 正则完成首份概率/校准报告；当前没有胜过弱对照，因此标记为 `research_only_not_selected`，`GET /api/nasdaq/evaluation-logistic` 只用于复核
@@ -106,7 +107,7 @@
 ### 下一阶段
 
 1. 配置并验证 SEC EDGAR 与 FRED 的生产采集，再接入公司 IR、财报日历
-2. 为相似日增加宏观、行业和官方公司事件特征，扩大可复核样本
+2. 为相似日增加宏观、行业和官方公司事件特征，扩大可复核样本；首页历史情景只继续显示已物化、可审计的经验分布
 3. 基于已冻结的时间切分开始情景概率基线与校准评估
 
 ## 技术结构
@@ -129,7 +130,7 @@
 - `api/a-share/detail.js`: A 股分析接口
 - `api/global-stock/detail.js`: 美股分析接口
 - `api/global-stock/daily-events.js`: 当日行情事件接口
-- `api/nasdaq/[resource].js`: 统一 Nasdaq 只读入口；保留 `/api/nasdaq/history`、`/prices`、`/labels`、`/events`、`/constituents`、`/calendar`、`/features`、`/similar-days` 等资源 URL
+- `api/nasdaq/[resource].js`: 统一 Nasdaq 只读入口；保留 `/api/nasdaq/history`、`/prices`、`/labels`、`/events`、`/constituents`、`/calendar`、`/features`、`/similar-days`、`/current-scenario` 等资源 URL
 - `api/cron/capture-market-history.js`: 收盘后自动归档入口
 - `api/cron/market-history-runs.js`: 最近采集运行记录接口
 - `lib/a-share-data.js`: A 股分析数据层
@@ -153,6 +154,7 @@
 - `lib/daily-feature-store.js`: 日度特征的幂等重算、存储和查询
 - `lib/similar-days.js`: 无未来数据泄漏的相似度基线纯计算
 - `lib/similar-day-store.js`: 相似日结果的重算、物化和查询
+- `lib/current-market-scenario.js`: 从最新已物化 QQQ 相似日生成去候选明细的当前经验情景摘要
 - `lib/sec-edgar.js`: SEC 公司映射、filings 采集、接受时间处理与统一事件记录构建
 - `scripts/capture-sec-filings.js`: 手动采集核心标的 SEC filings 的受控入口
 - `lib/fred-macro.js`: FRED 宏观观测采集、稳定事件键与不伪造发布时间的时间边界

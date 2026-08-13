@@ -6,6 +6,7 @@ const { getNasdaqMarketHistory } = require("../../lib/market-history-capture");
 const { getStoredForwardLabels } = require("../../lib/market-label-store");
 const { getStoredDailyPrices } = require("../../lib/price-history-store");
 const { getStoredSimilarDays } = require("../../lib/similar-day-store");
+const { getCurrentMarketScenario } = require("../../lib/current-market-scenario");
 const { getDailyResearchPacket } = require("../../lib/daily-research-packet");
 const { RESEARCH_NARRATIVE_VERSION, buildResearchNarrativeInstructions } = require("../../lib/research-narrative-contract");
 const { getPublishedResearchNarratives } = require("../../lib/research-narrative-audit");
@@ -234,6 +235,16 @@ const resources = {
         return;
       }
       sendFailure(res, "Failed to load similar days", error);
+    }
+  },
+
+  async "current-scenario"(_req, res) {
+    try {
+      const scenario = await getCurrentMarketScenario();
+      res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=900");
+      sendJson(res, 200, { ok: true, researchOnly: true, scenario });
+    } catch (error) {
+      sendFailure(res, "Failed to load current empirical market scenario", error);
     }
   },
 

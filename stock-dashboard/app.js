@@ -103,6 +103,8 @@ const els = {
   marketPulseBody: document.getElementById("marketPulseBody"),
   mag7SnapshotBody: document.getElementById("mag7SnapshotBody"),
   leadersBody: document.getElementById("leadersBody"),
+  currentScenarioBody: document.getElementById("currentScenarioBody"),
+  refreshCurrentScenarioBtn: document.getElementById("refreshCurrentScenarioBtn"),
   portfolioSnapshotBody: document.getElementById("portfolioSnapshotBody"),
   decisionWorkspaceBody: document.getElementById("decisionWorkspaceBody"),
   emptyState: document.getElementById("emptyState"),
@@ -193,6 +195,7 @@ const state = {
   },
   researchHealth: { value: null, loading: false, error: "" },
   researchQuality: { value: null, loading: false, error: "" },
+  currentScenario: { value: null, loading: false, error: "" },
   researchTasks: { runs: [], loading: false, error: "" },
   eventReview: { queue: null, filter: "needs_attention", loading: false, error: "" },
   dailyReports: { reports: [], loading: false, error: "" },
@@ -242,7 +245,7 @@ async function init() {
   updateCloudButtons();
   await initCloud(cloudConfig);
   await refreshQuotes();
-  await Promise.all([refreshMarketHistory(), refreshMarketCalendar(), refreshResearchReplay(), refreshModelReview(), refreshResearchHealth(), refreshResearchQuality(), refreshResearchTasks(), refreshEventReview(), refreshDailyReports(), refreshWeeklyReports()]);
+  await Promise.all([refreshMarketHistory(), refreshMarketCalendar(), refreshCurrentMarketScenario(), refreshResearchReplay(), refreshModelReview(), refreshResearchHealth(), refreshResearchQuality(), refreshResearchTasks(), refreshEventReview(), refreshDailyReports(), refreshWeeklyReports()]);
 }
 
 function getNewYorkMonth(now = new Date()) {
@@ -348,6 +351,7 @@ function bindEvents() {
   }
   if (els.refreshResearchHealthBtn) els.refreshResearchHealthBtn.addEventListener("click", function () { void refreshResearchHealth(); });
   if (els.refreshResearchQualityBtn) els.refreshResearchQualityBtn.addEventListener("click", function () { void refreshResearchQuality(); });
+  if (els.refreshCurrentScenarioBtn) els.refreshCurrentScenarioBtn.addEventListener("click", function () { void refreshCurrentMarketScenario(); });
   if (els.refreshResearchTasksBtn) els.refreshResearchTasksBtn.addEventListener("click", function () { void refreshResearchTasks(); });
   if (els.refreshEventReviewBtn) els.refreshEventReviewBtn.addEventListener("click", function () { void refreshEventReview(); });
   document.querySelectorAll("[data-event-review-filter]").forEach(function (button) {
@@ -1004,6 +1008,25 @@ async function refreshMarketHistory(options) {
   } finally {
     state.marketHistoryLoading = false;
     renderMarketHistory();
+  }
+}
+
+async function refreshCurrentMarketScenario() {
+  const scenario = state.currentScenario;
+  if (!els.currentScenarioBody || scenario.loading) return;
+  scenario.loading = true;
+  scenario.error = "";
+  renderCurrentMarketScenario();
+  try {
+    const response = await fetch("./api/nasdaq/current-scenario");
+    const payload = await response.json().catch(function () { return {}; });
+    if (!response.ok) throw new Error(payload?.error || "读取历史情景失败");
+    scenario.value = payload?.scenario || null;
+  } catch (error) {
+    scenario.error = error?.message || "读取历史情景失败";
+  } finally {
+    scenario.loading = false;
+    renderCurrentMarketScenario();
   }
 }
 
@@ -2078,8 +2101,56 @@ function renderOverview() {
   renderMarketPulse();
   renderMag7Snapshot();
   renderRelativeLeaders();
+  renderCurrentMarketScenario();
   renderPortfolioSnapshot();
   renderDecisionWorkspace();
+}
+
+function renderCurrentMarketScenario() {
+  if (!els.currentScenarioBody) return;
+  const scenario = state.currentScenario;
+  if (els.refreshCurrentScenarioBtn) els.refreshCurrentScenarioBtn.disabled = scenario.loading;
+  if (scenario.loading && !scenario.value) {
+    els.currentScenarioBody.innerHTML = '<p class="muted current-scenario-empty">正在读取 QQQ 的已成熟历史相似样本…</p>';
+    return;
+  }
+  if (scenario.error) {
+    els.currentScenarioBody.innerHTML = '<p class="muted current-scenario-empty">历史情景暂不可用：' + escapeHtml(scenario.error) + "</p>";
+    return;
+  }
+  const value = scenario.value;
+  if (!value || value.status === "awaiting_target") {
+    els.currentScenarioBody.innerHTML = '<p class="muted current-scenario-empty">尚未有可用的 QQQ 日度特征，无法建立当前历史情景。</p>';
+    return;
+  }
+  if (value.status !== "ready") {
+    els.currentScenarioBody.innerHTML = '<p class="muted current-scenario-empty">截至 ' + escapeHtml(formatMarketDate(value?.asOf?.marketDate)) + " 的已成熟相似日样本不足，暂不展示经验分布。</p>";
+    return;
+  }
+  const sample = value.sample || {};
+  const outcomes = value.outcomes || {};
+  const formatPercent = function (number) {
+    return Number.isFinite(Number(number)) ? formatSigned(Number(number)) + "%" : "--";
+  };
+  const formatRate = function (number) {
+    return Number.isFinite(Number(number)) ? Number(number).toFixed(0) + "%" : "--";
+  };
+  const tone = function (number) {
+    return Number(number) > 0 ? "positive" : Number(number) < 0 ? "negative" : "neutral";
+  };
+  const return5d = outcomes.return5d || {};
+  const return20d = outcomes.return20d || {};
+  const drawdown20d = outcomes.maxDrawdown20d || {};
+  const sampleNote = sample.isSmallSample ? "小样本，仅作线索" : "已成熟历史样本";
+  els.currentScenarioBody.innerHTML = [
+    '<div class="current-scenario-meta"><span>截至 ' + escapeHtml(formatMarketDate(value?.asOf?.marketDate)) + '</span><span>' + Number(sample.candidateCount || 0) + " / " + Number(sample.maximumCandidateCount || 5) + " 个样本</span></div>",
+    '<div class="current-scenario-grid">',
+    '<article><span>历史后 5 日</span><strong class="' + tone(return5d.medianPercent) + '">' + escapeHtml(formatPercent(return5d.medianPercent)) + '</strong><small>正收益频率 ' + escapeHtml(formatRate(return5d.positiveRatePercent)) + "</small></article>",
+    '<article><span>历史后 20 日</span><strong class="' + tone(return20d.medianPercent) + '">' + escapeHtml(formatPercent(return20d.medianPercent)) + '</strong><small>正收益频率 ' + escapeHtml(formatRate(return20d.positiveRatePercent)) + "</small></article>",
+    '<article><span>历史 20 日回撤</span><strong class="' + tone(drawdown20d.medianPercent) + '">' + escapeHtml(formatPercent(drawdown20d.medianPercent)) + '</strong><small>样本最差 ' + escapeHtml(formatPercent(drawdown20d.worstPercent)) + "</small></article>",
+    "</div>",
+    '<p class="current-scenario-note">' + escapeHtml(sampleNote) + "。这是相似历史状态的描述统计，不是当前预测、概率或交易指令。</p>"
+  ].join("");
 }
 
 function renderMarketPulse() {
