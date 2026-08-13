@@ -1,6 +1,6 @@
 const { getSupabaseConfig, requestSupabase } = require("./supabase-server");
 
-const RESEARCH_FLOW_REPLAY_VERSION = "research-flow-replay-v2";
+const RESEARCH_FLOW_REPLAY_VERSION = "research-flow-replay-v3";
 
 function normalizeSnapshotId(value) {
   const id = String(value || "").trim();
@@ -14,6 +14,51 @@ function stage(status, details) {
   return { status, ...details };
 }
 
+function finiteNonNegative(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? Math.round(number) : 0;
+}
+
+function boolean(value) {
+  return value === true;
+}
+
+function summarizeCaptureTaskDetails(kind, details) {
+  const source = details && typeof details === "object" ? details : {};
+  if (kind === "market_collection") {
+    return {
+      publicRowsWritten: finiteNonNegative(source.publicRowsWritten),
+      unifiedEventsWritten: finiteNonNegative(source.unifiedEventsWritten),
+      unifiedSourcesWritten: finiteNonNegative(source.unifiedSourcesWritten),
+      failedSymbolCount: finiteNonNegative(source.failedSymbolCount)
+    };
+  }
+  if (kind === "event_attribution") {
+    return {
+      deterministicAttributions: finiteNonNegative(source.deterministicAttributions),
+      heuristicAttributionCount: finiteNonNegative(source.heuristicAttributionCount),
+      primarySourcesLinked: finiteNonNegative(source.primarySourcesLinked),
+      evidenceSourcesLinked: finiteNonNegative(source.evidenceSourcesLinked)
+    };
+  }
+  if (["research_input_snapshot", "daily_fact_report", "model_recap"].includes(kind)) {
+    return { created: boolean(source.created) };
+  }
+  if (kind === "weekly_fact_report") {
+    const calendarStatus = ["official_full_closures", "strict_weekday_fallback"].includes(source.calendarStatus)
+      ? source.calendarStatus
+      : "unknown";
+    return {
+      created: boolean(source.created),
+      expectedBusinessDateCount: finiteNonNegative(source.expectedBusinessDateCount),
+      archivedDailyReportCount: finiteNonNegative(source.archivedDailyReportCount),
+      calendarStatus
+    };
+  }
+  if (kind === "outcome_evaluation") return { matureOutcomesWritten: finiteNonNegative(source.matureOutcomesWritten) };
+  return {};
+}
+
 function summarizeCaptureTasks(runs) {
   const latest = new Map();
   (Array.isArray(runs) ? runs : []).forEach(function (run) {
@@ -22,7 +67,8 @@ function summarizeCaptureTasks(runs) {
     latest.set(kind, {
       status: String(run.status || "unknown"),
       taskVersion: run.task_version || null,
-      createdAt: run.created_at || null
+      createdAt: run.created_at || null,
+      details: summarizeCaptureTaskDetails(kind, run.details)
     });
   });
   return Object.fromEntries(latest);
@@ -81,7 +127,7 @@ async function getResearchFlowReplay(options = {}, config = getSupabaseConfig(),
     requestImpl(config, "/rest/v1/research_narrative_audits?select=status,provider,model,narrative,created_at&status=eq.accepted&packet_fingerprint=eq." + encodeURIComponent(snapshot.packet_fingerprint) + "&order=created_at.desc&limit=5"),
     requestImpl(config, "/rest/v1/research_outcome_evaluations?select=evaluation_version,horizon_trading_days,label_version,realized_return_percent,maximum_drawdown_percent,realized_volatility_percent,evaluated_at,created_at&snapshot_id=eq." + encodeURIComponent(snapshot.id) + "&order=evaluated_at.desc,created_at.desc&limit=5"),
     snapshot.capture_run_id
-      ? requestImpl(config, "/rest/v1/research_task_runs?select=task_kind,task_version,status,created_at&capture_run_id=eq." + encodeURIComponent(snapshot.capture_run_id) + "&order=created_at.desc&limit=20")
+      ? requestImpl(config, "/rest/v1/research_task_runs?select=task_kind,task_version,status,details,created_at&capture_run_id=eq." + encodeURIComponent(snapshot.capture_run_id) + "&order=created_at.desc&limit=20")
       : Promise.resolve([])
   ]);
   return buildResearchFlowReplay({ snapshot, dailyReports, narrativeAttempts, narratives, outcomeEvaluations, captureTasks });
@@ -92,5 +138,6 @@ module.exports = {
   buildResearchFlowReplay,
   getResearchFlowReplay,
   normalizeSnapshotId,
+  summarizeCaptureTaskDetails,
   summarizeCaptureTasks
 };

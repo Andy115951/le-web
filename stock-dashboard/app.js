@@ -1256,11 +1256,22 @@ function renderReplayCaptureTaskSummary(captureRun) {
   const taskRows = Object.keys(researchTaskLabels).filter(function (kind) {
     return captureRun.tasks[kind] && typeof captureRun.tasks[kind] === "object";
   }).map(function (kind) {
-    const status = String(captureRun.tasks[kind].status || "unknown");
-    return '<div><span>' + escapeHtml(researchTaskLabels[kind]) + '</span><b class="is-' + escapeHtml(status) + '">' + escapeHtml(taskStatusLabel(status)) + "</b></div>";
+    const task = captureRun.tasks[kind];
+    const status = String(task.status || "unknown");
+    return '<div><span>' + escapeHtml(researchTaskLabels[kind]) + '</span><b class="is-' + escapeHtml(status) + '">' + escapeHtml(taskStatusLabel(status)) + '</b><small>' + escapeHtml(replayCaptureTaskMetric(kind, task.details)) + "</small></div>";
   });
   if (!taskRows.length) return '<p class="replay-capture-tasks-empty">已关联本次收盘运行，但尚无已追加的阶段摘要。</p>';
   return '<div class="replay-capture-tasks"><span>同次收盘阶段</span><section>' + taskRows.join("") + "</section></div>";
+}
+
+function replayCaptureTaskMetric(kind, detail) {
+  const values = detail && typeof detail === "object" ? detail : {};
+  if (kind === "market_collection") return "行情 " + Number(values.publicRowsWritten || 0) + " · 事件 " + Number(values.unifiedEventsWritten || 0) + " · 失败 " + Number(values.failedSymbolCount || 0);
+  if (kind === "event_attribution") return "归因 " + Number(values.deterministicAttributions || 0) + " · 证据 " + Number(values.evidenceSourcesLinked || 0);
+  if (kind === "weekly_fact_report") return "归档日 " + Number(values.archivedDailyReportCount || 0) + " / " + Number(values.expectedBusinessDateCount || 0);
+  if (kind === "outcome_evaluation") return "新增结果 " + Number(values.matureOutcomesWritten || 0);
+  if (["research_input_snapshot", "daily_fact_report", "model_recap"].includes(kind)) return values.created ? "本次新增" : "未新增";
+  return "--";
 }
 
 function replayFlowStatusLabel(status) {

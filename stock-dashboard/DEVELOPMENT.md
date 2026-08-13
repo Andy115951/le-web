@@ -842,7 +842,7 @@ GET /api/nasdaq/research-tasks?limit=20
 
 页面“研究覆盖”只展示这些聚合计数与限制说明。它不会调用模型、不会写入 Supabase、不会公开任务原始错误、审核人、审核备注或完整研究输入，也不会把“有多少材料”表述为数据已完整、归因已正确、预测成立或可以执行交易。
 
-当前生产环境没有 `SEC_USER_AGENT`、`FRED_API_KEY` 或 DeepSeek 配置；因此 SEC 公司披露、宏观观测和模型摘要仍是明确关闭/缺失的能力。下一次完整收盘采集会开始填充新的阶段账本，历史运行不做推测性回填。
+当前生产环境没有 `SEC_USER_AGENT` 或 `FRED_API_KEY`；因此 SEC 公司披露和宏观观测仍是待配置能力。模型网关参数已配置，但 `DEEPSEEK_RESEARCH_ENABLED` 与 `DEEPSEEK_RESEARCH_DATA_APPROVED` 保持 `false`，模型摘要同样不会运行。下一次完整收盘采集会开始填充新的阶段账本，历史运行不做推测性回填。
 
 覆盖面板中的“研究集成准备度”会把内置市场采集固定标为 `ready`，并按当前服务端环境分别显示 SEC、FRED 和模型摘要的 `ready` 或 `needs_configuration`。这是为多端协作准备的安全检查，不会返回 `SEC_USER_AGENT`、`FRED_API_KEY`、`DEEPSEEK_API_KEY`、联系人、环境变量值或具体配置失败原因；状态为待配置时，按第 6 节和第 13 节在本机 `.env.local` 与 Vercel Production 分别补齐变量后重新部署即可。
 
@@ -854,7 +854,7 @@ GET /api/nasdaq/research-tasks?limit=20
 
 #### 8.2.17 快照级研究流程回放
 
-`GET /api/nasdaq/research-flow?snapshotId=<uuid>` 以单个不可变 `research_packet_snapshots.id` 为唯一入口，精确关联：该输入包、同一 `snapshot_id` 的确定性日报、同一 `packet_fingerprint` 的模型审计状态，以及同一 `snapshot_id` 的 20 交易日结果审计。新建快照还会把保存时的 `capture_run_id` 只用于服务端查询同一次 `research_task_runs`，看板显示为“收盘运行已关联 + 阶段数量”，并列出七个固定阶段的安全状态；不返回内部运行 ID、任务详情或原始错误。看板“研究输入回放”选择快照后，展示收盘运行、输入归档、每日事实、模型摘要和结果审计五个阶段的真实状态。
+`GET /api/nasdaq/research-flow?snapshotId=<uuid>` 以单个不可变 `research_packet_snapshots.id` 为唯一入口，精确关联：该输入包、同一 `snapshot_id` 的确定性日报、同一 `packet_fingerprint` 的模型审计状态，以及同一 `snapshot_id` 的 20 交易日结果审计。新建快照还会把保存时的 `capture_run_id` 只用于服务端查询同一次 `research_task_runs`，看板显示“收盘运行已关联 + 阶段数量”，并列出七个固定阶段的安全状态和严格白名单的计数摘要（例如行情/事件行数、归因/证据数、周报归档日数、结果写入数）；不返回内部运行 ID、错误、标的、来源 URL、任务原始 JSON 或密钥。看板“研究输入回放”选择快照后，展示收盘运行、输入归档、每日事实、模型摘要和结果审计五个阶段的真实状态。
 
 模型审计的查询分为两条：所有尝试只读取 `status / provider / model / created_at` 摘要；只有 `accepted` 记录才读取并显示已通过校验的叙述。`rejected` 尝试仅显示次数和状态，绝不读取或返回原始模型文本、验证错误、元数据、请求头或密钥。日报和结果若不存在只标记 `not_archived`，该状态不推断是任务未执行、仍在 20 日窗口中，还是历史记录缺失。
 
