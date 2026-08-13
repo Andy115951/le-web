@@ -4,6 +4,7 @@ const { NASDAQ_FOCUS_INSTRUMENTS, NASDAQ_UNIVERSE_AS_OF } = require("./nasdaq-un
 const { getSupabaseConfig, requestSupabase } = require("./supabase-server");
 const { persistUnifiedMarketEvents } = require("./unified-market-events");
 const { runMarketAttributionAgent } = require("./market-attribution-agent");
+const { runEventLabelerAgent } = require("./event-labeler-agent");
 const { captureRecentSecFilings, isSecEdgarConfigured } = require("./sec-edgar");
 const { captureRecentFredObservations, isFredConfigured } = require("./fred-macro");
 const { getDailyResearchPacket } = require("./daily-research-packet");
@@ -267,6 +268,12 @@ async function captureMarketHistory(input) {
         fredMacroResult = { ...fredMacroResult, status: "failed", error: errorMessage(error) };
       }
     }
+    const eventLabelingResult = await runResearchTaskWithRetry({
+      queuedAt: startedAt,
+      run: function () {
+        return runEventLabelerAgent({ marketDate: today, now, config });
+      }
+    });
     let researchPacket = null;
     const researchPacketSnapshotResult = await runResearchTaskWithRetry({
       queuedAt: startedAt,
@@ -349,6 +356,7 @@ async function captureMarketHistory(input) {
         stages: {
           marketCollection: marketCollectionResult,
           eventAttribution: eventAttributionResult,
+          eventLabeling: eventLabelingResult,
           snapshot: researchPacketSnapshotResult,
           dailyReport: dailyResearchReportResult,
           weeklyReport: weeklyResearchReportResult,

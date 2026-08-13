@@ -46,6 +46,13 @@ function summarizeCaptureTaskDetails(kind, details) {
       evidenceSourcesLinked: finiteNonNegative(source.evidenceSourcesLinked)
     };
   }
+  if (kind === "event_labeling") {
+    return {
+      processedEvents: finiteNonNegative(source.processedEvents),
+      labelsWritten: finiteNonNegative(source.labelsWritten),
+      requiresReviewCount: finiteNonNegative(source.requiresReviewCount)
+    };
+  }
   if (["research_input_snapshot", "daily_fact_report", "model_recap"].includes(kind)) {
     return { created: boolean(source.created) };
   }

@@ -4,9 +4,10 @@ const { RESEARCH_PACKET_SNAPSHOT_VERSION } = require("./research-packet-snapshot
 const { DAILY_RESEARCH_REPORT_VERSION } = require("./daily-research-reports");
 const { RESEARCH_OUTCOME_EVALUATION_VERSION } = require("./research-outcome-evaluations");
 const { MARKET_ATTRIBUTION_AGENT_VERSION } = require("./market-attribution-agent");
+const { EVENT_LABELER_AGENT_VERSION } = require("./event-labeler-agent");
 
 const RESEARCH_TASK_RUN_VERSION = "research-task-run-v2";
-const TASK_KINDS = new Set(["market_collection", "event_attribution", "research_input_snapshot", "daily_fact_report", "weekly_fact_report", "model_recap", "outcome_evaluation"]);
+const TASK_KINDS = new Set(["market_collection", "event_attribution", "event_labeling", "research_input_snapshot", "daily_fact_report", "weekly_fact_report", "model_recap", "outcome_evaluation"]);
 const TASK_STATUSES = new Set(["succeeded", "partial", "skipped", "failed", "disabled"]);
 const TASK_FAILURE_CODES = new Set(["task_failed", "retryable_task_failure"]);
 const DEFAULT_MAX_ATTEMPTS = 2;
@@ -131,6 +132,16 @@ function buildResearchTaskRunRows(input) {
         primarySourcesLinked: finiteNonNegative(stages.eventAttribution?.primarySourcesLinked),
         evidenceSourcesLinked: finiteNonNegative(stages.eventAttribution?.evidenceSourcesLinked),
         attributionsWritten: finiteNonNegative(stages.eventAttribution?.attributionsWritten)
+      }
+    },
+    {
+      task_kind: "event_labeling",
+      task_version: EVENT_LABELER_AGENT_VERSION,
+      result: stages.eventLabeling,
+      details: {
+        processedEvents: finiteNonNegative(stages.eventLabeling?.processedEvents),
+        labelsWritten: finiteNonNegative(stages.eventLabeling?.labelsWritten),
+        requiresReviewCount: finiteNonNegative(stages.eventLabeling?.requiresReviewCount)
       }
     },
     {

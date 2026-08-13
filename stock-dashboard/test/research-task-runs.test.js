@@ -22,10 +22,10 @@ test("task run rows append only public stage summaries without raw errors", func
       outcomeEvaluation: { status: "succeeded", matureOutcomesWritten: 2 }
     }
   });
-  assert.equal(rows.length, 8);
-  assert.deepEqual(rows.map(function (row) { return row.status; }), ["partial", "succeeded", "failed", "succeeded", "failed", "skipped", "disabled", "succeeded"]);
-  assert.equal(rows[2].failure_code, "retryable_task_failure");
-  assert.equal(rows[4].failure_code, "task_failed");
+  assert.equal(rows.length, 9);
+  assert.deepEqual(rows.map(function (row) { return row.status; }), ["partial", "succeeded", "skipped", "failed", "succeeded", "failed", "skipped", "disabled", "succeeded"]);
+  assert.equal(rows[3].failure_code, "retryable_task_failure");
+  assert.equal(rows[5].failure_code, "task_failed");
   assert.equal(JSON.stringify(rows).includes("password"), false);
   assert.equal(JSON.stringify(rows).includes("private ticker"), false);
   assert.equal(JSON.stringify(rows).includes("private.example"), false);
@@ -33,12 +33,13 @@ test("task run rows append only public stage summaries without raw errors", func
   assert.deepEqual(rows[0].details, { publicRowsWritten: 8, unifiedEventsWritten: 7, unifiedSourcesWritten: 9, failedSymbolCount: 1 });
   assert.equal(rows[1].task_version, "market-attribution-agent-v1");
   assert.deepEqual(rows[1].details, { deterministicAttributions: 7, heuristicAttributionCount: 0, primarySourcesLinked: 7, evidenceSourcesLinked: 3, attributionsWritten: 4 });
-  assert.equal(rows[2].attempt, 1);
-  assert.equal(rows[2].duration_ms, 1000);
-  assert.equal(rows[3].attempt, 2);
-  assert.equal(rows[3].queue_delay_ms, 2250);
-  assert.deepEqual(rows[5].details, { created: false, expectedBusinessDateCount: 5, archivedDailyReportCount: 2, calendarStatus: "unknown" });
-  assert.equal(rows[7].details.matureOutcomesWritten, 2);
+  assert.deepEqual(rows[2].details, { processedEvents: 0, labelsWritten: 0, requiresReviewCount: 0 });
+  assert.equal(rows[3].attempt, 1);
+  assert.equal(rows[3].duration_ms, 1000);
+  assert.equal(rows[4].attempt, 2);
+  assert.equal(rows[4].queue_delay_ms, 2250);
+  assert.deepEqual(rows[6].details, { created: false, expectedBusinessDateCount: 5, archivedDailyReportCount: 2, calendarStatus: "unknown" });
+  assert.equal(rows[8].details.matureOutcomesWritten, 2);
 });
 
 test("task run controls keep statuses and public reads bounded", function () {
