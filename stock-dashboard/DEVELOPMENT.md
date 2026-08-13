@@ -568,15 +568,16 @@ GET /api/nasdaq/research-narratives?date=2026-08-11
 
 ```dotenv
 DEEPSEEK_RESEARCH_ENABLED=false
+DEEPSEEK_RESEARCH_DATA_APPROVED=false
 DEEPSEEK_API_KEY=<只放服务器的 DeepSeek Key>
 DEEPSEEK_MODEL=<DeepSeek 控制台当前可用的模型 ID>
 DEEPSEEK_MAX_DAILY_REQUESTS=1
 DEEPSEEK_MAX_OUTPUT_TOKENS=900
 ```
 
-第一次保持开关为 `false` 部署并检查运行日志；确认模型 ID、每日预算和账户归属后，才把 `DEEPSEEK_RESEARCH_ENABLED` 改为 `true`。代码层硬性限制每日最多 `3` 次请求、单次最多 `1400` 输出 token，即使环境变量误填更大也不会放宽。DeepSeek 的 JSON 模式需要请求 `response_format: { type: "json_object" }` 且提示词明确要求 JSON；实现已经固定这两点，参考 [DeepSeek JSON Output](https://api-docs.deepseek.com/guides/json_mode)。
+第一次保持两个开关为 `false` 部署并检查运行日志；确认模型 ID、每日预算和账户归属后，才考虑把 `DEEPSEEK_RESEARCH_ENABLED` 改为 `true`。即使它为 `true`，服务端仍要求 `DEEPSEEK_RESEARCH_DATA_APPROVED=true` 才会把不可变研究包发送给第三方：这是独立于“功能启用”的人工数据出站确认。代码层硬性限制每日最多 `3` 次请求、单次最多 `1400` 输出 token，即使环境变量误填更大也不会放宽。DeepSeek 的 JSON 模式需要请求 `response_format: { type: "json_object" }` 且提示词明确要求 JSON；实现已经固定这两点，参考 [DeepSeek JSON Output](https://api-docs.deepseek.com/guides/json_mode)。
 
-如果使用兼容 OpenAI Chat Completions 的第三方网关，可额外设置仅服务端变量 `DEEPSEEK_API_URL` 为完整 HTTPS `/chat/completions` 地址；未设置时继续使用官方 DeepSeek 地址。该地址、密钥、模型名称和请求限制均必须在本机 `.env.local` 与 Vercel Production 分别配置，绝不能写入 Git 或浏览器变量。当前 Production 已配置 `deepseek-v4-flash` 与每天 `1` 次、最多 `900` 输出 token 的上限，但开关保持 `false`。已用不含项目数据的最小 JSON 请求确认该网关支持 `response_format: json_object`；在项目维护者明确批准把不可变研究快照发送给该第三方前，不得开启真实研究数据出站。
+如果使用兼容 OpenAI Chat Completions 的第三方网关，可额外设置仅服务端变量 `DEEPSEEK_API_URL` 为完整 HTTPS `/chat/completions` 地址；未设置时继续使用官方 DeepSeek 地址。该地址、密钥、模型名称和请求限制均必须在本机 `.env.local` 与 Vercel Production 分别配置，绝不能写入 Git 或浏览器变量。当前 Production 已配置 `deepseek-v4-flash` 与每天 `1` 次、最多 `900` 输出 token 的上限，但两个开关均保持 `false`。已用不含项目数据的最小 JSON 请求确认该网关支持 `response_format: json_object`；在项目维护者明确批准把不可变研究快照发送给该第三方前，不得把 `DEEPSEEK_RESEARCH_DATA_APPROVED` 设为 `true`。
 
 启用前先使用已归档的历史快照做一次人工、可审计验证：
 
@@ -1302,7 +1303,7 @@ Could not find the table 'public.watchlist_states' in the schema cache
 
 ## 13. 后续环境变量
 
-DeepSeek 摘要是可选功能，默认关闭。它使用下列服务端变量：`DEEPSEEK_RESEARCH_ENABLED`、`DEEPSEEK_API_KEY`、`DEEPSEEK_MODEL`、`DEEPSEEK_MAX_DAILY_REQUESTS`、`DEEPSEEK_MAX_OUTPUT_TOKENS`。启用前必须先设置不超过预算的每日请求数，并在 Vercel Production 与本机 `.env.local` 分别配置；无需在 Vercel Development 保存 Secret。
+DeepSeek 摘要是可选功能，默认关闭。它使用下列服务端变量：`DEEPSEEK_RESEARCH_ENABLED`、`DEEPSEEK_RESEARCH_DATA_APPROVED`、`DEEPSEEK_API_KEY`、`DEEPSEEK_API_URL`、`DEEPSEEK_MODEL`、`DEEPSEEK_MAX_DAILY_REQUESTS`、`DEEPSEEK_MAX_OUTPUT_TOKENS`。启用前必须先设置不超过预算的每日请求数，并在 Vercel Production 与本机 `.env.local` 分别配置；无需在 Vercel Development 保存 Secret。
 
 以后增加其他 AI 摘要或收费数据源时，应在接入代码的同一变更中：
 

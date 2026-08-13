@@ -35,6 +35,7 @@ function safeErrorMessage(error) {
 
 function isDeepSeekResearchConfigured(env = process.env) {
   const enabled = String(env.DEEPSEEK_RESEARCH_ENABLED || "").trim().toLowerCase() === "true";
+  const dataApproved = String(env.DEEPSEEK_RESEARCH_DATA_APPROVED || "").trim().toLowerCase() === "true";
   const apiKey = String(env.DEEPSEEK_API_KEY || "").trim();
   const model = String(env.DEEPSEEK_MODEL || "").trim();
   if (!enabled) return { enabled: false, reason: "disabled" };
@@ -42,6 +43,7 @@ function isDeepSeekResearchConfigured(env = process.env) {
   if (!model) return { enabled: false, reason: "missing_model" };
   const apiUrl = normalizeDeepSeekApiUrl(env.DEEPSEEK_API_URL);
   if (!apiUrl) return { enabled: false, reason: "invalid_api_url" };
+  if (!dataApproved) return { enabled: false, reason: "data_transfer_not_approved" };
   return {
     enabled: true,
     apiKey,

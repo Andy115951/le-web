@@ -59,6 +59,7 @@ test("DeepSeek execution stays disabled until every explicit model setting is pr
   }), { enabled: false, reason: "missing_model" });
   const active = isDeepSeekResearchConfigured({
     DEEPSEEK_RESEARCH_ENABLED: "true",
+    DEEPSEEK_RESEARCH_DATA_APPROVED: "true",
     DEEPSEEK_API_KEY: "not-a-real-secret-key",
     DEEPSEEK_MODEL: "deepseek-chat",
     DEEPSEEK_MAX_DAILY_REQUESTS: "99",
@@ -71,6 +72,12 @@ test("DeepSeek execution stays disabled until every explicit model setting is pr
   assert.equal(isDeepSeekResearchConfigured({
     DEEPSEEK_RESEARCH_ENABLED: "true",
     DEEPSEEK_API_KEY: "not-a-real-secret-key",
+    DEEPSEEK_MODEL: "deepseek-chat"
+  }).reason, "data_transfer_not_approved");
+  assert.equal(isDeepSeekResearchConfigured({
+    DEEPSEEK_RESEARCH_ENABLED: "true",
+    DEEPSEEK_RESEARCH_DATA_APPROVED: "true",
+    DEEPSEEK_API_KEY: "not-a-real-secret-key",
     DEEPSEEK_MODEL: "deepseek-chat",
     DEEPSEEK_API_URL: "http://gateway.example/v1/chat/completions"
   }).reason, "invalid_api_url");
@@ -81,6 +88,21 @@ test("disabled runs remain traceable to their immutable packet without contactin
   const result = await runDeepSeekResearchNarrative(packet, { env: {} });
   assert.equal(result.status, "disabled");
   assert.match(result.packetFingerprint, /^[a-f0-9]{64}$/);
+});
+
+test("enabled model execution still refuses data transfer without explicit approval", async function () {
+  let requested = false;
+  const result = await runDeepSeekResearchNarrative(packet, {
+    env: {
+      DEEPSEEK_RESEARCH_ENABLED: "true",
+      DEEPSEEK_API_KEY: "not-a-real-secret-key",
+      DEEPSEEK_MODEL: "deepseek-chat"
+    },
+    requestModel: async function () { requested = true; }
+  });
+  assert.equal(result.status, "disabled");
+  assert.equal(result.reason, "data_transfer_not_approved");
+  assert.equal(requested, false);
 });
 
 test("DeepSeek request contains only the fixed packet contract and never embeds the API key", function () {

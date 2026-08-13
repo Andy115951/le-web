@@ -3,7 +3,7 @@ const test = require("node:test");
 const { buildResearchIntegrationReadiness, buildResearchQualitySummary, getResearchQuality } = require("../lib/research-quality");
 
 test("integration readiness exposes only safe state labels", function () {
-  const readiness = buildResearchIntegrationReadiness({ SEC_USER_AGENT: "valid contact@example.com", FRED_API_KEY: "a".repeat(32), DEEPSEEK_RESEARCH_ENABLED: "true", DEEPSEEK_API_KEY: "secret-key-value-long-enough", DEEPSEEK_MODEL: "deepseek-chat" });
+  const readiness = buildResearchIntegrationReadiness({ SEC_USER_AGENT: "valid contact@example.com", FRED_API_KEY: "a".repeat(32), DEEPSEEK_RESEARCH_ENABLED: "true", DEEPSEEK_RESEARCH_DATA_APPROVED: "true", DEEPSEEK_API_KEY: "secret-key-value-long-enough", DEEPSEEK_MODEL: "deepseek-chat" });
   assert.deepEqual(Object.fromEntries(Object.entries(readiness).map(function ([name, item]) { return [name, item.status]; })), {
     marketCollection: "ready", secFilings: "ready", fredMacro: "ready", modelNarrative: "ready"
   });

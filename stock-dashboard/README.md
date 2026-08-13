@@ -288,7 +288,7 @@ vercel
 - 页面行情与基础分析不依赖服务端私密环境变量
 - `Supabase URL` 和 `Supabase Anon Key` 由页面输入并保存在浏览器本地
 - 每日收盘历史归档依赖服务端的 `SUPABASE_URL`、`SUPABASE_SECRET_KEY` 和 `CRON_SECRET`
-- 模型执行器已接入；Production 的网关、模型和严格限额已配置，但 `DEEPSEEK_RESEARCH_ENABLED=false`，因此当前不会调用任何模型，直到维护者明确批准向该第三方发送归档研究快照
+- 模型执行器已接入；Production 的网关、模型和严格限额已配置，但 `DEEPSEEK_RESEARCH_ENABLED=false` 且 `DEEPSEEK_RESEARCH_DATA_APPROVED=false`，因此当前不会调用任何模型；两项都必须显式开启才允许向该第三方发送归档研究快照
 
 所以目前多端开发比较轻：
 
