@@ -8,6 +8,7 @@ const { captureRecentFredObservations, isFredConfigured } = require("./fred-macr
 const { getDailyResearchPacket } = require("./daily-research-packet");
 const { findResearchPacketSnapshot, persistResearchPacketSnapshot } = require("./research-packet-snapshots");
 const { persistDailyResearchReport } = require("./daily-research-reports");
+const { freezeWeeklyResearchReport } = require("./weekly-research-reports");
 const { runDeepSeekResearchNarrative } = require("./deepseek-research-narrative");
 const { evaluateMatureResearchOutcomes } = require("./research-outcome-evaluations");
 const { buildResearchTaskRunRows, persistResearchTaskRuns } = require("./research-task-runs");
@@ -290,6 +291,20 @@ async function captureMarketHistory(input) {
       // Deterministic report is a replay aid and must not block market capture.
       dailyResearchReportResult = { ...dailyResearchReportResult, status: "failed", error: errorMessage(error) };
     }
+    let weeklyResearchReportResult = {
+      status: "pending",
+      created: false,
+      expectedBusinessDateCount: 0,
+      archivedDailyReportCount: 0,
+      error: null
+    };
+    try {
+      const frozen = await freezeWeeklyResearchReport({ asOfDate: today, frozenAt: now.toISOString() }, config);
+      weeklyResearchReportResult = { ...frozen, error: null };
+    } catch (error) {
+      // Frozen weekly facts are additive and must not block daily capture or the dynamic weekly view.
+      weeklyResearchReportResult = { ...weeklyResearchReportResult, status: "failed", error: errorMessage(error) };
+    }
     let researchNarrativeResult = {
       status: "pending",
       reason: null,
@@ -345,6 +360,7 @@ async function captureMarketHistory(input) {
           eventAttribution: eventAttributionResult,
           snapshot: researchPacketSnapshotResult,
           dailyReport: dailyResearchReportResult,
+          weeklyReport: weeklyResearchReportResult,
           narrative: researchNarrativeResult,
           outcomeEvaluation: researchOutcomeEvaluationResult
         }
@@ -433,6 +449,8 @@ async function captureMarketHistory(input) {
       researchPacketFingerprint: researchPacketSnapshotResult.packetFingerprint,
       dailyResearchReportStatus: dailyResearchReportResult.status,
       dailyResearchReportCreated: dailyResearchReportResult.created,
+      weeklyResearchReportStatus: weeklyResearchReportResult.status,
+      weeklyResearchReportCreated: weeklyResearchReportResult.created,
       researchNarrativeStatus: researchNarrativeResult.status,
       researchNarrativeReason: researchNarrativeResult.reason,
       researchNarrativeCreated: researchNarrativeResult.created,
@@ -483,6 +501,10 @@ async function captureMarketHistory(input) {
             : 0,
           dailyResearchReportStatus: dailyResearchReportResult.status,
           dailyResearchReportCreated: dailyResearchReportResult.created,
+          weeklyResearchReportStatus: weeklyResearchReportResult.status,
+          weeklyResearchReportCreated: weeklyResearchReportResult.created,
+          weeklyResearchReportExpectedBusinessDateCount: weeklyResearchReportResult.expectedBusinessDateCount,
+          weeklyResearchReportArchivedDailyReportCount: weeklyResearchReportResult.archivedDailyReportCount,
           researchOutcomeEvaluationStatus: researchOutcomeEvaluationResult.status,
           researchOutcomeEvaluationsWritten: researchOutcomeEvaluationResult.matureOutcomesWritten,
           researchTaskRunStatus: researchTaskRunResult.status,

@@ -809,19 +809,21 @@ GET /api/nasdaq/research-outcomes?limit=12
 GET /api/nasdaq/daily-reports?limit=7
 ```
 
-当前每日确定性事实摘要已完成；周度动态汇总见下一节。两者都不能被视为模型结论或投资建议。
+当前每日确定性事实摘要已完成；周度动态汇总与冻结归档见下一节。两者都不能被视为模型结论或投资建议。
 
 #### 8.2.14 每周确定性事实汇总
 
 `GET /api/nasdaq/weekly-reports?limit=6` 会读取最近最多 30 条 `daily_research_reports`，按纽约自然周（周一开始）聚合为 `weekly-research-report-v1`。输出只包含实际归档的日报天数、首末观察日、两端 QQQ 收盘推导出的已观察区间变化、事件/来源/审核汇总和相似样本计数。
 
-这不是新建的周报表，也不会由页面或接口写库：周汇总实时派生自不可变日报，避免在只有部分周数据时生成难以解释的“最终版本”。`coverage.status` 为 `limited` 表示当周不足 3 个归档日，`substantial` 仅表示已有至少 3 个归档日，均不表示市场周完整或数据质量已经通过人工审核。缺失交易日、假日、未采集会保留为未知，绝不补零或推断。
+动态周汇总不会由页面或接口写库：它实时派生自不可变日报。`coverage.status` 为 `limited` 表示当周不足 3 个归档日，`substantial` 仅表示已有至少 3 个归档日，均不表示市场周完整或数据质量已经通过人工审核。缺失交易日、假日、未采集会保留为未知，绝不补零或推断。
 
-当前周报同样不调用模型、不保留用户数据、不输出预测或交易指令。若未来需要发行不可变的周末正式版本，应另建只追加表、明确截止时点与交易所日历覆盖规则，而不是覆盖当前动态聚合。
+收盘流程还会尝试冻结当前周：只有周一至周五五个日期各自已有至少一份实际归档日报，并且执行日期不早于周五时，才会向只追加的 `frozen_weekly_research_reports` 写入 `weekly-research-report-v1`。冻结记录保存 `frozen_at`、完整的五日期覆盖和固定事实内容，唯一键 `(week_start, report_version)` 使其不可被同周重跑覆盖。接口优先返回冻结周报；尚未冻结或不符合完整条件的周继续返回动态汇总。
+
+该首版故意采用严格的“周一至周五均有日报”规则，而非猜测交易所节假日：遇到市场假期、漏采或历史缺口会明确跳过冻结并保留动态周报。后续接入可靠交易所日历后，才能扩展为节假日感知的完整周规则；在此之前不能把四日假期周错误标成最终版本。周报不调用模型、不保留用户数据、不输出预测或交易指令。
 
 #### 8.2.15 研究任务账本与看板
 
-`research_task_runs` 是收盘采集的独立、追加式阶段账本。每个进入完整收盘采集流程的 `market_capture_runs.id` 会尝试记录 5 个阶段：`market_collection`、`research_input_snapshot`、`daily_fact_report`、`model_recap`、`outcome_evaluation`。记录保存市场日、固定任务版本、`succeeded / partial / skipped / failed / disabled` 状态及少量公共计数；不保存原始异常文本、用户标识、完整输入包、模型原文、请求头或密钥。
+`research_task_runs` 是收盘采集的独立、追加式阶段账本。每个进入完整收盘采集流程的 `market_capture_runs.id` 会尝试记录 7 个阶段：`market_collection`、`event_attribution`、`research_input_snapshot`、`daily_fact_report`、`weekly_fact_report`、`model_recap`、`outcome_evaluation`。记录保存市场日、固定任务版本、`succeeded / partial / skipped / failed / disabled` 状态及少量公共计数；不保存原始异常文本、用户标识、完整输入包、模型原文、请求头或密钥。
 
 `market_collection` 仅追加 `publicRowsWritten`、`unifiedEventsWritten`、`unifiedSourcesWritten` 和 `failedSymbolCount`。只要公共市场快照可用但有个别标的失败，就标记为 `partial`，不把部分成功伪装为完全成功，也不公开失败标的名称。它不表示 SEC、FRED、Attribution 或其他尚未配置的 Agent 已运行。
 

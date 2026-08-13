@@ -14,19 +14,22 @@ test("task run rows append only public stage summaries without raw errors", func
       eventAttribution: { status: "succeeded", deterministicAttributions: 7, heuristicAttributionCount: 7, primarySourcesLinked: 7, evidenceSourcesLinked: 3, sourceUrls: ["https://private.example"] },
       snapshot: { status: "succeeded", created: true },
       dailyReport: { status: "failed", error: "database password should never appear" },
+      weeklyReport: { status: "skipped", expectedBusinessDateCount: 5, archivedDailyReportCount: 2, missingDates: ["2026-08-14"] },
       narrative: { status: "disabled", created: false },
       outcomeEvaluation: { status: "succeeded", matureOutcomesWritten: 2 }
     }
   });
-  assert.equal(rows.length, 6);
-  assert.deepEqual(rows.map(function (row) { return row.status; }), ["partial", "succeeded", "succeeded", "failed", "disabled", "succeeded"]);
+  assert.equal(rows.length, 7);
+  assert.deepEqual(rows.map(function (row) { return row.status; }), ["partial", "succeeded", "succeeded", "failed", "skipped", "disabled", "succeeded"]);
   assert.equal(rows[3].failure_code, "task_failed");
   assert.equal(JSON.stringify(rows).includes("password"), false);
   assert.equal(JSON.stringify(rows).includes("private ticker"), false);
   assert.equal(JSON.stringify(rows).includes("private.example"), false);
+  assert.equal(JSON.stringify(rows).includes("2026-08-14"), false);
   assert.deepEqual(rows[0].details, { publicRowsWritten: 8, unifiedEventsWritten: 7, unifiedSourcesWritten: 9, failedSymbolCount: 1 });
   assert.deepEqual(rows[1].details, { deterministicAttributions: 7, heuristicAttributionCount: 7, primarySourcesLinked: 7, evidenceSourcesLinked: 3 });
-  assert.equal(rows[5].details.matureOutcomesWritten, 2);
+  assert.deepEqual(rows[4].details, { created: false, expectedBusinessDateCount: 5, archivedDailyReportCount: 2 });
+  assert.equal(rows[6].details.matureOutcomesWritten, 2);
 });
 
 test("task run controls keep statuses and public reads bounded", function () {

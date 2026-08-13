@@ -51,7 +51,16 @@ async function persistDailyResearchReport(config, snapshot, packet, requestImpl 
 function normalizeDailyReportLimit(value) { const limit = Number(value) || 12; return Math.max(1, Math.min(30, Math.round(limit))); }
 
 async function getDailyResearchReports(options = {}, config = getSupabaseConfig(), requestImpl = requestSupabase) {
-  const rows = await requestImpl(config, "/rest/v1/daily_research_reports?select=market_date,report_version,report,created_at&order=market_date.desc,created_at.desc&limit=" + normalizeDailyReportLimit(options.limit));
+  const startDate = options.startDate ? normalizeDate(options.startDate) : null;
+  const endDate = options.endDate ? normalizeDate(options.endDate) : null;
+  if (startDate && endDate && startDate > endDate) throw new Error("Invalid daily report date range");
+  const rows = await requestImpl(
+    config,
+    "/rest/v1/daily_research_reports?select=market_date,report_version,report,created_at"
+      + (startDate ? "&market_date=gte." + startDate : "")
+      + (endDate ? "&market_date=lte." + endDate : "")
+      + "&order=market_date.desc,created_at.desc&limit=" + normalizeDailyReportLimit(options.limit)
+  );
   return { reportVersion: DAILY_RESEARCH_REPORT_VERSION, count: Array.isArray(rows) ? rows.length : 0, reports: Array.isArray(rows) ? rows : [] };
 }
 

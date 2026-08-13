@@ -5,7 +5,7 @@ const { DAILY_RESEARCH_REPORT_VERSION } = require("./daily-research-reports");
 const { RESEARCH_OUTCOME_EVALUATION_VERSION } = require("./research-outcome-evaluations");
 
 const RESEARCH_TASK_RUN_VERSION = "research-task-run-v1";
-const TASK_KINDS = new Set(["market_collection", "event_attribution", "research_input_snapshot", "daily_fact_report", "model_recap", "outcome_evaluation"]);
+const TASK_KINDS = new Set(["market_collection", "event_attribution", "research_input_snapshot", "daily_fact_report", "weekly_fact_report", "model_recap", "outcome_evaluation"]);
 const TASK_STATUSES = new Set(["succeeded", "partial", "skipped", "failed", "disabled"]);
 
 function normalizeTaskStatus(value) {
@@ -58,6 +58,16 @@ function buildResearchTaskRunRows(input) {
       task_version: DAILY_RESEARCH_REPORT_VERSION,
       result: stages.dailyReport,
       details: { created: Boolean(stages.dailyReport?.created) }
+    },
+    {
+      task_kind: "weekly_fact_report",
+      task_version: "weekly-research-report-v1",
+      result: stages.weeklyReport,
+      details: {
+        created: Boolean(stages.weeklyReport?.created),
+        expectedBusinessDateCount: finiteNonNegative(stages.weeklyReport?.expectedBusinessDateCount),
+        archivedDailyReportCount: finiteNonNegative(stages.weeklyReport?.archivedDailyReportCount)
+      }
     },
     {
       task_kind: "model_recap",

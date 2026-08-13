@@ -1443,6 +1443,7 @@ const researchTaskLabels = {
   event_attribution: "事件归因",
   research_input_snapshot: "研究输入",
   daily_fact_report: "每日事实报告",
+  weekly_fact_report: "冻结周报",
   model_recap: "模型摘要",
   outcome_evaluation: "到期评估"
 };
@@ -1500,6 +1501,7 @@ function renderResearchTaskCard(kind, run) {
   if (Object.prototype.hasOwnProperty.call(detail, "publicRowsWritten")) metric = "行情 " + Number(detail.publicRowsWritten || 0) + " · 统一事件 " + Number(detail.unifiedEventsWritten || 0);
   if (Object.prototype.hasOwnProperty.call(detail, "deterministicAttributions")) metric = "归因 " + Number(detail.deterministicAttributions || 0) + " · 证据 " + Number(detail.evidenceSourcesLinked || 0);
   if (Object.prototype.hasOwnProperty.call(detail, "created")) metric = detail.created ? "本次新增" : "已存在 / 未新增";
+  if (Object.prototype.hasOwnProperty.call(detail, "expectedBusinessDateCount")) metric = "归档日 " + Number(detail.archivedDailyReportCount || 0) + " / " + Number(detail.expectedBusinessDateCount || 0);
   if (Object.prototype.hasOwnProperty.call(detail, "matureOutcomesWritten")) metric = "新增 " + Number(detail.matureOutcomesWritten || 0) + " 条";
   return '<article class="research-task-card"><span>' + escapeHtml(researchTaskLabels[kind]) + '</span><b class="is-' + escapeHtml(status) + '">' + escapeHtml(taskStatusLabel(status)) + '</b><strong>' + escapeHtml(metric) + '</strong><small>' + (run ? escapeHtml(formatMarketDate(run.market_date)) + " · " + escapeHtml(formatDualMarketTime(run.created_at)) : "等待下一次收盘采集") + "</small></article>";
 }
@@ -1668,7 +1670,7 @@ function renderWeeklyReports() {
     els.weeklyReportsBody.innerHTML = '<div class="weekly-reports-empty"><strong>暂无每周汇总</strong><span>至少有一份已归档日报后才会显示事实覆盖范围。</span></div>';
     return;
   }
-  els.weeklyReportsHint.textContent = "最近 " + weeklyReports.reports.length + " 个纽约自然周的事实汇总；覆盖标签只描述实际归档日报天数，不构成预测或投资建议。";
+  els.weeklyReportsHint.textContent = "最近 " + weeklyReports.reports.length + " 个纽约自然周的事实汇总；已冻结周只来自完整五个归档工作日，其他周保持动态覆盖，不构成预测或投资建议。";
   els.weeklyReportsBody.innerHTML = weeklyReports.reports.map(renderWeeklyReport).join("");
 }
 
@@ -1687,7 +1689,7 @@ function renderWeeklyReport(row) {
     '<div class="weekly-report-meta"><b class="' + escapeHtml(String(coverage.status || "limited")) + '">' + escapeHtml(String(coverage.status || "limited").toUpperCase()) + '</b><span>' + Number(coverage.archivedDailyReports || 0) + " 个归档日 · " + escapeHtml(formatMarketDate(report.observedStart)) + " 至 " + escapeHtml(formatMarketDate(report.observedEnd)) + "</span></div>",
     '<div class="weekly-report-metrics"><div><span>期末 QQQ</span><strong>' + (Number.isFinite(Number(market.observedEndClose)) ? escapeHtml(formatNumber(Number(market.observedEndClose))) : "--") + '</strong></div><div><span>可引用事件</span><strong>' + Number(evidence.eventCount || 0) + '</strong></div><div><span>相似样本</span><strong>' + Number(evidence.similarDayCandidateCount || 0) + "</strong></div></div>",
     '<p><b>来源</b>' + escapeHtml(providerText) + '</p>',
-    '<small>确定性周汇总 · ' + escapeHtml(String(report.reportVersion || "--")) + "</small>",
+    '<small>' + (row?.archived ? "已冻结事实周报" : "动态事实汇总") + " · " + escapeHtml(String(report.reportVersion || "--")) + "</small>",
     "</article>"
   ].join("");
 }
