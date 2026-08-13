@@ -4,9 +4,12 @@ const { RESEARCH_PACKET_SNAPSHOT_VERSION } = require("./research-packet-snapshot
 const { DAILY_RESEARCH_REPORT_VERSION } = require("./daily-research-reports");
 const { RESEARCH_OUTCOME_EVALUATION_VERSION } = require("./research-outcome-evaluations");
 
-const RESEARCH_TASK_RUN_VERSION = "research-task-run-v1";
+const RESEARCH_TASK_RUN_VERSION = "research-task-run-v2";
 const TASK_KINDS = new Set(["market_collection", "event_attribution", "research_input_snapshot", "daily_fact_report", "weekly_fact_report", "model_recap", "outcome_evaluation"]);
 const TASK_STATUSES = new Set(["succeeded", "partial", "skipped", "failed", "disabled"]);
+const TASK_FAILURE_CODES = new Set(["task_failed", "retryable_task_failure"]);
+const DEFAULT_MAX_ATTEMPTS = 2;
+const RETRY_DELAY_MS = 250;
 
 function normalizeTaskStatus(value) {
   const status = String(value || "").trim().toLowerCase();
@@ -16,6 +19,87 @@ function normalizeTaskStatus(value) {
 function finiteNonNegative(value) {
   const number = Number(value);
   return Number.isFinite(number) && number >= 0 ? Math.round(number) : 0;
+}
+
+function normalizeIsoTime(value, fallback = null) {
+  const parsed = new Date(value || "");
+  if (Number.isFinite(parsed.getTime())) return parsed.toISOString();
+  return fallback;
+}
+
+function normalizeAttempt(value, fallback) {
+  const attempt = Number(value);
+  return Number.isInteger(attempt) && attempt > 0 ? attempt : fallback;
+}
+
+function isRetryableResearchTaskError(error) {
+  const message = String(error?.message || error || "");
+  return /ECONNRESET|ECONNREFUSED|ETIMEDOUT|timeout|network|fetch failed|temporarily unavailable|\b429\b|\b50[0234]\b/i.test(message);
+}
+
+function wait(delayMs) {
+  return new Promise(function (resolve) { setTimeout(resolve, delayMs); });
+}
+
+function buildTaskAttempt(input = {}) {
+  const startedAt = normalizeIsoTime(input.startedAt);
+  const finishedAt = normalizeIsoTime(input.finishedAt, startedAt);
+  const queueDelayMs = finiteNonNegative(input.queueDelayMs);
+  const startedMs = startedAt ? new Date(startedAt).getTime() : NaN;
+  const finishedMs = finishedAt ? new Date(finishedAt).getTime() : NaN;
+  const measuredDuration = Number.isFinite(startedMs) && Number.isFinite(finishedMs)
+    ? Math.max(0, finishedMs - startedMs)
+    : 0;
+  const status = normalizeTaskStatus(input.status);
+  return {
+    status,
+    failureCode: status === "failed" && TASK_FAILURE_CODES.has(input.failureCode) ? input.failureCode : status === "failed" ? "task_failed" : null,
+    queuedAt: normalizeIsoTime(input.queuedAt),
+    startedAt,
+    finishedAt,
+    queueDelayMs,
+    durationMs: finiteNonNegative(input.durationMs || measuredDuration)
+  };
+}
+
+async function runResearchTaskWithRetry(options = {}) {
+  if (typeof options.run !== "function") throw new Error("Research task runner is required");
+  const maxAttempts = Math.max(1, Math.min(3, Math.round(Number(options.maxAttempts) || DEFAULT_MAX_ATTEMPTS)));
+  const queuedAt = normalizeIsoTime(options.queuedAt, new Date().toISOString());
+  const retryable = options.isRetryable || isRetryableResearchTaskError;
+  const waitImpl = options.wait || wait;
+  const attempts = [];
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const startedAt = new Date();
+    try {
+      const result = await options.run({ attempt });
+      const finishedAt = new Date();
+      attempts.push(buildTaskAttempt({
+        status: result?.status,
+        queuedAt,
+        startedAt,
+        finishedAt,
+        queueDelayMs: startedAt.getTime() - new Date(queuedAt).getTime()
+      }));
+      return { ...(result || {}), status: normalizeTaskStatus(result?.status), attempts };
+    } catch (error) {
+      const willRetry = attempt < maxAttempts && Boolean(retryable(error));
+      const finishedAt = new Date();
+      attempts.push(buildTaskAttempt({
+        status: "failed",
+        failureCode: willRetry ? "retryable_task_failure" : "task_failed",
+        queuedAt,
+        startedAt,
+        finishedAt,
+        queueDelayMs: startedAt.getTime() - new Date(queuedAt).getTime()
+      }));
+      if (!willRetry) return { status: "failed", error: String(error?.message || error || "Task failed"), attempts };
+      await waitImpl(RETRY_DELAY_MS);
+    }
+  }
+
+  return { status: "failed", error: "Task attempts exhausted", attempts };
 }
 
 function buildResearchTaskRunRows(input) {
@@ -85,19 +169,31 @@ function buildResearchTaskRunRows(input) {
       details: { matureOutcomesWritten: finiteNonNegative(stages.outcomeEvaluation?.matureOutcomesWritten) }
     }
   ];
-  return rows.map(function (stage) {
-    const status = normalizeTaskStatus(stage.result?.status);
-    return {
-      capture_run_id: captureRunId,
-      market_date: marketDate,
-      task_kind: stage.task_kind,
-      task_version: stage.task_version,
-      status,
-      attempt: 1,
-      failure_code: status === "failed" ? "task_failed" : null,
-      details: stage.details,
-      created_at: new Date(createdAt).toISOString()
-    };
+  return rows.flatMap(function (stage) {
+    const stageStatus = normalizeTaskStatus(stage.result?.status);
+    const attemptInputs = Array.isArray(stage.result?.attempts) && stage.result.attempts.length
+      ? stage.result.attempts
+      : [{ status: stageStatus, queuedAt: createdAt, startedAt: createdAt, finishedAt: createdAt, queueDelayMs: 0, durationMs: 0 }];
+    return attemptInputs.map(function (input, index) {
+      const attempt = buildTaskAttempt(input);
+      const status = normalizeTaskStatus(attempt.status);
+      return {
+        capture_run_id: captureRunId,
+        market_date: marketDate,
+        task_kind: stage.task_kind,
+        task_version: stage.task_version,
+        status,
+        attempt: normalizeAttempt(input?.attempt, index + 1),
+        failure_code: status === "failed" ? attempt.failureCode || "task_failed" : null,
+        details: stage.details,
+        queued_at: attempt.queuedAt,
+        started_at: attempt.startedAt,
+        finished_at: attempt.finishedAt,
+        queue_delay_ms: attempt.queueDelayMs,
+        duration_ms: attempt.durationMs,
+        created_at: attempt.finishedAt || new Date(createdAt).toISOString()
+      };
+    });
   });
 }
 
@@ -118,17 +214,22 @@ function normalizeResearchTaskRunLimit(value) {
 
 async function getResearchTaskRuns(options = {}, config = getSupabaseConfig(), requestImpl = requestSupabase) {
   const limit = normalizeResearchTaskRunLimit(options.limit);
-  const columns = "task_kind,task_version,market_date,status,attempt,failure_code,details,created_at";
+  const columns = "task_kind,task_version,market_date,status,attempt,failure_code,details,queued_at,started_at,finished_at,queue_delay_ms,duration_ms,created_at";
   const rows = await requestImpl(config, "/rest/v1/research_task_runs?select=" + columns + "&order=created_at.desc&limit=" + limit);
   return { version: RESEARCH_TASK_RUN_VERSION, count: Array.isArray(rows) ? rows.length : 0, runs: Array.isArray(rows) ? rows : [] };
 }
 
 module.exports = {
   RESEARCH_TASK_RUN_VERSION,
+  RETRY_DELAY_MS,
   TASK_KINDS,
+  TASK_FAILURE_CODES,
+  buildTaskAttempt,
   buildResearchTaskRunRows,
   getResearchTaskRuns,
+  isRetryableResearchTaskError,
   normalizeResearchTaskRunLimit,
   normalizeTaskStatus,
-  persistResearchTaskRuns
+  persistResearchTaskRuns,
+  runResearchTaskWithRetry
 };

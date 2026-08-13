@@ -2,7 +2,7 @@
 
 本文档面向本地开发、Supabase 初始化、Vercel 部署和每日行情历史任务维护。产品功能与进度概览见 [README.md](README.md)，完整产品路线图见 [ROADMAP.md](ROADMAP.md)，数据库完整 SQL 见 [SUPABASE_SETUP.md](SUPABASE_SETUP.md)。
 
-## 当前环境状态（2026-08-12）
+## 当前环境状态（2026-08-13）
 
 当前 Windows 开发机已经完成：
 
@@ -40,6 +40,7 @@
 - [x] `research_packet_snapshots` 已在远程创建；首份 `2026-08-11` 输入快照已验证可幂等重跑
 - [x] 看板“研究回放”已接入快照摘要与按需详情读取；只展示归档事实、来源聚合和审核状态，不调用模型也不展示投资指令
 - [x] `research_narrative_audits` 已在远程创建；等待未来首条模型研究输出写入审计记录
+- [x] `research_task_runs` 已通过 Management API 扩展为 `research-task-run-v2`：新增安全的每次尝试、排队与运行耗时列及受限失败码约束
 - [x] Cron 运行日志、失败诊断、手动重跑和最近运行记录接口
 - [x] Nasdaq 核心行情/新闻入口已与个人自选解耦，无登录也可运行
 
@@ -825,6 +826,8 @@ GET /api/nasdaq/daily-reports?limit=7
 #### 8.2.15 研究任务账本与看板
 
 `research_task_runs` 是收盘采集的独立、追加式阶段账本。每个进入完整收盘采集流程的 `market_capture_runs.id` 会尝试记录 7 个阶段：`market_collection`、`event_attribution`、`research_input_snapshot`、`daily_fact_report`、`weekly_fact_report`、`model_recap`、`outcome_evaluation`。记录保存市场日、固定任务版本、`succeeded / partial / skipped / failed / disabled` 状态及少量公共计数；不保存原始异常文本、用户标识、完整输入包、模型原文、请求头或密钥。
+
+从 `research-task-run-v2` 起，账本还安全保存每次尝试的 `attempt`、入队/开始/结束时间、排队耗时和运行耗时。研究输入、每日事实报告、冻结周报和到期结果审计在确定性网络瞬断（例如超时、`429`、部分 `5xx`）时最多自动再试一次：首次失败和后续尝试会作为两条追加式记录保存，失败码仅为 `retryable_task_failure` 或 `task_failed`，不保存原始错误。非瞬断错误不会盲目重试；模型摘要仍不自动重试，以免增加第三方调用或费用。
 
 `market_collection` 仅追加 `publicRowsWritten`、`unifiedEventsWritten`、`unifiedSourcesWritten` 和 `failedSymbolCount`。只要公共市场快照可用但有个别标的失败，就标记为 `partial`，不把部分成功伪装为完全成功，也不公开失败标的名称。它不表示 SEC、FRED、Attribution 或其他尚未配置的 Agent 已运行。
 

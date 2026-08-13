@@ -1,6 +1,6 @@
 const { getSupabaseConfig, requestSupabase } = require("./supabase-server");
 
-const RESEARCH_FLOW_REPLAY_VERSION = "research-flow-replay-v3";
+const RESEARCH_FLOW_REPLAY_VERSION = "research-flow-replay-v4";
 
 function normalizeSnapshotId(value) {
   const id = String(value || "").trim();
@@ -17,6 +17,11 @@ function stage(status, details) {
 function finiteNonNegative(value) {
   const number = Number(value);
   return Number.isFinite(number) && number >= 0 ? Math.round(number) : 0;
+}
+
+function optionalFiniteNonNegative(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? Math.round(number) : null;
 }
 
 function boolean(value) {
@@ -68,6 +73,9 @@ function summarizeCaptureTasks(runs) {
       status: String(run.status || "unknown"),
       taskVersion: run.task_version || null,
       createdAt: run.created_at || null,
+      attempt: optionalFiniteNonNegative(run.attempt) || 1,
+      queueDelayMs: optionalFiniteNonNegative(run.queue_delay_ms),
+      durationMs: optionalFiniteNonNegative(run.duration_ms),
       details: summarizeCaptureTaskDetails(kind, run.details)
     });
   });
@@ -127,7 +135,7 @@ async function getResearchFlowReplay(options = {}, config = getSupabaseConfig(),
     requestImpl(config, "/rest/v1/research_narrative_audits?select=status,provider,model,narrative,created_at&status=eq.accepted&packet_fingerprint=eq." + encodeURIComponent(snapshot.packet_fingerprint) + "&order=created_at.desc&limit=5"),
     requestImpl(config, "/rest/v1/research_outcome_evaluations?select=evaluation_version,horizon_trading_days,label_version,realized_return_percent,maximum_drawdown_percent,realized_volatility_percent,evaluated_at,created_at&snapshot_id=eq." + encodeURIComponent(snapshot.id) + "&order=evaluated_at.desc,created_at.desc&limit=5"),
     snapshot.capture_run_id
-      ? requestImpl(config, "/rest/v1/research_task_runs?select=task_kind,task_version,status,details,created_at&capture_run_id=eq." + encodeURIComponent(snapshot.capture_run_id) + "&order=created_at.desc&limit=20")
+      ? requestImpl(config, "/rest/v1/research_task_runs?select=task_kind,task_version,status,attempt,queue_delay_ms,duration_ms,details,created_at&capture_run_id=eq." + encodeURIComponent(snapshot.capture_run_id) + "&order=created_at.desc&limit=20")
       : Promise.resolve([])
   ]);
   return buildResearchFlowReplay({ snapshot, dailyReports, narrativeAttempts, narratives, outcomeEvaluations, captureTasks });

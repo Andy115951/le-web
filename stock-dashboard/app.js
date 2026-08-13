@@ -1564,7 +1564,7 @@ function renderResearchTasks() {
   const taskCards = Object.keys(researchTaskLabels).map(function (kind) {
     return renderResearchTaskCard(kind, latestByKind.get(kind));
   }).join("");
-  els.researchTasksHint.textContent = "显示每个阶段最近一次真实运行和最近 " + researchTasks.runs.length + " 条追加式账本记录。失败码经过收敛处理；重试仍需走受保护的运维入口。";
+  els.researchTasksHint.textContent = "显示每个阶段最近一次真实运行和最近 " + researchTasks.runs.length + " 条追加式账本记录。短暂网络故障最多自动重试一次；失败码经过收敛处理，不展示原始异常。";
   els.researchTasksBody.innerHTML = '<div class="research-task-grid">' + taskCards + '</div><div class="research-task-history"><div><span>RECENT APPEND-ONLY RUNS</span><strong>最近记录</strong></div><section>' + researchTasks.runs.slice(0, 8).map(renderResearchTaskHistory).join("") + "</section></div>";
 }
 
@@ -1577,12 +1577,30 @@ function renderResearchTaskCard(kind, run) {
   if (Object.prototype.hasOwnProperty.call(detail, "created")) metric = detail.created ? "本次新增" : "已存在 / 未新增";
   if (Object.prototype.hasOwnProperty.call(detail, "expectedBusinessDateCount")) metric = "归档日 " + Number(detail.archivedDailyReportCount || 0) + " / " + Number(detail.expectedBusinessDateCount || 0);
   if (Object.prototype.hasOwnProperty.call(detail, "matureOutcomesWritten")) metric = "新增 " + Number(detail.matureOutcomesWritten || 0) + " 条";
-  return '<article class="research-task-card"><span>' + escapeHtml(researchTaskLabels[kind]) + '</span><b class="is-' + escapeHtml(status) + '">' + escapeHtml(taskStatusLabel(status)) + '</b><strong>' + escapeHtml(metric) + '</strong><small>' + (run ? escapeHtml(formatMarketDate(run.market_date)) + " · " + escapeHtml(formatDualMarketTime(run.created_at)) : "等待下一次收盘采集") + "</small></article>";
+  const timing = run ? formatResearchTaskTiming(run) : "";
+  return '<article class="research-task-card"><span>' + escapeHtml(researchTaskLabels[kind]) + '</span><b class="is-' + escapeHtml(status) + '">' + escapeHtml(taskStatusLabel(status)) + '</b><strong>' + escapeHtml(metric) + '</strong><small>' + (run ? escapeHtml(formatMarketDate(run.market_date)) + " · " + escapeHtml(formatDualMarketTime(run.created_at)) + (timing ? " · " + escapeHtml(timing) : "") : "等待下一次收盘采集") + "</small></article>";
 }
 
 function renderResearchTaskHistory(run) {
   const status = String(run?.status || "unknown");
-  return '<article><b class="is-' + escapeHtml(status) + '">' + escapeHtml(taskStatusLabel(status)) + '</b><div><strong>' + escapeHtml(researchTaskLabels[run?.task_kind] || run?.task_kind || "未知任务") + '</strong><span>' + escapeHtml(formatMarketDate(run?.market_date)) + " · " + escapeHtml(String(run?.task_version || "--")) + '</span></div><small>' + escapeHtml(formatDualMarketTime(run?.created_at)) + "</small></article>";
+  const timing = formatResearchTaskTiming(run);
+  return '<article><b class="is-' + escapeHtml(status) + '">' + escapeHtml(taskStatusLabel(status)) + '</b><div><strong>' + escapeHtml(researchTaskLabels[run?.task_kind] || run?.task_kind || "未知任务") + '</strong><span>' + escapeHtml(formatMarketDate(run?.market_date)) + " · " + escapeHtml(String(run?.task_version || "--")) + '</span></div><small>' + escapeHtml(formatDualMarketTime(run?.created_at)) + (timing ? " · " + escapeHtml(timing) : "") + "</small></article>";
+}
+
+function formatResearchTaskTiming(run) {
+  const attempt = Number(run?.attempt);
+  const durationMs = Number(run?.duration_ms);
+  const queueDelayMs = Number(run?.queue_delay_ms);
+  const parts = [];
+  if (Number.isInteger(attempt) && attempt > 1) parts.push("第 " + attempt + " 次");
+  if (Number.isFinite(queueDelayMs) && queueDelayMs >= 1000) parts.push("排队 " + formatResearchTaskMilliseconds(queueDelayMs));
+  if (Number.isFinite(durationMs) && durationMs >= 0) parts.push("耗时 " + formatResearchTaskMilliseconds(durationMs));
+  return parts.join(" · ");
+}
+
+function formatResearchTaskMilliseconds(value) {
+  const ms = Math.max(0, Number(value) || 0);
+  return ms >= 60000 ? (ms / 60000).toFixed(1) + " 分" : Math.max(0.1, ms / 1000).toFixed(1) + " 秒";
 }
 
 function taskStatusLabel(status) {

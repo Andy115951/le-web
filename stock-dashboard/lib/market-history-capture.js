@@ -11,7 +11,7 @@ const { persistDailyResearchReport } = require("./daily-research-reports");
 const { freezeWeeklyResearchReport } = require("./weekly-research-reports");
 const { runDeepSeekResearchNarrative } = require("./deepseek-research-narrative");
 const { evaluateMatureResearchOutcomes } = require("./research-outcome-evaluations");
-const { buildResearchTaskRunRows, persistResearchTaskRuns } = require("./research-task-runs");
+const { buildResearchTaskRunRows, buildTaskAttempt, persistResearchTaskRuns, runResearchTaskWithRetry } = require("./research-task-runs");
 
 const RUNS_TABLE = "market_capture_runs";
 const PUBLIC_HISTORY_TABLE = "nasdaq_market_event_history";
@@ -183,6 +183,7 @@ async function captureMarketHistory(input) {
 
   try {
     const today = marketDate(now);
+    const marketCollectionStartedAt = new Date();
     const publicSnapshot = await getDailyMarketEvents([]);
     const failedSymbolSet = new Set(publicSnapshot.failedSymbols || []);
 
@@ -222,6 +223,7 @@ async function captureMarketHistory(input) {
     await upsertRows(config, PUBLIC_HISTORY_TABLE, "market_date,symbol", publicRows);
     const publicSavedEvents = publicRows.length;
     const unifiedResult = await persistUnifiedMarketEvents(config, publicSnapshot.events, now);
+    const marketCollectionFinishedAt = new Date();
     let secFilingResult = {
       status: isSecEdgarConfigured() ? "pending" : "disabled",
       eventsWritten: 0,
@@ -258,53 +260,33 @@ async function captureMarketHistory(input) {
         fredMacroResult = { ...fredMacroResult, status: "failed", error: errorMessage(error) };
       }
     }
-    let researchPacketSnapshotResult = {
-      status: "pending",
-      created: false,
-      packetFingerprint: null,
-      error: null
-    };
     let researchPacket = null;
-    try {
-      researchPacket = await getDailyResearchPacket(today, now);
-      if (!researchPacket.marketState) {
-        researchPacketSnapshotResult = { ...researchPacketSnapshotResult, status: "skipped", error: "Research packet has no QQQ market state" };
-      } else {
+    const researchPacketSnapshotResult = await runResearchTaskWithRetry({
+      queuedAt: startedAt,
+      run: async function () {
+        researchPacket = await getDailyResearchPacket(today, now);
+        if (!researchPacket.marketState) return { status: "skipped", created: false, packetFingerprint: null, error: "Research packet has no QQQ market state" };
         const saved = await persistResearchPacketSnapshot(config, researchPacket, now.toISOString(), { captureRunId: runId });
-        researchPacketSnapshotResult = { status: "succeeded", error: null, ...saved };
+        return { status: "succeeded", error: null, ...saved };
       }
-    } catch (error) {
-      // Snapshots enable research replay but must not discard an otherwise valid close capture.
-      researchPacketSnapshotResult = { ...researchPacketSnapshotResult, status: "failed", error: errorMessage(error) };
-    }
-    let dailyResearchReportResult = { status: "pending", created: false, error: null };
-    try {
-      if (researchPacketSnapshotResult.status !== "succeeded" || !researchPacket) {
-        dailyResearchReportResult = { ...dailyResearchReportResult, status: "skipped", error: "research_packet_not_archived" };
-      } else {
+    });
+    const dailyResearchReportResult = await runResearchTaskWithRetry({
+      queuedAt: startedAt,
+      run: async function () {
+        if (researchPacketSnapshotResult.status !== "succeeded" || !researchPacket) return { status: "skipped", created: false, error: "research_packet_not_archived" };
         const snapshot = await findResearchPacketSnapshot({ marketDate: researchPacketSnapshotResult.marketDate, packetFingerprint: researchPacketSnapshotResult.packetFingerprint }, config);
         if (!snapshot) throw new Error("Saved research snapshot was not found");
         const saved = await persistDailyResearchReport(config, snapshot, researchPacket);
-        dailyResearchReportResult = { status: "succeeded", error: null, ...saved };
+        return { status: "succeeded", error: null, ...saved };
       }
-    } catch (error) {
-      // Deterministic report is a replay aid and must not block market capture.
-      dailyResearchReportResult = { ...dailyResearchReportResult, status: "failed", error: errorMessage(error) };
-    }
-    let weeklyResearchReportResult = {
-      status: "pending",
-      created: false,
-      expectedBusinessDateCount: 0,
-      archivedDailyReportCount: 0,
-      error: null
-    };
-    try {
-      const frozen = await freezeWeeklyResearchReport({ asOfDate: today, frozenAt: now.toISOString() }, config);
-      weeklyResearchReportResult = { ...frozen, error: null };
-    } catch (error) {
-      // Frozen weekly facts are additive and must not block daily capture or the dynamic weekly view.
-      weeklyResearchReportResult = { ...weeklyResearchReportResult, status: "failed", error: errorMessage(error) };
-    }
+    });
+    const weeklyResearchReportResult = await runResearchTaskWithRetry({
+      queuedAt: startedAt,
+      run: async function () {
+        const frozen = await freezeWeeklyResearchReport({ asOfDate: today, frozenAt: now.toISOString() }, config);
+        return { ...frozen, error: null };
+      }
+    });
     let researchNarrativeResult = {
       status: "pending",
       reason: null,
@@ -330,14 +312,13 @@ async function captureMarketHistory(input) {
         reason: errorMessage(error)
       };
     }
-    let researchOutcomeEvaluationResult = { status: "pending", matureOutcomesWritten: 0, error: null };
-    try {
-      const evaluated = await evaluateMatureResearchOutcomes(config, { evaluatedAt: now.toISOString() });
-      researchOutcomeEvaluationResult = { status: "succeeded", error: null, ...evaluated };
-    } catch (error) {
-      // Mature-outcome audit is additive and must never block factual close capture.
-      researchOutcomeEvaluationResult = { ...researchOutcomeEvaluationResult, status: "failed", error: errorMessage(error) };
-    }
+    const researchOutcomeEvaluationResult = await runResearchTaskWithRetry({
+      queuedAt: startedAt,
+      run: async function () {
+        const evaluated = await evaluateMatureResearchOutcomes(config, { evaluatedAt: now.toISOString() });
+        return { status: "succeeded", error: null, ...evaluated };
+      }
+    });
     let researchTaskRunResult = { status: "pending", written: 0, error: null };
     try {
       const marketCollectionResult = {
@@ -345,7 +326,14 @@ async function captureMarketHistory(input) {
         publicRowsWritten: publicSavedEvents,
         unifiedEventsWritten: unifiedResult.eventsWritten,
         unifiedSourcesWritten: unifiedResult.sourcesWritten,
-        failedSymbolCount: failedSymbolSet.size
+        failedSymbolCount: failedSymbolSet.size,
+        attempts: [buildTaskAttempt({
+          status: failedSymbolSet.size ? "partial" : "succeeded",
+          queuedAt: startedAt,
+          startedAt: marketCollectionStartedAt,
+          finishedAt: marketCollectionFinishedAt,
+          queueDelayMs: marketCollectionStartedAt.getTime() - startedAt.getTime()
+        })]
       };
       const eventAttributionResult = {
         status: "succeeded",
