@@ -4,6 +4,15 @@ const { getSupabaseConfig, requestSupabase } = require("./supabase-server");
 
 const RESEARCH_PACKET_SNAPSHOT_VERSION = "research-packet-snapshot-v1";
 
+function normalizeCaptureRunId(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const id = String(value).trim();
+  if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(id)) {
+    throw new Error("Invalid capture run id");
+  }
+  return id;
+}
+
 function normalizeSnapshotLimit(value) {
   const limit = Number(value) || 10;
   return Math.max(1, Math.min(30, Math.round(limit)));
@@ -44,7 +53,7 @@ function buildSourceSummary(packet) {
   };
 }
 
-function buildResearchPacketSnapshot(packet, capturedAt = new Date().toISOString()) {
+function buildResearchPacketSnapshot(packet, capturedAt = new Date().toISOString(), options = {}) {
   const marketDate = normalizeDate(packet?.asOf?.marketDate);
   const captured = new Date(capturedAt).toISOString();
   if (!packet?.contractVersion) throw new Error("Research packet contractVersion is required");
@@ -54,12 +63,13 @@ function buildResearchPacketSnapshot(packet, capturedAt = new Date().toISOString
     packet_fingerprint: researchPacketFingerprint(packet),
     packet,
     source_summary: buildSourceSummary(packet),
-    captured_at: captured
+    captured_at: captured,
+    capture_run_id: normalizeCaptureRunId(options.captureRunId)
   };
 }
 
-async function persistResearchPacketSnapshot(config, packet, capturedAt, requestImpl = requestSupabase) {
-  const record = buildResearchPacketSnapshot(packet, capturedAt);
+async function persistResearchPacketSnapshot(config, packet, capturedAt, options = {}, requestImpl = requestSupabase) {
+  const record = buildResearchPacketSnapshot(packet, capturedAt, options);
   const rows = await requestImpl(config, "/rest/v1/research_packet_snapshots?on_conflict=market_date,packet_fingerprint", {
     method: "POST",
     headers: { Prefer: "resolution=ignore-duplicates,return=representation" },
@@ -99,7 +109,7 @@ async function findResearchPacketSnapshot(options = {}, config = getSupabaseConf
   const marketDate = normalizeDate(options.marketDate);
   const fingerprint = String(options.packetFingerprint || "").trim();
   if (!/^[a-f0-9]{64}$/.test(fingerprint)) throw new Error("Invalid research packet fingerprint");
-  const rows = await requestImpl(config, "/rest/v1/research_packet_snapshots?select=id,market_date,packet_fingerprint,source_summary,captured_at"
+  const rows = await requestImpl(config, "/rest/v1/research_packet_snapshots?select=id,market_date,packet_fingerprint,source_summary,captured_at,capture_run_id"
     + "&market_date=eq." + encodeURIComponent(marketDate)
     + "&packet_fingerprint=eq." + encodeURIComponent(fingerprint) + "&limit=1");
   return Array.isArray(rows) ? rows[0] || null : null;
@@ -140,6 +150,7 @@ module.exports = {
   findResearchPacketSnapshot,
   getResearchPacketSnapshots,
   materialPacket,
+  normalizeCaptureRunId,
   normalizeSnapshotLimit,
   persistResearchPacketSnapshot,
   rehashResearchPacketSnapshots,

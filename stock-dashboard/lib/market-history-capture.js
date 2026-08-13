@@ -270,7 +270,7 @@ async function captureMarketHistory(input) {
       if (!researchPacket.marketState) {
         researchPacketSnapshotResult = { ...researchPacketSnapshotResult, status: "skipped", error: "Research packet has no QQQ market state" };
       } else {
-        const saved = await persistResearchPacketSnapshot(config, researchPacket, now.toISOString());
+        const saved = await persistResearchPacketSnapshot(config, researchPacket, now.toISOString(), { captureRunId: runId });
         researchPacketSnapshotResult = { status: "succeeded", error: null, ...saved };
       }
     } catch (error) {

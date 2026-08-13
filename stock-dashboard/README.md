@@ -83,7 +83,7 @@
 - FRED 宏观观测骨架：可把 `CPIAUCSL / UNRATE / FEDFUNDS / GDPC1` 的官方 FRED 观测写入统一事件层；配置服务端 `FRED_API_KEY` 后启用，未配置时保持禁用
 - 日度研究输入包：`GET /api/nasdaq/research-packet?date=YYYY-MM-DD` 固定后续 AI/日报可读取的泄漏安全事实边界，并按“上一交易日收盘到目标日收盘”筛选可知事件；人工 `rejected` 事件不会进入模型证据集合
 - 研究输入回放：收盘任务会追加保存字段顺序无关稳定指纹的研究包快照；看板“研究回放”以摘要列表加按需详情方式复原当时事实输入，`GET /api/nasdaq/research-packet-snapshots` 默认只返回摘要，显式 `includePacket=true` 才返回完整历史输入
-- 快照级流程回放：`GET /api/nasdaq/research-flow?snapshotId=<uuid>` 只按精确快照 ID 串联输入归档、确定性日报、已验证模型摘要状态和 20 日结果审计；缺失阶段会原样标记，不会为旧数据推测 Agent 运行结果
+- 快照级流程回放：`GET /api/nasdaq/research-flow?snapshotId=<uuid>` 对新快照还会精确关联同一次收盘运行的安全阶段摘要，再串联输入归档、确定性日报、已验证模型摘要状态和 20 日结果审计；历史未关联快照明确标记，不会按日期猜测 Agent 运行结果
 - 每日研究事实摘要：每次成功归档研究快照后，系统会按同一快照与报告版本幂等写入日报；`GET /api/nasdaq/daily-reports?limit=7` 只返回 QQQ 收盘、涨跌和证据计数，不含预测、建议或交易指令
 - 每周研究事实汇总：`GET /api/nasdaq/weekly-reports?limit=6` 按纽约自然周聚合已归档日报，明确展示实际归档日数与观察区间；完整周一至周五五份日报时会追加冻结周报，节假日或缺失日不补全、不冻结
 - 研究任务看板：收盘采集会为市场采集、确定性事件归因、研究输入、日报、模型摘要与到期评估追加阶段运行摘要；归因阶段只记录归因/来源计数，市场采集以 `partial` 明确标记部分标的失败，`GET /api/nasdaq/research-tasks?limit=20` 不公开原始错误、来源 URL 或提供网页重试

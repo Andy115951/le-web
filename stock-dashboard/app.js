@@ -1237,6 +1237,7 @@ function renderResearchReplayDetail() {
 function renderReplayFlowTimeline(flow) {
   const stages = flow?.stages || {};
   const definitions = [
+    ["RUN", "收盘运行", stages.captureRun],
     ["INPUT", "输入归档", stages.inputArchive],
     ["REPORT", "每日事实", stages.dailyFactReport],
     ["MODEL", "模型摘要", stages.modelNarrative],
@@ -1251,11 +1252,12 @@ function renderReplayFlowTimeline(flow) {
 }
 
 function replayFlowStatusLabel(status) {
-  return ({ archived: "已归档", accepted: "已验证", rejected: "已拒绝", evaluated: "已评估", not_generated: "未生成", not_archived: "未归档" })[status] || "未知";
+  return ({ linked: "已关联", not_linked: "未关联", archived: "已归档", accepted: "已验证", rejected: "已拒绝", evaluated: "已评估", not_generated: "未生成", not_archived: "未归档" })[status] || "未知";
 }
 
 function replayFlowNote(status, stage) {
   if (status === "archived") return stage.createdAt ? "归档 " + formatDualMarketTime(stage.createdAt) : (stage.capturedAt ? "采集 " + formatDualMarketTime(stage.capturedAt) : "已保存真实工件");
+  if (status === "linked") return "关联 " + Number(stage.taskCount || 0) + " 个真实阶段";
   if (status === "accepted") return "通过校验 " + Number(stage.acceptedCount || 0) + " 份";
   if (status === "rejected") return "拒绝 " + Number(stage.rejectedCount || 0) + " 次，未公开原始输出";
   if (status === "evaluated") return "真实结果已追加";

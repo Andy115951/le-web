@@ -40,6 +40,7 @@ test("research packet snapshot fingerprints facts rather than generation time", 
   assert.equal(record.packet_fingerprint.length, 64);
   assert.equal(record.captured_at, "2026-08-11T22:02:00.000Z");
   assert.equal(record.source_summary.snapshotVersion, RESEARCH_PACKET_SNAPSHOT_VERSION);
+  assert.equal(record.capture_run_id, null);
   assert.deepEqual(record.source_summary.eventTypes, { sec_filing: 1, market_move_attribution: 1 });
   assert.deepEqual(record.source_summary.reviewStatuses, { accepted: 1, needs_attention: 1 });
 });
@@ -59,15 +60,21 @@ test("research packet fingerprints remain stable when a JSONB round-trip reorder
   assert.equal(researchPacketFingerprint(original), researchPacketFingerprint(reordered));
 });
 
-test("research packet snapshot storage ignores duplicate packet fingerprints", async function () {
+test("research packet snapshot storage ignores duplicate packet fingerprints and validates optional run linkage", async function () {
   const calls = [];
-  const result = await persistResearchPacketSnapshot({}, packet("2026-08-11T20:01:00.000Z"), "2026-08-11T22:02:00.000Z", async function (_config, path, options) {
+  const result = await persistResearchPacketSnapshot({}, packet("2026-08-11T20:01:00.000Z"), "2026-08-11T22:02:00.000Z", {
+    captureRunId: "123e4567-e89b-12d3-a456-426614174000"
+  }, async function (_config, path, options) {
     calls.push({ path, options });
     return [];
   });
   assert.equal(result.created, false);
   assert.match(calls[0].path, /on_conflict=market_date,packet_fingerprint/);
   assert.equal(calls[0].options.headers.Prefer, "resolution=ignore-duplicates,return=representation");
+  assert.equal(calls[0].options.body.capture_run_id, "123e4567-e89b-12d3-a456-426614174000");
+  assert.throws(function () {
+    buildResearchPacketSnapshot(packet("2026-08-11T20:01:00.000Z"), "2026-08-11T22:02:00.000Z", { captureRunId: "not-a-uuid" });
+  }, /Invalid capture run id/);
 });
 
 test("snapshot listing omits full packet by default and validates requested dates", async function () {
