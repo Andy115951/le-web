@@ -869,6 +869,15 @@ GET /api/nasdaq/research-tasks?limit=20
 
 审核队列和研究输入包读取时优先使用已有的最新归档标签；早于 Labeler 上线的历史事件或标签暂缺时才按同一纯规则实时回退。无论标签如何，人工审核状态始终单独保留且优先：`rejected` 才会排除事件，`accepted` 不会删除自动风险标记。
 
+需要验证历史已入库事实时，可运行：
+
+```bash
+npm run agents:replay -- 2026-08-12
+npm run agents:replay -- 2026-08-12 --apply
+```
+
+第一条只输出候选数；第二条才向 `market_event_attributions` 与 `event_rule_labels` 追加记录。它不触发网页抓取、Cron、模型调用或人工审核写入，也不伪造过去的采集时间。
+
 #### 8.2.17 快照级研究流程回放
 
 `GET /api/nasdaq/research-flow?snapshotId=<uuid>` 以单个不可变 `research_packet_snapshots.id` 为唯一入口，精确关联：该输入包、同一 `snapshot_id` 的确定性日报、同一 `packet_fingerprint` 的模型审计状态，以及同一 `snapshot_id` 的 20 交易日结果审计。新建快照还会把保存时的 `capture_run_id` 只用于服务端查询同一次 `research_task_runs`，看板显示“收盘运行已关联 + 阶段数量”，并列出七个固定阶段的安全状态和严格白名单的计数摘要（例如行情/事件行数、归因/证据数、周报归档日数、结果写入数）；不返回内部运行 ID、错误、标的、来源 URL、任务原始 JSON 或密钥。看板“研究输入回放”选择快照后，展示收盘运行、输入归档、每日事实、模型摘要和结果审计五个阶段的真实状态。
