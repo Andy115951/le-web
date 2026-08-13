@@ -1290,7 +1290,7 @@ function renderReplayCaptureTaskSummary(captureRun) {
 function replayCaptureTaskMetric(kind, detail) {
   const values = detail && typeof detail === "object" ? detail : {};
   if (kind === "market_collection") return "行情 " + Number(values.publicRowsWritten || 0) + " · 事件 " + Number(values.unifiedEventsWritten || 0) + " · 失败 " + Number(values.failedSymbolCount || 0);
-  if (kind === "event_attribution") return "归因 " + Number(values.deterministicAttributions || 0) + " · 证据 " + Number(values.evidenceSourcesLinked || 0);
+  if (kind === "event_attribution") return "归因 " + Number(values.deterministicAttributions || 0) + " · 新增 " + Number(values.attributionsWritten || 0) + " · 证据 " + Number(values.evidenceSourcesLinked || 0);
   if (kind === "weekly_fact_report") return "归档日 " + Number(values.archivedDailyReportCount || 0) + " / " + Number(values.expectedBusinessDateCount || 0);
   if (kind === "outcome_evaluation") return "新增结果 " + Number(values.matureOutcomesWritten || 0);
   if (["research_input_snapshot", "daily_fact_report", "model_recap"].includes(kind)) return values.created ? "本次新增" : "未新增";

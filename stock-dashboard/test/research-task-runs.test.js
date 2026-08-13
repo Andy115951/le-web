@@ -11,7 +11,7 @@ test("task run rows append only public stage summaries without raw errors", func
     createdAt: "2026-08-12T00:00:00.000Z",
     stages: {
       marketCollection: { status: "partial", publicRowsWritten: 8, unifiedEventsWritten: 7, unifiedSourcesWritten: 9, failedSymbolCount: 1, failedSymbols: ["private ticker"] },
-      eventAttribution: { status: "succeeded", deterministicAttributions: 7, heuristicAttributionCount: 7, primarySourcesLinked: 7, evidenceSourcesLinked: 3, sourceUrls: ["https://private.example"] },
+      eventAttribution: { status: "succeeded", deterministicAttributions: 7, heuristicAttributionCount: 0, primarySourcesLinked: 7, evidenceSourcesLinked: 3, attributionsWritten: 4, sourceUrls: ["https://private.example"] },
       snapshot: { status: "succeeded", created: true, attempts: [
         { status: "failed", failureCode: "retryable_task_failure", queuedAt: "2026-08-12T00:00:00.000Z", startedAt: "2026-08-12T00:00:01.000Z", finishedAt: "2026-08-12T00:00:02.000Z", queueDelayMs: 1000 },
         { status: "succeeded", queuedAt: "2026-08-12T00:00:00.000Z", startedAt: "2026-08-12T00:00:02.250Z", finishedAt: "2026-08-12T00:00:03.000Z", queueDelayMs: 2250 }
@@ -31,7 +31,8 @@ test("task run rows append only public stage summaries without raw errors", func
   assert.equal(JSON.stringify(rows).includes("private.example"), false);
   assert.equal(JSON.stringify(rows).includes("2026-08-14"), false);
   assert.deepEqual(rows[0].details, { publicRowsWritten: 8, unifiedEventsWritten: 7, unifiedSourcesWritten: 9, failedSymbolCount: 1 });
-  assert.deepEqual(rows[1].details, { deterministicAttributions: 7, heuristicAttributionCount: 7, primarySourcesLinked: 7, evidenceSourcesLinked: 3 });
+  assert.equal(rows[1].task_version, "market-attribution-agent-v1");
+  assert.deepEqual(rows[1].details, { deterministicAttributions: 7, heuristicAttributionCount: 0, primarySourcesLinked: 7, evidenceSourcesLinked: 3, attributionsWritten: 4 });
   assert.equal(rows[2].attempt, 1);
   assert.equal(rows[2].duration_ms, 1000);
   assert.equal(rows[3].attempt, 2);

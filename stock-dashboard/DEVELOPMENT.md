@@ -851,11 +851,15 @@ GET /api/nasdaq/research-tasks?limit=20
 
 覆盖面板还会以最新 QQQ 价格日为基准，读取 `daily_market_features`、`market_forward_labels` 和 `similar_day_matches` 的最近日期，显示 `最新 / 滞后 / 未构建 / 未观测`。这只是只读的新鲜度提示：相似日没有匹配行时不能推断它从未计算过，因此保持 `未观测`；网页和 Cron 都不会自动执行全量重建。需要更新时，仍在受控环境依次运行 `npm run features:qqq`、`npm run labels:qqq`、`npm run similar-days:qqq`，并先检查命令输出。
 
-#### 8.2.16.1 确定性事件归因阶段账本
+#### 8.2.16.1 独立确定性事件归因 Agent 与阶段账本
 
-每次成功写入统一市场事件后，收盘流程会追加 `event_attribution` 阶段。该阶段与 `market_collection` 使用同一个 `capture_run_id`，固定记录确定性归因数、启发式归因数、主来源链接数和证据来源链接数；这些都是有限计数，不包含事件标题、标的、来源 URL、新闻正文、错误内容或人工审核结论。归因写入失败会让收盘采集进入既有失败处理，但账本本身的写入失败不会回滚已经完成的行情归档。
+每次成功写入统一市场事件后，收盘流程会运行独立的 `market-attribution-agent-v1`，再向同一个 `capture_run_id` 追加 `event_attribution` 阶段。它只读取已保存的结构化事件：当日涨跌、QQQ 对照、上游规则类别、有限来源关系计数；不会请求模型、不会抓取网页，也不会将新闻正文或 URL 写入新表。
 
-它表示“规则归因已实际运行”，不表示人类已经认可因果解释。是否需要人工核对继续由只读审核队列计算；当前阶段不是独立的 Labeler/Attribution Agent，也没有网页重试、队列等待时间或受保护诊断链接。
+每一条结果写入追加式 `market_event_attributions`，唯一键是 `(event_id, attribution_version, input_fingerprint)`。输入指纹由固定版本与结构化数值/计数组成；同一输入重跑不会新增记录，任何结构化输入或规则版本改变都会留下新的可审计行，而不会覆盖旧结论。分类只能是 `market`、`company`、`mixed` 或 `insufficient_evidence`；后者是默认保守降级，绝不把缺少证据说成单一原因。
+
+`GET /api/nasdaq/attributions?date=2026-08-12` 仅供研究型只读查询。它会对同一事件只返回最近一个版本，并严格省略内部事件 ID、输入指纹、标题、标的、来源 URL、新闻正文、错误和人工审核结论。阶段账本固定记录归因总数、本次新增数、主来源数和证据来源数；归因失败不会回滚已经完成的行情归档，重试遥测继续记录为安全的次数与耗时而不公开原始异常。
+
+它表示“规则归因已实际运行”，不表示人类已经认可因果解释。是否需要人工核对继续由只读审核队列计算；当前尚未拆出独立 Labeler，也没有网页重试或受保护的逐条运维诊断链接。
 
 #### 8.2.17 快照级研究流程回放
 
@@ -863,7 +867,7 @@ GET /api/nasdaq/research-tasks?limit=20
 
 模型审计的查询分为两条：所有尝试只读取 `status / provider / model / created_at` 摘要；只有 `accepted` 记录才读取并显示已通过校验的叙述。`rejected` 尝试仅显示次数和状态，绝不读取或返回原始模型文本、验证错误、元数据、请求头或密钥。日报和结果若不存在只标记 `not_archived`，该状态不推断是任务未执行、仍在 20 日窗口中，还是历史记录缺失。
 
-该接口不触发 Cron、模型或写入。迁移之前的历史快照因没有 `capture_run_id` 会标记为 `not_linked`，绝不按日期、时间或日志推断关联；首次新的完整收盘采集后才会出现真实关联回放。Collector、Labeler、Attribution 的独立重试、队列等待时间和受保护诊断仍未建模，因此“完整跨 Agent 运维回放”仍属于后续任务。
+该接口不触发 Cron、模型或写入。迁移之前的历史快照因没有 `capture_run_id` 会标记为 `not_linked`，绝不按日期、时间或日志推断关联；首次新的完整收盘采集后才会出现真实关联回放。Attribution 已具有独立运行、重试遥测与追加式结果；Collector、Labeler 的独立重试和受保护逐条运维诊断仍未建模，因此“完整跨 Agent 运维回放”仍属于后续任务。
 
 #### 8.2.18 冻结失败案例的事后市场阶段诊断
 

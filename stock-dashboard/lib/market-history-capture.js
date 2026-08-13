@@ -3,6 +3,7 @@ const { getDailyMarketEvents, isAfterUsMarketClose, marketDate } = require("./da
 const { NASDAQ_FOCUS_INSTRUMENTS, NASDAQ_UNIVERSE_AS_OF } = require("./nasdaq-universe");
 const { getSupabaseConfig, requestSupabase } = require("./supabase-server");
 const { persistUnifiedMarketEvents } = require("./unified-market-events");
+const { runMarketAttributionAgent } = require("./market-attribution-agent");
 const { captureRecentSecFilings, isSecEdgarConfigured } = require("./sec-edgar");
 const { captureRecentFredObservations, isFredConfigured } = require("./fred-macro");
 const { getDailyResearchPacket } = require("./daily-research-packet");
@@ -224,6 +225,12 @@ async function captureMarketHistory(input) {
     const publicSavedEvents = publicRows.length;
     const unifiedResult = await persistUnifiedMarketEvents(config, publicSnapshot.events, now);
     const marketCollectionFinishedAt = new Date();
+    const eventAttributionResult = await runResearchTaskWithRetry({
+      queuedAt: startedAt,
+      run: function () {
+        return runMarketAttributionAgent({ marketDate: today, now, config });
+      }
+    });
     let secFilingResult = {
       status: isSecEdgarConfigured() ? "pending" : "disabled",
       eventsWritten: 0,
@@ -334,10 +341,6 @@ async function captureMarketHistory(input) {
           finishedAt: marketCollectionFinishedAt,
           queueDelayMs: marketCollectionStartedAt.getTime() - startedAt.getTime()
         })]
-      };
-      const eventAttributionResult = {
-        status: "succeeded",
-        ...(unifiedResult.attribution || {})
       };
       const rows = buildResearchTaskRunRows({
         captureRunId: runId,

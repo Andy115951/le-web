@@ -1,6 +1,7 @@
 const { getMarketCalendar, getMarketDayDetail } = require("../../lib/market-calendar");
 const { getNdxSnapshot } = require("../../lib/ndx-snapshots");
 const { getUnifiedMarketEvents } = require("../../lib/unified-market-events");
+const { getMarketEventAttributions } = require("../../lib/market-attribution-agent");
 const { getStoredDailyFeatures, normalizeFeatureDate } = require("../../lib/daily-feature-store");
 const { getNasdaqMarketHistory } = require("../../lib/market-history-capture");
 const { getStoredForwardLabels } = require("../../lib/market-label-store");
@@ -142,6 +143,20 @@ const resources = {
       sendJson(res, 200, { ok: true, count: events.length, events });
     } catch (error) {
       sendFailure(res, "Failed to load unified market events", error);
+    }
+  },
+
+  async attributions(req, res) {
+    try {
+      const result = await getMarketEventAttributions({ marketDate: req.query?.date, limit: req.query?.limit }, getSupabaseConfig());
+      res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=900");
+      sendJson(res, 200, { ok: true, researchOnly: true, ...result });
+    } catch (error) {
+      if (/Invalid attribution market date/.test(error?.message || "")) {
+        sendInvalidQuery(res, "Invalid attribution date; expected YYYY-MM-DD");
+        return;
+      }
+      sendFailure(res, "Failed to load market event attributions", error);
     }
   },
 

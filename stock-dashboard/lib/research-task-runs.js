@@ -3,6 +3,7 @@ const { normalizeDate } = require("./market-calendar");
 const { RESEARCH_PACKET_SNAPSHOT_VERSION } = require("./research-packet-snapshots");
 const { DAILY_RESEARCH_REPORT_VERSION } = require("./daily-research-reports");
 const { RESEARCH_OUTCOME_EVALUATION_VERSION } = require("./research-outcome-evaluations");
+const { MARKET_ATTRIBUTION_AGENT_VERSION } = require("./market-attribution-agent");
 
 const RESEARCH_TASK_RUN_VERSION = "research-task-run-v2";
 const TASK_KINDS = new Set(["market_collection", "event_attribution", "research_input_snapshot", "daily_fact_report", "weekly_fact_report", "model_recap", "outcome_evaluation"]);
@@ -122,13 +123,14 @@ function buildResearchTaskRunRows(input) {
     },
     {
       task_kind: "event_attribution",
-      task_version: "market-attribution-rules-v1",
+      task_version: MARKET_ATTRIBUTION_AGENT_VERSION,
       result: stages.eventAttribution,
       details: {
         deterministicAttributions: finiteNonNegative(stages.eventAttribution?.deterministicAttributions),
         heuristicAttributionCount: finiteNonNegative(stages.eventAttribution?.heuristicAttributionCount),
         primarySourcesLinked: finiteNonNegative(stages.eventAttribution?.primarySourcesLinked),
-        evidenceSourcesLinked: finiteNonNegative(stages.eventAttribution?.evidenceSourcesLinked)
+        evidenceSourcesLinked: finiteNonNegative(stages.eventAttribution?.evidenceSourcesLinked),
+        attributionsWritten: finiteNonNegative(stages.eventAttribution?.attributionsWritten)
       }
     },
     {
