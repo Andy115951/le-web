@@ -5,6 +5,7 @@ const {
   DEEPSEEK_PROVIDER,
   buildDeepSeekRequest,
   countAttemptsForNewYorkDate,
+  getDeepSeekResearchReadiness,
   isDeepSeekResearchConfigured,
   normalizeDeepSeekApiUrl,
   parseDeepSeekResponse,
@@ -82,6 +83,15 @@ test("DeepSeek execution stays disabled until every explicit model setting is pr
     DEEPSEEK_API_URL: "http://gateway.example/v1/chat/completions"
   }).reason, "invalid_api_url");
   assert.equal(normalizeDeepSeekApiUrl("https://gateway.example/v1/chat/completions"), "https://gateway.example/v1/chat/completions");
+});
+
+test("model readiness distinguishes disabled operation from outbound-data approval", function () {
+  const base = { DEEPSEEK_API_KEY: "a".repeat(24), DEEPSEEK_MODEL: "deepseek-v4-flash", DEEPSEEK_API_URL: "https://example.invalid/v1/chat/completions" };
+  assert.deepEqual(getDeepSeekResearchReadiness({}), { status: "needs_configuration" });
+  assert.deepEqual(getDeepSeekResearchReadiness(base), { status: "disabled" });
+  assert.deepEqual(getDeepSeekResearchReadiness({ ...base, DEEPSEEK_RESEARCH_ENABLED: "true" }), { status: "data_approval_required" });
+  assert.deepEqual(getDeepSeekResearchReadiness({ ...base, DEEPSEEK_RESEARCH_ENABLED: "true", DEEPSEEK_RESEARCH_DATA_APPROVED: "true" }), { status: "ready" });
+  assert.equal(JSON.stringify(getDeepSeekResearchReadiness({ ...base, DEEPSEEK_API_KEY: "secret-key-value" })).includes("secret"), false);
 });
 
 test("disabled runs remain traceable to their immutable packet without contacting a model", async function () {

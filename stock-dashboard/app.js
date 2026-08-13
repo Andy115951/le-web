@@ -1479,10 +1479,14 @@ function renderResearchIntegrationReadiness(integrations) {
     modelNarrative: "模型研究摘要"
   };
   const rows = Object.keys(labels).map(function (key) {
-    const status = integrations?.[key]?.status === "ready" ? "ready" : "needs_configuration";
-    return '<div><span>' + escapeHtml(labels[key]) + '</span><b class="is-' + escapeHtml(status) + '">' + (status === "ready" ? "就绪" : "待配置") + "</b></div>";
+    const status = String(integrations?.[key]?.status || "needs_configuration");
+    return '<div><span>' + escapeHtml(labels[key]) + '</span><b class="is-' + escapeHtml(status) + '">' + escapeHtml(integrationReadinessLabel(status)) + "</b></div>";
   }).join("");
   return '<article class="research-quality-integrations"><span>INTEGRATION READINESS</span><p>状态只说明当前服务端能力是否可用，不公开配置值或密钥。</p><section>' + rows + "</section></article>";
+}
+
+function integrationReadinessLabel(status) {
+  return ({ ready: "就绪", disabled: "已关闭", data_approval_required: "待确认出站", needs_configuration: "待配置" })[status] || "待配置";
 }
 
 const researchTaskLabels = {

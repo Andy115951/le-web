@@ -844,7 +844,7 @@ GET /api/nasdaq/research-tasks?limit=20
 
 当前生产环境没有 `SEC_USER_AGENT` 或 `FRED_API_KEY`；因此 SEC 公司披露和宏观观测仍是待配置能力。模型网关参数已配置，但 `DEEPSEEK_RESEARCH_ENABLED` 与 `DEEPSEEK_RESEARCH_DATA_APPROVED` 保持 `false`，模型摘要同样不会运行。下一次完整收盘采集会开始填充新的阶段账本，历史运行不做推测性回填。
 
-覆盖面板中的“研究集成准备度”会把内置市场采集固定标为 `ready`，并按当前服务端环境分别显示 SEC、FRED 和模型摘要的 `ready` 或 `needs_configuration`。这是为多端协作准备的安全检查，不会返回 `SEC_USER_AGENT`、`FRED_API_KEY`、`DEEPSEEK_API_KEY`、联系人、环境变量值或具体配置失败原因；状态为待配置时，按第 6 节和第 13 节在本机 `.env.local` 与 Vercel Production 分别补齐变量后重新部署即可。
+覆盖面板中的“研究集成准备度”会把内置市场采集固定标为 `ready`，并按当前服务端环境分别显示 SEC、FRED 和模型摘要状态。模型摘要会精确区分 `needs_configuration`（缺少网关参数）、`disabled`（已配置但功能开关关闭）、`data_approval_required`（功能已打开但尚未批准把研究快照发送给第三方）和 `ready`。这是为多端协作准备的安全检查，不会返回 `SEC_USER_AGENT`、`FRED_API_KEY`、`DEEPSEEK_API_KEY`、联系人、环境变量值或具体配置失败原因；状态为待配置时，按第 6 节和第 13 节在本机 `.env.local` 与 Vercel Production 分别补齐变量后重新部署即可。
 
 覆盖面板还会以最新 QQQ 价格日为基准，读取 `daily_market_features`、`market_forward_labels` 和 `similar_day_matches` 的最近日期，显示 `最新 / 滞后 / 未构建 / 未观测`。这只是只读的新鲜度提示：相似日没有匹配行时不能推断它从未计算过，因此保持 `未观测`；网页和 Cron 都不会自动执行全量重建。需要更新时，仍在受控环境依次运行 `npm run features:qqq`、`npm run labels:qqq`、`npm run similar-days:qqq`，并先检查命令输出。
 

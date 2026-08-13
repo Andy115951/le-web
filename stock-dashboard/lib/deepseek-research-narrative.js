@@ -29,13 +29,27 @@ function normalizeDeepSeekApiUrl(value) {
   return parsed.toString();
 }
 
+function isEnabledFlag(value) {
+  return String(value || "").trim().toLowerCase() === "true";
+}
+
+function getDeepSeekResearchReadiness(env = process.env) {
+  const apiKey = String(env.DEEPSEEK_API_KEY || "").trim();
+  const model = String(env.DEEPSEEK_MODEL || "").trim();
+  const apiUrl = normalizeDeepSeekApiUrl(env.DEEPSEEK_API_URL);
+  if (apiKey.length < 16 || !model || !apiUrl) return { status: "needs_configuration" };
+  if (!isEnabledFlag(env.DEEPSEEK_RESEARCH_ENABLED)) return { status: "disabled" };
+  if (!isEnabledFlag(env.DEEPSEEK_RESEARCH_DATA_APPROVED)) return { status: "data_approval_required" };
+  return { status: "ready" };
+}
+
 function safeErrorMessage(error) {
   return String(error?.message || error || "Model request failed").replace(/[\r\n]+/g, " ").slice(0, 180);
 }
 
 function isDeepSeekResearchConfigured(env = process.env) {
-  const enabled = String(env.DEEPSEEK_RESEARCH_ENABLED || "").trim().toLowerCase() === "true";
-  const dataApproved = String(env.DEEPSEEK_RESEARCH_DATA_APPROVED || "").trim().toLowerCase() === "true";
+  const enabled = isEnabledFlag(env.DEEPSEEK_RESEARCH_ENABLED);
+  const dataApproved = isEnabledFlag(env.DEEPSEEK_RESEARCH_DATA_APPROVED);
   const apiKey = String(env.DEEPSEEK_API_KEY || "").trim();
   const model = String(env.DEEPSEEK_MODEL || "").trim();
   if (!enabled) return { enabled: false, reason: "disabled" };
@@ -192,6 +206,7 @@ module.exports = {
   MAX_OUTPUT_TOKENS_HARD_LIMIT,
   buildDeepSeekRequest,
   countAttemptsForNewYorkDate,
+  getDeepSeekResearchReadiness,
   isDeepSeekResearchConfigured,
   normalizeDeepSeekApiUrl,
   parseDeepSeekResponse,

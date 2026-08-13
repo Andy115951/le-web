@@ -9,6 +9,9 @@ test("integration readiness exposes only safe state labels", function () {
   });
   assert.equal(JSON.stringify(readiness).includes("secret-key"), false);
   assert.equal(JSON.stringify(buildResearchIntegrationReadiness({})).includes("missing_api_key"), false);
+  const modelBase = { DEEPSEEK_API_KEY: "a".repeat(24), DEEPSEEK_MODEL: "deepseek-v4-flash" };
+  assert.equal(buildResearchIntegrationReadiness(modelBase).modelNarrative.status, "disabled");
+  assert.equal(buildResearchIntegrationReadiness({ ...modelBase, DEEPSEEK_RESEARCH_ENABLED: "true" }).modelNarrative.status, "data_approval_required");
 });
 
 test("research quality summary reports coverage without pretending it is a recommendation", function () {
