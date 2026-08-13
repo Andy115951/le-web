@@ -3,6 +3,7 @@ const { getStoredSimilarDays } = require("./similar-day-store");
 const { marketCloseAt } = require("./daily-market-features");
 const { getUnifiedMarketEventsRange } = require("./unified-market-events");
 const { applyReviewDecisionsToEvents, getLatestReviewDecisions } = require("./event-review");
+const { getLatestEventRuleLabels } = require("./event-labeler-agent");
 const { getSupabaseConfig } = require("./supabase-server");
 
 const RESEARCH_PACKET_VERSION = "daily-research-packet-v1";
@@ -190,12 +191,13 @@ async function getDailyResearchPacket(value, now = new Date()) {
   ]);
   const sessionEvents = await getUnifiedMarketEventsRange(previousMarketDate, date);
   const config = getSupabaseConfig();
-  const reviews = await getLatestReviewDecisions(config, sessionEvents.map(function (event) { return event.id; }));
+  const eventIds = sessionEvents.map(function (event) { return event.id; });
+  const [reviews, labels] = await Promise.all([getLatestReviewDecisions(config, eventIds), getLatestEventRuleLabels(config, eventIds)]);
   return buildDailyResearchPacket({
     date,
     detail,
     similar,
-    sessionEvents: applyReviewDecisionsToEvents(sessionEvents, reviews),
+    sessionEvents: applyReviewDecisionsToEvents(sessionEvents, reviews, labels),
     previousMarketDate,
     generatedAt: now.toISOString()
   });

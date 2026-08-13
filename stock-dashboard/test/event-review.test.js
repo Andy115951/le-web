@@ -103,3 +103,28 @@ test("review application attaches only public decision state to research events"
   assert.equal("reviewer" in result[0].review, false);
   assert.equal("reviewNote" in result[0].review, false);
 });
+
+test("archived rule labels take precedence over live fallback rules without overriding human decisions", function () {
+  const events = [{
+    id: "event-1",
+    event_type: "sec_filing",
+    confidence: 0.95,
+    available_at: "2026-08-11T20:00:00.000Z",
+    sources: [{ relationType: "primary" }]
+  }];
+  const labels = new Map([["event-1", {
+    label_version: "event-labeler-agent-v1",
+    suggested_status: "needs_attention",
+    requires_review: true,
+    flags: [{ code: "missing_known_at", severity: "high" }]
+  }]]);
+  const accepted = applyReviewDecisionsToEvents(events, new Map([["event-1", {
+    review_status: "accepted",
+    review_version: EVENT_REVIEW_VERSION,
+    reviewed_at: "2026-08-12T00:00:00.000Z"
+  }]]), labels);
+  assert.equal(accepted[0].review.status, "accepted");
+  assert.equal(accepted[0].review.requiresAttention, true);
+  assert.equal(accepted[0].review.version, EVENT_REVIEW_VERSION);
+  assert.deepEqual(accepted[0].review.flags, [{ code: "missing_known_at", severity: "high" }]);
+});

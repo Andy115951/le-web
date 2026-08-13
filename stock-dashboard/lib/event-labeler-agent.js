@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const { classifyEventForReview } = require("./event-review");
+const { classifyEventForReview } = require("./event-review-rules");
 const { getSupabaseConfig, requestSupabase } = require("./supabase-server");
 const { getUnifiedMarketEventsRange } = require("./unified-market-events");
 
@@ -83,6 +83,19 @@ async function persistEventRuleLabels(config, records, requestImpl = requestSupa
   return { written: Array.isArray(saved) ? saved.length : 0 };
 }
 
+async function getLatestEventRuleLabels(config, eventIds, requestImpl = requestSupabase) {
+  const ids = Array.from(new Set((eventIds || []).filter(isUuid)));
+  const latest = new Map();
+  for (let index = 0; index < ids.length; index += 100) {
+    const rows = await requestImpl(config, "/rest/v1/event_rule_labels?select=event_id,label_version,suggested_status,requires_review,flags,computed_at"
+      + "&event_id=in.(" + ids.slice(index, index + 100).join(",") + ")&order=computed_at.desc&limit=1000");
+    (Array.isArray(rows) ? rows : []).forEach(function (row) {
+      if (!latest.has(row.event_id)) latest.set(row.event_id, row);
+    });
+  }
+  return latest;
+}
+
 async function runEventLabelerAgent(options = {}) {
   const marketDate = normalizeMarketDate(options.marketDate);
   const events = await (options.getEvents || getUnifiedMarketEventsRange)(marketDate, marketDate, { includeRelations: true });
@@ -103,6 +116,7 @@ module.exports = {
   buildEventRuleLabelRecords,
   buildLabelInput,
   inputFingerprint,
+  getLatestEventRuleLabels,
   persistEventRuleLabels,
   relationCounts,
   runEventLabelerAgent

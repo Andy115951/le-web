@@ -1,28 +1,21 @@
 const { getSupabaseConfig, requestSupabase } = require("./supabase-server");
 const { getUnifiedMarketEvents, normalizeHistoryDays } = require("./unified-market-events");
+const { EVENT_REVIEW_VERSION, classifyEventForReview } = require("./event-review-rules");
+const { getLatestEventRuleLabels } = require("./event-labeler-agent");
 
-const EVENT_REVIEW_VERSION = "event-review-rules-v1";
 const REVIEW_STATUSES = new Set(["accepted", "rejected", "needs_attention"]);
 
 function boundedText(value, maximum) {
   return typeof value === "string" ? value.trim().slice(0, maximum) : "";
 }
 
-function classifyEventForReview(event) {
-  const sources = Array.isArray(event?.sources) ? event.sources : [];
-  const flags = [];
-  const confidence = Number(event?.confidence);
-  const primarySourceCount = sources.filter(function (source) { return source?.relationType === "primary"; }).length;
-  if (!sources.length || !primarySourceCount) flags.push({ code: "missing_primary_source", severity: "high" });
-  if (!Number.isFinite(confidence) || confidence < 0.7) flags.push({ code: "low_confidence", severity: "medium" });
-  if (!event?.available_at && !event?.availableAt) flags.push({ code: "missing_known_at", severity: "high" });
-  if (event?.event_type === "market_move_attribution") flags.push({ code: "heuristic_market_attribution", severity: "medium" });
-  if (event?.event_type === "fred_macro_observation") flags.push({ code: "macro_release_time_unknown", severity: "medium" });
-  const requiresReview = flags.length > 0;
+function labelClassification(label) {
+  if (!label || typeof label !== "object") return null;
+  const flags = Array.isArray(label.flags) ? label.flags : [];
   return {
-    version: EVENT_REVIEW_VERSION,
-    requiresReview,
-    suggestedStatus: requiresReview ? "needs_attention" : "accepted",
+    version: String(label.label_version || EVENT_REVIEW_VERSION),
+    requiresReview: Boolean(label.requires_review),
+    suggestedStatus: label.suggested_status === "needs_attention" ? "needs_attention" : "accepted",
     flags
   };
 }
@@ -56,11 +49,12 @@ async function getLatestReviewDecisions(config, eventIds) {
   return result;
 }
 
-function buildEventReviewQueue(events, latestReviews, days) {
+function buildEventReviewQueue(events, latestReviews, days, latestLabels) {
   const normalizedDays = normalizeHistoryDays(days);
   const reviews = latestReviews instanceof Map ? latestReviews : new Map();
+  const labels = latestLabels instanceof Map ? latestLabels : new Map();
   const queue = (events || []).map(function (event) {
-    const classification = classifyEventForReview(event);
+    const classification = labelClassification(labels.get(event.id)) || classifyEventForReview(event);
     const latestReview = reviews.get(event.id) || null;
     return {
       eventKey: event.event_key,
@@ -93,11 +87,12 @@ function buildEventReviewQueue(events, latestReviews, days) {
   };
 }
 
-function applyReviewDecisionsToEvents(events, latestReviews) {
+function applyReviewDecisionsToEvents(events, latestReviews, latestLabels) {
   const reviews = latestReviews instanceof Map ? latestReviews : new Map();
+  const labels = latestLabels instanceof Map ? latestLabels : new Map();
   return (events || []).map(function (event) {
     const latestReview = reviews.get(event.id) || null;
-    const classification = classifyEventForReview(event);
+    const classification = labelClassification(labels.get(event.id)) || classifyEventForReview(event);
     return {
       ...event,
       review: {
@@ -115,8 +110,9 @@ async function getEventReviewQueue(days) {
   const normalizedDays = normalizeHistoryDays(days);
   const config = getSupabaseConfig();
   const events = await getUnifiedMarketEvents(normalizedDays);
-  const latestReviews = await getLatestReviewDecisions(config, events.map(function (event) { return event.id; }));
-  return buildEventReviewQueue(events, latestReviews, normalizedDays);
+  const eventIds = events.map(function (event) { return event.id; });
+  const [latestReviews, latestLabels] = await Promise.all([getLatestReviewDecisions(config, eventIds), getLatestEventRuleLabels(config, eventIds)]);
+  return buildEventReviewQueue(events, latestReviews, normalizedDays, latestLabels);
 }
 
 async function recordEventReviewDecision(input) {
@@ -156,6 +152,7 @@ module.exports = {
   classifyEventForReview,
   getEventReviewQueue,
   getLatestReviewDecisions,
+  labelClassification,
   normalizeReviewDecision,
   recordEventReviewDecision
 };
