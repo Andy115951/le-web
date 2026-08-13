@@ -1248,7 +1248,19 @@ function renderReplayFlowTimeline(flow) {
     const status = String(stage.status || "unknown");
     const note = replayFlowNote(status, stage);
     return '<article class="is-' + escapeHtml(status.replace(/_/g, "-")) + '"><span>' + escapeHtml(label) + '</span><b>' + escapeHtml(name) + '</b><strong>' + escapeHtml(replayFlowStatusLabel(status)) + '</strong><small>' + escapeHtml(note) + '</small></article>';
-  }).join("") + "</div></section>";
+  }).join("") + "</div>" + renderReplayCaptureTaskSummary(stages.captureRun) + "</section>";
+}
+
+function renderReplayCaptureTaskSummary(captureRun) {
+  if (captureRun?.status !== "linked" || !captureRun?.tasks || typeof captureRun.tasks !== "object") return "";
+  const taskRows = Object.keys(researchTaskLabels).filter(function (kind) {
+    return captureRun.tasks[kind] && typeof captureRun.tasks[kind] === "object";
+  }).map(function (kind) {
+    const status = String(captureRun.tasks[kind].status || "unknown");
+    return '<div><span>' + escapeHtml(researchTaskLabels[kind]) + '</span><b class="is-' + escapeHtml(status) + '">' + escapeHtml(taskStatusLabel(status)) + "</b></div>";
+  });
+  if (!taskRows.length) return '<p class="replay-capture-tasks-empty">已关联本次收盘运行，但尚无已追加的阶段摘要。</p>';
+  return '<div class="replay-capture-tasks"><span>同次收盘阶段</span><section>' + taskRows.join("") + "</section></div>";
 }
 
 function replayFlowStatusLabel(status) {
