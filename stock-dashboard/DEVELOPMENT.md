@@ -846,6 +846,8 @@ GET /api/nasdaq/research-tasks?limit=20
 
 覆盖面板中的“研究集成准备度”会把内置市场采集固定标为 `ready`，并按当前服务端环境分别显示 SEC、FRED 和模型摘要的 `ready` 或 `needs_configuration`。这是为多端协作准备的安全检查，不会返回 `SEC_USER_AGENT`、`FRED_API_KEY`、`DEEPSEEK_API_KEY`、联系人、环境变量值或具体配置失败原因；状态为待配置时，按第 6 节和第 13 节在本机 `.env.local` 与 Vercel Production 分别补齐变量后重新部署即可。
 
+覆盖面板还会以最新 QQQ 价格日为基准，读取 `daily_market_features`、`market_forward_labels` 和 `similar_day_matches` 的最近日期，显示 `最新 / 滞后 / 未构建 / 未观测`。这只是只读的新鲜度提示：相似日没有匹配行时不能推断它从未计算过，因此保持 `未观测`；网页和 Cron 都不会自动执行全量重建。需要更新时，仍在受控环境依次运行 `npm run features:qqq`、`npm run labels:qqq`、`npm run similar-days:qqq`，并先检查命令输出。
+
 #### 8.2.16.1 确定性事件归因阶段账本
 
 每次成功写入统一市场事件后，收盘流程会追加 `event_attribution` 阶段。该阶段与 `market_collection` 使用同一个 `capture_run_id`，固定记录确定性归因数、启发式归因数、主来源链接数和证据来源链接数；这些都是有限计数，不包含事件标题、标的、来源 URL、新闻正文、错误内容或人工审核结论。归因写入失败会让收盘采集进入既有失败处理，但账本本身的写入失败不会回滚已经完成的行情归档。

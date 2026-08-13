@@ -2,13 +2,15 @@ const { getDailyResearchReports } = require("./daily-research-reports");
 const { getEventReviewQueue } = require("./event-review");
 const { getResearchHealth } = require("./research-health");
 const { getResearchTaskRuns } = require("./research-task-runs");
-const { getSupabaseConfig } = require("./supabase-server");
+const { getSupabaseConfig, requestSupabase } = require("./supabase-server");
 const { getWeeklyResearchReports } = require("./weekly-research-reports");
 const { getSecUserAgent } = require("./sec-edgar");
 const { getFredApiKey } = require("./fred-macro");
 const { isDeepSeekResearchConfigured } = require("./deepseek-research-narrative");
+const { SIMILARITY_METHOD_VERSION } = require("./similar-days");
 
-const RESEARCH_QUALITY_VERSION = "research-quality-v1";
+const RESEARCH_QUALITY_VERSION = "research-quality-v2";
+const DERIVED_DATA_SYMBOL = "QQQ";
 
 function finiteNonNegative(value) {
   const number = Number(value);
@@ -39,6 +41,61 @@ function readinessStatus(getConfig, env) {
   }
 }
 
+function normalizeMarketDate(value) {
+  const date = String(value || "").trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : null;
+}
+
+function freshnessStatus(sourceMarketDate, artifactMarketDate, missingStatus = "not_materialized") {
+  if (!sourceMarketDate) return "awaiting_market_data";
+  if (!artifactMarketDate) return missingStatus;
+  if (artifactMarketDate === sourceMarketDate) return "current";
+  if (artifactMarketDate < sourceMarketDate) return "stale";
+  return "inconsistent_future";
+}
+
+function buildDerivedDataFreshness(input = {}) {
+  const latestMarketDate = normalizeMarketDate(input.latestMarketDate);
+  const featureDate = normalizeMarketDate(input.featureDate);
+  const labelDate = normalizeMarketDate(input.labelDate);
+  const similarDate = normalizeMarketDate(input.similarDate);
+  return {
+    symbol: DERIVED_DATA_SYMBOL,
+    latestMarketDate,
+    dailyFeatures: {
+      latestMarketDate: featureDate,
+      status: freshnessStatus(latestMarketDate, featureDate)
+    },
+    forwardLabels: {
+      latestMarketDate: labelDate,
+      status: freshnessStatus(latestMarketDate, labelDate)
+    },
+    similarDays: {
+      latestTargetMarketDate: similarDate,
+      status: freshnessStatus(latestMarketDate, similarDate, "not_observed")
+    }
+  };
+}
+
+async function getDerivedDataFreshness(config = getSupabaseConfig(), requestImpl = requestSupabase) {
+  const instruments = await requestImpl(config, "/rest/v1/instruments?select=id,symbol&symbol=eq." + DERIVED_DATA_SYMBOL + "&limit=1");
+  const instrument = Array.isArray(instruments) ? instruments[0] : null;
+  if (!instrument?.id) return buildDerivedDataFreshness({});
+  const instrumentId = encodeURIComponent(instrument.id);
+  const [prices, features, labels, similar] = await Promise.all([
+    requestImpl(config, "/rest/v1/price_bars_daily?select=market_date&instrument_id=eq." + instrumentId + "&order=market_date.desc&limit=1"),
+    requestImpl(config, "/rest/v1/daily_market_features?select=market_date&instrument_id=eq." + instrumentId + "&order=market_date.desc&limit=1"),
+    requestImpl(config, "/rest/v1/market_forward_labels?select=market_date&instrument_id=eq." + instrumentId + "&order=market_date.desc&limit=1"),
+    requestImpl(config, "/rest/v1/similar_day_matches?select=target_market_date&target_instrument_id=eq." + instrumentId + "&method_version=eq." + encodeURIComponent(SIMILARITY_METHOD_VERSION) + "&order=target_market_date.desc&limit=1")
+  ]);
+  return buildDerivedDataFreshness({
+    latestMarketDate: Array.isArray(prices) ? prices[0]?.market_date : null,
+    featureDate: Array.isArray(features) ? features[0]?.market_date : null,
+    labelDate: Array.isArray(labels) ? labels[0]?.market_date : null,
+    similarDate: Array.isArray(similar) ? similar[0]?.target_market_date : null
+  });
+}
+
 function buildResearchIntegrationReadiness(env = process.env, dependencies = {}) {
   const getSecConfig = dependencies.getSecConfig || getSecUserAgent;
   const getFredConfig = dependencies.getFredConfig || getFredApiKey;
@@ -59,6 +116,7 @@ function buildResearchQualitySummary(input) {
   const review = input?.review || {};
   const tasks = input?.tasks || {};
   const integrations = input?.integrations || {};
+  const derivedData = input?.derivedData || buildDerivedDataFreshness({});
   const snapshotCount = finiteNonNegative(health.snapshotCount);
   const matureOutcomeCount = finiteNonNegative(health.matureOutcomeCount);
   const dailyReportCount = finiteNonNegative(daily.count);
@@ -95,6 +153,7 @@ function buildResearchQualitySummary(input) {
       latestStages: latestStagesByKind(tasks.runs)
     },
     integrations,
+    derivedData,
     limitations
   };
 }
@@ -109,19 +168,24 @@ async function getResearchQuality(options = {}) {
   const getReviewQueue = options.getReviewQueue || getEventReviewQueue;
   const getTaskRuns = options.getTaskRuns || getResearchTaskRuns;
   const getIntegrationReadiness = options.getIntegrationReadiness || buildResearchIntegrationReadiness;
-  const [health, daily, weekly, review, tasks] = await Promise.all([
+  const getDerivedFreshness = options.getDerivedFreshness || getDerivedDataFreshness;
+  const [health, daily, weekly, review, tasks, derivedData] = await Promise.all([
     getHealth({ config, requestImpl, env: options.env }),
     getDailyReports({ limit: 30 }, config, requestImpl),
     getWeeklyReports({ limit: 12 }, config, requestImpl),
     getReviewQueue(days),
-    getTaskRuns({ limit: 50 }, config, requestImpl)
+    getTaskRuns({ limit: 50 }, config, requestImpl),
+    getDerivedFreshness(config, requestImpl)
   ]);
-  return buildResearchQualitySummary({ health, daily, weekly, review, tasks, integrations: getIntegrationReadiness(options.env || process.env) });
+  return buildResearchQualitySummary({ health, daily, weekly, review, tasks, derivedData, integrations: getIntegrationReadiness(options.env || process.env) });
 }
 
 module.exports = {
   RESEARCH_QUALITY_VERSION,
+  buildDerivedDataFreshness,
   buildResearchIntegrationReadiness,
+  freshnessStatus,
+  getDerivedDataFreshness,
   buildResearchQualitySummary,
   getResearchQuality,
   latestStagesByKind

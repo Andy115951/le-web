@@ -1428,6 +1428,7 @@ function renderResearchQuality() {
   const review = quality.review || {};
   const operations = quality.operations || {};
   const integrations = quality.integrations || {};
+  const derivedData = quality.derivedData || {};
   const ledgerReady = operations.taskLedgerState === "recording";
   els.researchQualityHint.textContent = "只汇总真实已归档材料与待办事项：它不是数据质量认证，也不构成预测或交易建议。";
   els.researchQualityBody.innerHTML = [
@@ -1440,9 +1441,30 @@ function renderResearchQuality() {
     '<div class="research-quality-notes">',
     '<article class="research-quality-ledger"><span>TASK LEDGER</span><strong class="' + (ledgerReady ? "is-ready" : "") + '">' + (ledgerReady ? "Recording real stages" : "Waiting for next close") + '</strong><p>' + (ledgerReady ? Number(operations.taskRunCount || 0) + " 条真实阶段运行已追加，不会从旧日志合成。" : "下一次完整收盘采集后才会写入真实阶段记录，历史运行不会被猜测性补齐。") + '</p></article>',
     renderResearchIntegrationReadiness(integrations),
+    renderResearchDerivedDataFreshness(derivedData),
     '<article class="research-quality-limitations"><span>LIMITATIONS</span><ul>' + (Array.isArray(quality.limitations) ? quality.limitations.slice(0, 3) : []).map(function (item) { return "<li>" + escapeHtml(String(item)) + "</li>"; }).join("") + '</ul></article>',
     '</div>'
   ].join("");
+}
+
+function renderResearchDerivedDataFreshness(derivedData) {
+  const labels = {
+    dailyFeatures: "特征",
+    forwardLabels: "未来标签",
+    similarDays: "相似日"
+  };
+  const latestMarketDate = derivedData?.latestMarketDate;
+  const rows = Object.keys(labels).map(function (key) {
+    const item = derivedData?.[key] || {};
+    const status = String(item.status || "not_materialized");
+    const date = item.latestMarketDate || item.latestTargetMarketDate || null;
+    return '<div><span>' + escapeHtml(labels[key]) + '</span><b class="is-' + escapeHtml(status) + '">' + escapeHtml(derivedFreshnessLabel(status)) + '</b><small>' + escapeHtml(date ? formatMarketDate(date) : "无可观测记录") + "</small></div>";
+  }).join("");
+  return '<article class="research-quality-derived"><span>DERIVED DATA FRESHNESS</span><p>基准行情日：' + escapeHtml(latestMarketDate ? formatMarketDate(latestMarketDate) : "尚无 QQQ 价格") + '。仅提示是否需要运行受控重建命令，不会自动计算。</p><section>' + rows + "</section></article>";
+}
+
+function derivedFreshnessLabel(status) {
+  return ({ current: "最新", stale: "滞后", not_materialized: "未构建", not_observed: "未观测", awaiting_market_data: "等待行情", inconsistent_future: "日期异常" })[status] || "未知";
 }
 
 function renderResearchQualityMetric(label, value, note, tone) {
