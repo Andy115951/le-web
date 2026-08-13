@@ -128,6 +128,23 @@ function buildUnifiedEventRecords(events, now = new Date()) {
   };
 }
 
+function buildEventAttributionSummary(records) {
+  const events = Array.isArray(records?.events) ? records.events : [];
+  const sourceLinks = Array.isArray(records?.sourceLinks) ? records.sourceLinks : [];
+  return {
+    deterministicAttributions: events.length,
+    heuristicAttributionCount: events.filter(function (event) {
+      return event?.event_type === "market_move_attribution";
+    }).length,
+    primarySourcesLinked: sourceLinks.filter(function (link) {
+      return link?.relationType === "primary";
+    }).length,
+    evidenceSourcesLinked: sourceLinks.filter(function (link) {
+      return link?.relationType === "evidence";
+    }).length
+  };
+}
+
 async function upsertReturning(config, table, conflictColumns, rows) {
   if (!rows.length) return [];
   const result = [];
@@ -254,7 +271,9 @@ async function persistOnlyNewUnifiedRecords(config, records, now = new Date()) {
 }
 
 async function persistUnifiedMarketEvents(config, events, now = new Date()) {
-  return persistUnifiedRecords(config, buildUnifiedEventRecords(events, now), now);
+  const records = buildUnifiedEventRecords(events, now);
+  const persisted = await persistUnifiedRecords(config, records, now);
+  return { ...persisted, attribution: buildEventAttributionSummary(records) };
 }
 
 function normalizeHistoryDays(value) {
@@ -324,6 +343,7 @@ async function getUnifiedMarketEvents(days) {
 
 module.exports = {
   EXTRACTOR_VERSION,
+  buildEventAttributionSummary,
   buildUnifiedEventRecords,
   canonicalizeSourceUrl,
   getUnifiedMarketEvents,

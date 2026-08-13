@@ -1,6 +1,7 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
 const {
+  buildEventAttributionSummary,
   buildUnifiedEventRecords,
   canonicalizeSourceUrl,
   getExistingEventKeys,
@@ -49,6 +50,12 @@ test("unified records deduplicate evidence and preserve time semantics", functio
   assert.equal(records.events[0].impact_level, "high");
   assert.equal(records.events[0].confidence, 0.65);
   assert.deepEqual(records.events[0].tickers, ["NVDA"]);
+  assert.deepEqual(buildEventAttributionSummary(records), {
+    deterministicAttributions: 1,
+    heuristicAttributionCount: 1,
+    primarySourcesLinked: 1,
+    evidenceSourcesLinked: 1
+  });
 });
 
 test("unified records ignore malformed events and unsupported evidence URLs", function () {

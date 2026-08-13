@@ -841,6 +841,12 @@ GET /api/nasdaq/research-tasks?limit=20
 
 覆盖面板中的“研究集成准备度”会把内置市场采集固定标为 `ready`，并按当前服务端环境分别显示 SEC、FRED 和模型摘要的 `ready` 或 `needs_configuration`。这是为多端协作准备的安全检查，不会返回 `SEC_USER_AGENT`、`FRED_API_KEY`、`DEEPSEEK_API_KEY`、联系人、环境变量值或具体配置失败原因；状态为待配置时，按第 6 节和第 13 节在本机 `.env.local` 与 Vercel Production 分别补齐变量后重新部署即可。
 
+#### 8.2.16.1 确定性事件归因阶段账本
+
+每次成功写入统一市场事件后，收盘流程会追加 `event_attribution` 阶段。该阶段与 `market_collection` 使用同一个 `capture_run_id`，固定记录确定性归因数、启发式归因数、主来源链接数和证据来源链接数；这些都是有限计数，不包含事件标题、标的、来源 URL、新闻正文、错误内容或人工审核结论。归因写入失败会让收盘采集进入既有失败处理，但账本本身的写入失败不会回滚已经完成的行情归档。
+
+它表示“规则归因已实际运行”，不表示人类已经认可因果解释。是否需要人工核对继续由只读审核队列计算；当前阶段不是独立的 Labeler/Attribution Agent，也没有网页重试、队列等待时间或受保护诊断链接。
+
 #### 8.2.17 快照级研究流程回放
 
 `GET /api/nasdaq/research-flow?snapshotId=<uuid>` 以单个不可变 `research_packet_snapshots.id` 为唯一入口，精确关联：该输入包、同一 `snapshot_id` 的确定性日报、同一 `packet_fingerprint` 的模型审计状态，以及同一 `snapshot_id` 的 20 交易日结果审计。看板“研究输入回放”选择快照后，展示输入归档、每日事实、模型摘要和结果审计四个阶段的真实状态。

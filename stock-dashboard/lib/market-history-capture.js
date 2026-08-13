@@ -332,12 +332,17 @@ async function captureMarketHistory(input) {
         unifiedSourcesWritten: unifiedResult.sourcesWritten,
         failedSymbolCount: failedSymbolSet.size
       };
+      const eventAttributionResult = {
+        status: "succeeded",
+        ...(unifiedResult.attribution || {})
+      };
       const rows = buildResearchTaskRunRows({
         captureRunId: runId,
         marketDate: today,
         createdAt: now.toISOString(),
         stages: {
           marketCollection: marketCollectionResult,
+          eventAttribution: eventAttributionResult,
           snapshot: researchPacketSnapshotResult,
           dailyReport: dailyResearchReportResult,
           narrative: researchNarrativeResult,

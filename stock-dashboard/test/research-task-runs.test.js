@@ -11,19 +11,22 @@ test("task run rows append only public stage summaries without raw errors", func
     createdAt: "2026-08-12T00:00:00.000Z",
     stages: {
       marketCollection: { status: "partial", publicRowsWritten: 8, unifiedEventsWritten: 7, unifiedSourcesWritten: 9, failedSymbolCount: 1, failedSymbols: ["private ticker"] },
+      eventAttribution: { status: "succeeded", deterministicAttributions: 7, heuristicAttributionCount: 7, primarySourcesLinked: 7, evidenceSourcesLinked: 3, sourceUrls: ["https://private.example"] },
       snapshot: { status: "succeeded", created: true },
       dailyReport: { status: "failed", error: "database password should never appear" },
       narrative: { status: "disabled", created: false },
       outcomeEvaluation: { status: "succeeded", matureOutcomesWritten: 2 }
     }
   });
-  assert.equal(rows.length, 5);
-  assert.deepEqual(rows.map(function (row) { return row.status; }), ["partial", "succeeded", "failed", "disabled", "succeeded"]);
-  assert.equal(rows[2].failure_code, "task_failed");
+  assert.equal(rows.length, 6);
+  assert.deepEqual(rows.map(function (row) { return row.status; }), ["partial", "succeeded", "succeeded", "failed", "disabled", "succeeded"]);
+  assert.equal(rows[3].failure_code, "task_failed");
   assert.equal(JSON.stringify(rows).includes("password"), false);
   assert.equal(JSON.stringify(rows).includes("private ticker"), false);
+  assert.equal(JSON.stringify(rows).includes("private.example"), false);
   assert.deepEqual(rows[0].details, { publicRowsWritten: 8, unifiedEventsWritten: 7, unifiedSourcesWritten: 9, failedSymbolCount: 1 });
-  assert.equal(rows[4].details.matureOutcomesWritten, 2);
+  assert.deepEqual(rows[1].details, { deterministicAttributions: 7, heuristicAttributionCount: 7, primarySourcesLinked: 7, evidenceSourcesLinked: 3 });
+  assert.equal(rows[5].details.matureOutcomesWritten, 2);
 });
 
 test("task run controls keep statuses and public reads bounded", function () {

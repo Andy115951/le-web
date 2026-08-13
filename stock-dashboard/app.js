@@ -1440,6 +1440,7 @@ function renderResearchIntegrationReadiness(integrations) {
 
 const researchTaskLabels = {
   market_collection: "市场采集",
+  event_attribution: "事件归因",
   research_input_snapshot: "研究输入",
   daily_fact_report: "每日事实报告",
   model_recap: "模型摘要",
@@ -1497,6 +1498,7 @@ function renderResearchTaskCard(kind, run) {
   const detail = run?.details || {};
   let metric = "--";
   if (Object.prototype.hasOwnProperty.call(detail, "publicRowsWritten")) metric = "行情 " + Number(detail.publicRowsWritten || 0) + " · 统一事件 " + Number(detail.unifiedEventsWritten || 0);
+  if (Object.prototype.hasOwnProperty.call(detail, "deterministicAttributions")) metric = "归因 " + Number(detail.deterministicAttributions || 0) + " · 证据 " + Number(detail.evidenceSourcesLinked || 0);
   if (Object.prototype.hasOwnProperty.call(detail, "created")) metric = detail.created ? "本次新增" : "已存在 / 未新增";
   if (Object.prototype.hasOwnProperty.call(detail, "matureOutcomesWritten")) metric = "新增 " + Number(detail.matureOutcomesWritten || 0) + " 条";
   return '<article class="research-task-card"><span>' + escapeHtml(researchTaskLabels[kind]) + '</span><b class="is-' + escapeHtml(status) + '">' + escapeHtml(taskStatusLabel(status)) + '</b><strong>' + escapeHtml(metric) + '</strong><small>' + (run ? escapeHtml(formatMarketDate(run.market_date)) + " · " + escapeHtml(formatDualMarketTime(run.created_at)) : "等待下一次收盘采集") + "</small></article>";

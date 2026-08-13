@@ -5,7 +5,7 @@ const { DAILY_RESEARCH_REPORT_VERSION } = require("./daily-research-reports");
 const { RESEARCH_OUTCOME_EVALUATION_VERSION } = require("./research-outcome-evaluations");
 
 const RESEARCH_TASK_RUN_VERSION = "research-task-run-v1";
-const TASK_KINDS = new Set(["market_collection", "research_input_snapshot", "daily_fact_report", "model_recap", "outcome_evaluation"]);
+const TASK_KINDS = new Set(["market_collection", "event_attribution", "research_input_snapshot", "daily_fact_report", "model_recap", "outcome_evaluation"]);
 const TASK_STATUSES = new Set(["succeeded", "partial", "skipped", "failed", "disabled"]);
 
 function normalizeTaskStatus(value) {
@@ -34,6 +34,17 @@ function buildResearchTaskRunRows(input) {
         unifiedEventsWritten: finiteNonNegative(stages.marketCollection?.unifiedEventsWritten),
         unifiedSourcesWritten: finiteNonNegative(stages.marketCollection?.unifiedSourcesWritten),
         failedSymbolCount: finiteNonNegative(stages.marketCollection?.failedSymbolCount)
+      }
+    },
+    {
+      task_kind: "event_attribution",
+      task_version: "market-attribution-rules-v1",
+      result: stages.eventAttribution,
+      details: {
+        deterministicAttributions: finiteNonNegative(stages.eventAttribution?.deterministicAttributions),
+        heuristicAttributionCount: finiteNonNegative(stages.eventAttribution?.heuristicAttributionCount),
+        primarySourcesLinked: finiteNonNegative(stages.eventAttribution?.primarySourcesLinked),
+        evidenceSourcesLinked: finiteNonNegative(stages.eventAttribution?.evidenceSourcesLinked)
       }
     },
     {
