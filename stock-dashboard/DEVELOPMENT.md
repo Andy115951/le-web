@@ -576,6 +576,8 @@ DEEPSEEK_MAX_OUTPUT_TOKENS=900
 
 第一次保持开关为 `false` 部署并检查运行日志；确认模型 ID、每日预算和账户归属后，才把 `DEEPSEEK_RESEARCH_ENABLED` 改为 `true`。代码层硬性限制每日最多 `3` 次请求、单次最多 `1400` 输出 token，即使环境变量误填更大也不会放宽。DeepSeek 的 JSON 模式需要请求 `response_format: { type: "json_object" }` 且提示词明确要求 JSON；实现已经固定这两点，参考 [DeepSeek JSON Output](https://api-docs.deepseek.com/guides/json_mode)。
 
+如果使用兼容 OpenAI Chat Completions 的第三方网关，可额外设置仅服务端变量 `DEEPSEEK_API_URL` 为完整 HTTPS `/chat/completions` 地址；未设置时继续使用官方 DeepSeek 地址。该地址、密钥、模型名称和请求限制均必须在本机 `.env.local` 与 Vercel Production 分别配置，绝不能写入 Git 或浏览器变量。当前 Production 已配置 `deepseek-v4-flash` 与每天 `1` 次、最多 `900` 输出 token 的上限，但开关保持 `false`。已用不含项目数据的最小 JSON 请求确认该网关支持 `response_format: json_object`；在项目维护者明确批准把不可变研究快照发送给该第三方前，不得开启真实研究数据出站。
+
 启用前先使用已归档的历史快照做一次人工、可审计验证：
 
 ```bash

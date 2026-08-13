@@ -6,6 +6,7 @@ const {
   buildDeepSeekRequest,
   countAttemptsForNewYorkDate,
   isDeepSeekResearchConfigured,
+  normalizeDeepSeekApiUrl,
   parseDeepSeekResponse,
   runDeepSeekResearchNarrative
 } = require("../lib/deepseek-research-narrative");
@@ -66,6 +67,14 @@ test("DeepSeek execution stays disabled until every explicit model setting is pr
   assert.equal(active.enabled, true);
   assert.equal(active.maxDailyRequests, 3);
   assert.equal(active.maxOutputTokens, 1400);
+  assert.equal(active.apiUrl, "https://api.deepseek.com/chat/completions");
+  assert.equal(isDeepSeekResearchConfigured({
+    DEEPSEEK_RESEARCH_ENABLED: "true",
+    DEEPSEEK_API_KEY: "not-a-real-secret-key",
+    DEEPSEEK_MODEL: "deepseek-chat",
+    DEEPSEEK_API_URL: "http://gateway.example/v1/chat/completions"
+  }).reason, "invalid_api_url");
+  assert.equal(normalizeDeepSeekApiUrl("https://gateway.example/v1/chat/completions"), "https://gateway.example/v1/chat/completions");
 });
 
 test("disabled runs remain traceable to their immutable packet without contacting a model", async function () {

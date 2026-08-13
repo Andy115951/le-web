@@ -17,6 +17,18 @@ function boundedPositiveInteger(value, fallback, maximum) {
   return Number.isFinite(number) && number > 0 ? Math.min(number, maximum) : fallback;
 }
 
+function normalizeDeepSeekApiUrl(value) {
+  const candidate = String(value || DEEPSEEK_API_URL).trim();
+  let parsed;
+  try {
+    parsed = new URL(candidate);
+  } catch (_error) {
+    return null;
+  }
+  if (parsed.protocol !== "https:" || parsed.username || parsed.password || !parsed.hostname) return null;
+  return parsed.toString();
+}
+
 function safeErrorMessage(error) {
   return String(error?.message || error || "Model request failed").replace(/[\r\n]+/g, " ").slice(0, 180);
 }
@@ -28,10 +40,13 @@ function isDeepSeekResearchConfigured(env = process.env) {
   if (!enabled) return { enabled: false, reason: "disabled" };
   if (apiKey.length < 16) return { enabled: false, reason: "missing_api_key" };
   if (!model) return { enabled: false, reason: "missing_model" };
+  const apiUrl = normalizeDeepSeekApiUrl(env.DEEPSEEK_API_URL);
+  if (!apiUrl) return { enabled: false, reason: "invalid_api_url" };
   return {
     enabled: true,
     apiKey,
     model: model.slice(0, 100),
+    apiUrl,
     maxDailyRequests: boundedPositiveInteger(env.DEEPSEEK_MAX_DAILY_REQUESTS, 1, MAX_DAILY_REQUESTS_HARD_LIMIT),
     maxOutputTokens: boundedPositiveInteger(env.DEEPSEEK_MAX_OUTPUT_TOKENS, 900, MAX_OUTPUT_TOKENS_HARD_LIMIT)
   };
@@ -90,7 +105,7 @@ async function requestDeepSeek(body, config, fetchImpl = fetch) {
   const controller = new AbortController();
   const timeout = setTimeout(function () { controller.abort(); }, REQUEST_TIMEOUT_MS);
   try {
-    const response = await fetchImpl(DEEPSEEK_API_URL, {
+    const response = await fetchImpl(config.apiUrl || DEEPSEEK_API_URL, {
       method: "POST",
       headers: {
         Authorization: "Bearer " + config.apiKey,
@@ -176,6 +191,7 @@ module.exports = {
   buildDeepSeekRequest,
   countAttemptsForNewYorkDate,
   isDeepSeekResearchConfigured,
+  normalizeDeepSeekApiUrl,
   parseDeepSeekResponse,
   runDeepSeekResearchNarrative
 };
