@@ -33,6 +33,11 @@ function isEnabledFlag(value) {
   return String(value || "").trim().toLowerCase() === "true";
 }
 
+function normalizeAllowedPacketFingerprint(value) {
+  const fingerprint = String(value || "").trim().toLowerCase();
+  return /^[a-f0-9]{64}$/.test(fingerprint) ? fingerprint : null;
+}
+
 function getDeepSeekResearchReadiness(env = process.env) {
   const apiKey = String(env.DEEPSEEK_API_KEY || "").trim();
   const model = String(env.DEEPSEEK_MODEL || "").trim();
@@ -151,6 +156,10 @@ async function runDeepSeekResearchNarrative(packet, options = {}) {
   const packetFingerprint = researchPacketFingerprint(packet);
   const config = options.config || isDeepSeekResearchConfigured(options.env || process.env);
   if (!config.enabled) return { status: "disabled", reason: config.reason, created: false, packetFingerprint };
+  const allowedPacketFingerprint = normalizeAllowedPacketFingerprint((options.env || process.env).DEEPSEEK_ALLOWED_PACKET_FINGERPRINT);
+  if (allowedPacketFingerprint && packetFingerprint !== allowedPacketFingerprint) {
+    return { status: "skipped", reason: "packet_not_approved", created: false, packetFingerprint };
+  }
   const existing = await (options.getAccepted || getAcceptedResearchNarrative)({
     packetFingerprint,
     provider: DEEPSEEK_PROVIDER,
@@ -209,6 +218,7 @@ module.exports = {
   getDeepSeekResearchReadiness,
   isDeepSeekResearchConfigured,
   normalizeDeepSeekApiUrl,
+  normalizeAllowedPacketFingerprint,
   parseDeepSeekResponse,
   runDeepSeekResearchNarrative
 };

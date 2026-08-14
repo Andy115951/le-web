@@ -9,6 +9,7 @@ const {
   isDeepSeekResearchConfigured,
   normalizeDeepSeekApiUrl,
   parseDeepSeekResponse,
+  normalizeAllowedPacketFingerprint,
   runDeepSeekResearchNarrative
 } = require("../lib/deepseek-research-narrative");
 
@@ -83,6 +84,25 @@ test("DeepSeek execution stays disabled until every explicit model setting is pr
     DEEPSEEK_API_URL: "http://gateway.example/v1/chat/completions"
   }).reason, "invalid_api_url");
   assert.equal(normalizeDeepSeekApiUrl("https://gateway.example/v1/chat/completions"), "https://gateway.example/v1/chat/completions");
+});
+
+test("a configured packet fingerprint blocks every other research snapshot before provider access", async function () {
+  const result = await runDeepSeekResearchNarrative(packet, {
+    env: {
+      DEEPSEEK_RESEARCH_ENABLED: "true",
+      DEEPSEEK_RESEARCH_DATA_APPROVED: "true",
+      DEEPSEEK_API_KEY: "a".repeat(24),
+      DEEPSEEK_MODEL: "deepseek-chat",
+      DEEPSEEK_ALLOWED_PACKET_FINGERPRINT: "b".repeat(64)
+    },
+    getAccepted: async function () { throw new Error("must not query"); },
+    getAttempts: async function () { throw new Error("must not query"); },
+    requestModel: async function () { throw new Error("must not call provider"); }
+  });
+  assert.equal(result.status, "skipped");
+  assert.equal(result.reason, "packet_not_approved");
+  assert.equal(normalizeAllowedPacketFingerprint("B".repeat(64)), "b".repeat(64));
+  assert.equal(normalizeAllowedPacketFingerprint("not-a-fingerprint"), null);
 });
 
 test("model readiness distinguishes disabled operation from outbound-data approval", function () {
