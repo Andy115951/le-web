@@ -170,6 +170,9 @@ async function runDeepSeekResearchNarrative(packet, options = {}) {
   }
 
   const attempts = await (options.getAttempts || getRecentProviderNarrativeAttempts)({ provider: DEEPSEEK_PROVIDER }, options.supabaseConfig, options.requestSupabase);
+  if (isEnabledFlag((options.env || process.env).DEEPSEEK_ONE_TIME_VALIDATION) && attempts.length > 0) {
+    return { status: "skipped", reason: "one_time_validation_consumed", created: false, packetFingerprint };
+  }
   if (countAttemptsForNewYorkDate(attempts, now) >= config.maxDailyRequests) {
     return { status: "skipped", reason: "daily_request_limit", created: false, packetFingerprint };
   }
