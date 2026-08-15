@@ -42,6 +42,7 @@
 - [x] `research_narrative_audits` 已在远程创建；等待未来首条模型研究输出写入审计记录
 - [x] `research_task_runs` 已通过 Management API 扩展为 `research-task-run-v2`：新增安全的每次尝试、排队与运行耗时列及受限失败码约束
 - [x] Cron 运行日志、失败诊断、手动重跑和最近运行记录接口
+- [x] Cron 诊断接口脱敏：只返回状态、计数和公共观察宇宙失败摘要，不返回用户 ID、个人标的、原始异常或内部运行详情
 - [x] Nasdaq 核心行情/新闻入口已与个人自选解耦，无登录也可运行
 
 页面、API、事件规则和数据库开发现在都可进行；当前未完成项不会阻塞下一批代码开发。
@@ -837,7 +838,7 @@ GET /api/nasdaq/research-outcomes?limit=12
 
 `GET /api/nasdaq/research-health` 使用 Supabase `Content-Range` 的 exact count 计算快照与到期审计总数，不再把分页读取的前 30 条误作全量。响应仅包含最近一次采集的状态、日期、时间与写入事件数，以及 `capture_history_missing`、`capture_failed`、`capture_partial`、`capture_skipped`、`mature_outcomes_pending`、`model_disabled` 等确定性告警。
 
-该公共接口特意不回传 `market_capture_runs.id`、`error_message`、`details`、用户计数、完整研究包或密钥。需要诊断具体失败原因时，仍必须用 `CRON_SECRET` 调受保护的 `/api/cron/market-history-runs`。
+该公共接口特意不回传 `market_capture_runs.id`、`error_message`、`details`、用户计数、完整研究包或密钥。需要诊断运行状态时，仍必须用 `CRON_SECRET` 调受保护的 `/api/cron/market-history-runs`；该接口同样只返回脱敏的状态、计数和公共观察宇宙失败摘要，绝不返回用户 ID、个人自选标的、原始异常或完整 `details`。
 
 #### 8.2.13 每日确定性研究报告
 

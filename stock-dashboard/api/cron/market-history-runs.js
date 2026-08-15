@@ -1,4 +1,4 @@
-const { getRecentCaptureRuns } = require("../../lib/market-history-capture");
+const { getRecentCaptureRuns, sanitizeCaptureRunForOps } = require("../../lib/market-history-capture");
 const { isAuthorizedCronRequest, sendJson } = require("../../lib/cron-auth");
 
 module.exports = async function handler(req, res) {
@@ -15,8 +15,8 @@ module.exports = async function handler(req, res) {
 
   try {
     const runs = await getRecentCaptureRuns(req.query?.limit);
-    sendJson(res, 200, { ok: true, count: runs.length, runs });
-  } catch (error) {
-    sendJson(res, 500, { ok: false, error: error?.message || "Failed to load capture runs" });
+    sendJson(res, 200, { ok: true, count: runs.length, runs: runs.map(sanitizeCaptureRunForOps) });
+  } catch {
+    sendJson(res, 500, { ok: false, error: "Failed to load capture runs" });
   }
 };

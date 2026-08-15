@@ -2,9 +2,12 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 const {
   collectSymbols,
+  buildSafeCaptureDetails,
   determineRunStatus,
   normalizeHistoryDays,
   normalizeCaptureOptions,
+  sanitizeCaptureResultForOps,
+  sanitizeCaptureRunForOps,
   toHistoryRow,
   toPublicHistoryRow
 } = require("../lib/market-history-capture");
@@ -97,4 +100,54 @@ test("determineRunStatus distinguishes complete and partial failures", function 
   assert.equal(determineRunStatus(1, 0, 1), "partial");
   assert.equal(determineRunStatus(0, 1, 1), "partial");
   assert.equal(determineRunStatus(0, 0, 1), "failed");
+});
+
+test("capture diagnostics remove user data, raw errors, and non-public symbols", function () {
+  const details = buildSafeCaptureDetails({
+    failedSymbols: ["QQQ", "PRIVATE", "NVDA", "private"],
+    personalFailedSymbolCount: 3,
+    userFailures: [{ userId: "private-user", error: "raw upstream failure" }],
+    secFilingStatus: "failed",
+    secFilingError: "do-not-return-this",
+    researchNarrativeReason: "another raw error"
+  });
+  assert.deepEqual(details.publicFailedSymbols, ["NVDA", "QQQ"]);
+  assert.equal(details.personalFailedSymbolCount, 3);
+  assert.equal(JSON.stringify(details).includes("private-user"), false);
+  assert.equal(JSON.stringify(details).includes("raw upstream failure"), false);
+  assert.equal(JSON.stringify(details).includes("do-not-return-this"), false);
+});
+
+test("operational capture responses expose only a bounded safe summary", function () {
+  const run = sanitizeCaptureRunForOps({
+    id: "run-123",
+    trigger_type: "manual",
+    status: "partial",
+    market_date: "2026-08-15",
+    source_users: 4,
+    processed_users: 2,
+    failed_users: 1,
+    error_message: "database hostname and user details",
+    details: {
+      failedSymbols: ["QQQ", "PERSONAL"],
+      userFailures: [{ userId: "private-user", error: "raw failure" }]
+    }
+  });
+  assert.equal(run.runId, "run-123");
+  assert.deepEqual(run.details.publicFailedSymbols, ["QQQ"]);
+  assert.equal(JSON.stringify(run).includes("private-user"), false);
+  assert.equal(JSON.stringify(run).includes("database hostname"), false);
+
+  const result = sanitizeCaptureResultForOps({
+    runId: "run-456",
+    status: "skipped",
+    reason: "raw upstream reason",
+    failedSymbols: ["QQQ", "PERSONAL"],
+    loggingError: "do-not-expose",
+    researchNarrativeReason: "do-not-expose"
+  });
+  assert.equal(result.skipReason, "outside_post_close_window");
+  assert.deepEqual(result.publicFailedSymbols, ["QQQ"]);
+  assert.equal(JSON.stringify(result).includes("do-not-expose"), false);
+  assert.equal(JSON.stringify(result).includes("raw upstream reason"), false);
 });

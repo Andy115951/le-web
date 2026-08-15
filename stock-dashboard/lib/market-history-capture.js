@@ -20,6 +20,10 @@ const PUBLIC_HISTORY_TABLE = "nasdaq_market_event_history";
 const INSTRUMENT_ROLES = new Map(NASDAQ_FOCUS_INSTRUMENTS.map(function (item) {
   return [item.symbol, item.role];
 }));
+const PUBLIC_SYMBOLS = new Set(NASDAQ_FOCUS_INSTRUMENTS.map(function (item) {
+  return item.symbol;
+}));
+const SAFE_COMPONENT_STATUSES = new Set(["pending", "succeeded", "partial", "skipped", "failed", "disabled"]);
 
 function isGlobalStockSymbol(symbol) {
   return /^[A-Z][A-Z0-9.-]{0,9}$/.test(String(symbol || "").trim().toUpperCase());
@@ -83,6 +87,100 @@ function normalizeCaptureOptions(input) {
 
 function errorMessage(error) {
   return String(error?.message || error || "Unknown capture error").slice(0, 500);
+}
+
+function normalizeCount(value) {
+  return Math.max(0, Math.floor(Number(value) || 0));
+}
+
+function safeComponentStatus(value) {
+  return SAFE_COMPONENT_STATUSES.has(value) ? value : "unknown";
+}
+
+function publicFailedSymbols(values) {
+  return Array.from(new Set((Array.isArray(values) ? values : []).map(function (symbol) {
+    return String(symbol || "").trim().toUpperCase();
+  }).filter(function (symbol) {
+    return PUBLIC_SYMBOLS.has(symbol);
+  }))).sort();
+}
+
+// Keep Cron diagnostics useful without turning them into a channel for user data or raw upstream errors.
+function buildSafeCaptureDetails(details) {
+  const source = details && typeof details === "object" ? details : {};
+  const safePublicFailedSymbols = publicFailedSymbols(source.publicFailedSymbols || source.failedSymbols);
+  return {
+    publicFailedSymbols: safePublicFailedSymbols,
+    publicFailedSymbolCount: safePublicFailedSymbols.length,
+    personalFailedSymbolCount: normalizeCount(source.personalFailedSymbolCount),
+    publicSavedEvents: normalizeCount(source.publicSavedEvents),
+    unifiedSavedEvents: normalizeCount(source.unifiedSavedEvents),
+    unifiedSavedSources: normalizeCount(source.unifiedSavedSources),
+    secFilingStatus: safeComponentStatus(source.secFilingStatus),
+    secFilingEvents: normalizeCount(source.secFilingEvents),
+    secFilingSources: normalizeCount(source.secFilingSources),
+    fredMacroStatus: safeComponentStatus(source.fredMacroStatus),
+    fredMacroEvents: normalizeCount(source.fredMacroEvents),
+    fredMacroSources: normalizeCount(source.fredMacroSources),
+    researchPacketSnapshotStatus: safeComponentStatus(source.researchPacketSnapshotStatus),
+    dailyResearchReportStatus: safeComponentStatus(source.dailyResearchReportStatus),
+    weeklyResearchReportStatus: safeComponentStatus(source.weeklyResearchReportStatus),
+    researchNarrativeStatus: safeComponentStatus(source.researchNarrativeStatus),
+    researchOutcomeEvaluationStatus: safeComponentStatus(source.researchOutcomeEvaluationStatus),
+    researchOutcomeEvaluationsWritten: normalizeCount(source.researchOutcomeEvaluationsWritten),
+    researchTaskRunStatus: safeComponentStatus(source.researchTaskRunStatus),
+    researchTaskRunsWritten: normalizeCount(source.researchTaskRunsWritten)
+  };
+}
+
+function sanitizeCaptureRunForOps(run) {
+  const source = run && typeof run === "object" ? run : {};
+  return {
+    runId: typeof source.id === "string" ? source.id : null,
+    trigger: source.trigger_type === "manual" ? "manual" : "cron",
+    status: safeComponentStatus(source.status),
+    marketDate: typeof source.market_date === "string" ? source.market_date : null,
+    startedAt: typeof source.started_at === "string" ? source.started_at : null,
+    finishedAt: typeof source.finished_at === "string" ? source.finished_at : null,
+    durationMs: normalizeCount(source.duration_ms),
+    sourceUsers: normalizeCount(source.source_users),
+    processedUsers: normalizeCount(source.processed_users),
+    skippedUsers: normalizeCount(source.skipped_users),
+    failedUsers: normalizeCount(source.failed_users),
+    savedEvents: normalizeCount(source.saved_events),
+    details: buildSafeCaptureDetails(source.details)
+  };
+}
+
+function sanitizeCaptureResultForOps(result) {
+  const source = result && typeof result === "object" ? result : {};
+  const status = safeComponentStatus(source.status);
+  const skipped = source.skipped === true || status === "skipped";
+  return {
+    runId: typeof source.runId === "string" ? source.runId : null,
+    trigger: source.trigger === "manual" ? "manual" : "cron",
+    status,
+    skipped,
+    marketDate: typeof source.date === "string" ? source.date : null,
+    skipReason: skipped ? (source.date ? "market_snapshot_unavailable" : "outside_post_close_window") : null,
+    sourceUsers: normalizeCount(source.sourceUsers),
+    processedUsers: normalizeCount(source.processedUsers),
+    skippedUsers: normalizeCount(source.skippedUsers),
+    failedUsers: normalizeCount(source.failedUsers),
+    savedEvents: normalizeCount(source.savedEvents),
+    publicSavedEvents: normalizeCount(source.publicSavedEvents),
+    personalSavedEvents: normalizeCount(source.personalSavedEvents),
+    publicFailedSymbols: publicFailedSymbols(source.publicFailedSymbols || source.failedSymbols),
+    personalFailedSymbolCount: normalizeCount(source.personalFailedSymbolCount),
+    secFilingStatus: safeComponentStatus(source.secFilingStatus),
+    fredMacroStatus: safeComponentStatus(source.fredMacroStatus),
+    researchPacketSnapshotStatus: safeComponentStatus(source.researchPacketSnapshotStatus),
+    dailyResearchReportStatus: safeComponentStatus(source.dailyResearchReportStatus),
+    weeklyResearchReportStatus: safeComponentStatus(source.weeklyResearchReportStatus),
+    researchNarrativeStatus: safeComponentStatus(source.researchNarrativeStatus),
+    researchOutcomeEvaluationStatus: safeComponentStatus(source.researchOutcomeEvaluationStatus),
+    researchTaskRunStatus: safeComponentStatus(source.researchTaskRunStatus)
+  };
 }
 
 function determineRunStatus(processedUsers, skippedUsers, failedUsers) {
@@ -187,7 +285,9 @@ async function captureMarketHistory(input) {
     const today = marketDate(now);
     const marketCollectionStartedAt = new Date();
     const publicSnapshot = await getDailyMarketEvents([]);
-    const failedSymbolSet = new Set(publicSnapshot.failedSymbols || []);
+    const publicFailedSymbolSet = new Set(publicSnapshot.failedSymbols || []);
+    const failedSymbolSet = new Set(publicFailedSymbolSet);
+    const personalFailedSymbolSet = new Set();
 
     if (!publicSnapshot.events.length && publicSnapshot.failedSymbols?.length) {
       throw new Error("Public Nasdaq snapshot failed for all requested symbols");
@@ -204,7 +304,8 @@ async function captureMarketHistory(input) {
         reason: "Public Nasdaq snapshot is not for the current US market date",
         publicSavedEvents: 0,
         savedEvents: 0,
-        failedSymbols: Array.from(failedSymbolSet).sort(),
+        publicFailedSymbols: publicFailedSymbols(Array.from(publicFailedSymbolSet)),
+        personalFailedSymbolCount: 0,
         loggingError
       };
       if (!loggingError) {
@@ -212,7 +313,10 @@ async function captureMarketHistory(input) {
           startedAt,
           result,
           "skipped",
-          { reason: result.reason, failedSymbols: result.failedSymbols },
+          {
+            publicFailedSymbols: result.publicFailedSymbols,
+            personalFailedSymbolCount: result.personalFailedSymbolCount
+          },
           null
         ));
       }
@@ -376,7 +480,6 @@ async function captureMarketHistory(input) {
     });
     const sourceStates = Array.isArray(states) ? states : [];
     const resultCache = new Map();
-    const userFailures = [];
     let processedUsers = 0;
     let personalSavedEvents = 0;
     let skippedUsers = 0;
@@ -393,7 +496,10 @@ async function captureMarketHistory(input) {
         const key = symbols.join(",");
         if (!resultCache.has(key)) resultCache.set(key, getDailyMarketEvents(symbols));
         const snapshot = await resultCache.get(key);
-        (snapshot.failedSymbols || []).forEach(function (symbol) { failedSymbolSet.add(symbol); });
+        (snapshot.failedSymbols || []).forEach(function (symbol) {
+          failedSymbolSet.add(symbol);
+          personalFailedSymbolSet.add(symbol);
+        });
 
         if (!snapshot.events.length && snapshot.failedSymbols?.length) {
           failedUsers += 1;
@@ -414,12 +520,6 @@ async function captureMarketHistory(input) {
         personalSavedEvents += rows.length;
       } catch (error) {
         failedUsers += 1;
-        if (userFailures.length < 20) {
-          userFailures.push({
-            userId: state.user_id,
-            error: errorMessage(error)
-          });
-        }
       }
     }
 
@@ -460,7 +560,8 @@ async function captureMarketHistory(input) {
       personalSavedEvents,
       skippedUsers,
       failedUsers,
-      failedSymbols: Array.from(failedSymbolSet).sort(),
+      publicFailedSymbols: publicFailedSymbols(Array.from(publicFailedSymbolSet)),
+      personalFailedSymbolCount: personalFailedSymbolSet.size,
       loggingError
     };
 
@@ -470,47 +571,31 @@ async function captureMarketHistory(input) {
         result,
         status,
         {
-          failedSymbols: result.failedSymbols,
-          userFailures,
+          publicFailedSymbols: result.publicFailedSymbols,
+          personalFailedSymbolCount: result.personalFailedSymbolCount,
           publicSavedEvents,
           unifiedSavedEvents: result.unifiedSavedEvents,
           unifiedSavedSources: result.unifiedSavedSources,
           secFilingStatus: secFilingResult.status,
           secFilingEvents: secFilingResult.eventsWritten,
           secFilingSources: secFilingResult.sourcesWritten,
-          secFilingFetchedCompanies: secFilingResult.fetchedCompanies,
-          secFilingSkippedSymbols: secFilingResult.skippedSymbols,
-          secFilingError: secFilingResult.error,
           fredMacroStatus: fredMacroResult.status,
           fredMacroEvents: fredMacroResult.eventsWritten,
           fredMacroSources: fredMacroResult.sourcesWritten,
-          fredMacroSeriesIds: fredMacroResult.seriesIds,
-          fredMacroObservationCount: fredMacroResult.observations.length,
-          fredMacroError: fredMacroResult.error,
           researchPacketSnapshotStatus: researchPacketSnapshotResult.status,
           researchPacketSnapshotCreated: researchPacketSnapshotResult.created,
-          researchPacketFingerprint: researchPacketSnapshotResult.packetFingerprint,
-          researchPacketSnapshotError: researchPacketSnapshotResult.error,
           researchNarrativeStatus: researchNarrativeResult.status,
-          researchNarrativeReason: researchNarrativeResult.reason,
           researchNarrativeCreated: researchNarrativeResult.created,
-          researchNarrativePacketFingerprint: researchNarrativeResult.packetFingerprint,
-          researchNarrativeValidationErrorCount: Array.isArray(researchNarrativeResult.validationErrors)
-            ? researchNarrativeResult.validationErrors.length
-            : 0,
           dailyResearchReportStatus: dailyResearchReportResult.status,
           dailyResearchReportCreated: dailyResearchReportResult.created,
           weeklyResearchReportStatus: weeklyResearchReportResult.status,
           weeklyResearchReportCreated: weeklyResearchReportResult.created,
-          weeklyResearchReportExpectedBusinessDateCount: weeklyResearchReportResult.expectedBusinessDateCount,
-          weeklyResearchReportArchivedDailyReportCount: weeklyResearchReportResult.archivedDailyReportCount,
           researchOutcomeEvaluationStatus: researchOutcomeEvaluationResult.status,
           researchOutcomeEvaluationsWritten: researchOutcomeEvaluationResult.matureOutcomesWritten,
           researchTaskRunStatus: researchTaskRunResult.status,
           researchTaskRunsWritten: researchTaskRunResult.written,
           personalSavedEvents,
-          publicUniverseAsOf: publicSnapshot.universe?.asOf || NASDAQ_UNIVERSE_AS_OF,
-          publicUniverseSource: publicSnapshot.universe?.source || null
+          publicUniverseAsOf: publicSnapshot.universe?.asOf || NASDAQ_UNIVERSE_AS_OF
         },
         failedUsers > 0 ? failedUsers + " user capture(s) failed" : null
       ));
@@ -600,11 +685,14 @@ async function getRecentCaptureRuns(limit) {
 module.exports = {
   captureMarketHistory,
   collectSymbols,
+  buildSafeCaptureDetails,
   determineRunStatus,
   getNasdaqMarketHistory,
   getRecentCaptureRuns,
   normalizeCaptureOptions,
   normalizeHistoryDays,
+  sanitizeCaptureResultForOps,
+  sanitizeCaptureRunForOps,
   toHistoryRow,
   toPublicHistoryRow
 };

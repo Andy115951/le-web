@@ -45,7 +45,7 @@
 - 当日市场线索：区分市场同向、个股资讯、混合因素与证据不足；新闻原文链接保留供复核
 - 历史归档基础：独立 `market_event_history` 表、30/90/180 天时间轴、收盘后自动补抓入口
 - 公共 Nasdaq 历史：独立 `nasdaq_market_event_history` 表，不绑定用户账号；页面经服务端 API 读取
-- 采集可观测性：每次 Cron/手动重跑写入 `market_capture_runs`，记录状态、耗时、用户数、写入数和失败摘要
+- 采集可观测性：每次 Cron/手动重跑写入 `market_capture_runs`，记录状态、耗时、计数和脱敏失败摘要；运维接口不返回用户 ID、个人标的或原始异常
 - 采集任务支持单用户失败隔离，不会因一个用户异常中断整批任务
 - 受 `CRON_SECRET` 保护的手动重跑与最近运行记录接口
 - 标准公共行情层：`instruments`、`market_days`、`price_bars_daily`，均由服务端密钥访问

@@ -106,7 +106,7 @@ with check (auth.uid() = user_id);
 - `status`: `running / succeeded / partial / skipped / failed`
 - `market_date`、开始/结束时间和耗时
 - 来源用户数、成功用户数、跳过用户数、失败用户数和写入事件数
-- 截断后的错误摘要与非敏感诊断详情
+- 服务端内部错误摘要与诊断详情；受控接口只会输出脱敏的状态、计数和公共观察宇宙失败摘要，不返回用户 ID、个人标的或原始异常
 
 该表启用 RLS，不给 `anon` 和 `authenticated` 角色访问权限，只允许服务端 Secret Key 管理。浏览器不能直接读取运维日志。
 

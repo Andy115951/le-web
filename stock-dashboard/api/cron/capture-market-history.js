@@ -1,4 +1,4 @@
-const { captureMarketHistory } = require("../../lib/market-history-capture");
+const { captureMarketHistory, sanitizeCaptureResultForOps } = require("../../lib/market-history-capture");
 const { isAuthorizedCronRequest, sendJson } = require("../../lib/cron-auth");
 
 module.exports = async function handler(req, res) {
@@ -18,13 +18,12 @@ module.exports = async function handler(req, res) {
       trigger: req.method === "POST" ? "manual" : "cron"
     });
     const ok = result.status !== "failed";
-    sendJson(res, ok ? 200 : 502, { ok, ...result });
+    sendJson(res, ok ? 200 : 502, { ok, ...sanitizeCaptureResultForOps(result) });
   } catch (error) {
     sendJson(res, 500, {
       ok: false,
       runId: error?.runId || null,
-      error: error?.message || "History capture failed",
-      loggingError: error?.loggingError || null
+      error: "History capture failed"
     });
   }
 };
