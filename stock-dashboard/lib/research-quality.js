@@ -7,6 +7,7 @@ const { getWeeklyResearchReports } = require("./weekly-research-reports");
 const { getSecUserAgent } = require("./sec-edgar");
 const { getFredApiKey } = require("./fred-macro");
 const { getDeepSeekResearchReadiness } = require("./deepseek-research-narrative");
+const { getGatewayCompatibilityConfig } = require("./model-gateway-compatibility");
 const { SIMILARITY_METHOD_VERSION } = require("./similar-days");
 
 const RESEARCH_QUALITY_VERSION = "research-quality-v2";
@@ -100,12 +101,16 @@ function buildResearchIntegrationReadiness(env = process.env, dependencies = {})
   const getSecConfig = dependencies.getSecConfig || getSecUserAgent;
   const getFredConfig = dependencies.getFredConfig || getFredApiKey;
   const getModelReadiness = dependencies.getModelReadiness || getDeepSeekResearchReadiness;
+  const getGatewayCompatibility = dependencies.getGatewayCompatibility || getGatewayCompatibilityConfig;
   const model = getModelReadiness(env) || {};
+  const compatibility = getGatewayCompatibility(env) || {};
+  const compatibilityStatus = compatibility.enabled ? "ready" : (compatibility.reason === "disabled" ? "disabled" : "needs_configuration");
   return {
     marketCollection: { status: "ready", kind: "built_in" },
     secFilings: { status: readinessStatus(getSecConfig, env), kind: "official_company_filings" },
     fredMacro: { status: readinessStatus(getFredConfig, env), kind: "official_macro_observations" },
-    modelNarrative: { status: ["ready", "disabled", "data_approval_required", "needs_configuration"].includes(model.status) ? model.status : "needs_configuration", kind: "optional_research_recap" }
+    modelNarrative: { status: ["ready", "disabled", "data_approval_required", "needs_configuration"].includes(model.status) ? model.status : "needs_configuration", kind: "optional_research_recap" },
+    modelGatewayCompatibility: { status: compatibilityStatus, kind: "no_project_data_probe" }
   };
 }
 

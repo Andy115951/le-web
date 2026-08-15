@@ -1500,7 +1500,8 @@ function renderResearchIntegrationReadiness(integrations) {
     marketCollection: "市场收盘采集",
     secFilings: "SEC 公司披露",
     fredMacro: "FRED 宏观观测",
-    modelNarrative: "模型研究摘要"
+    modelNarrative: "模型研究摘要",
+    modelGatewayCompatibility: "模型网关探针"
   };
   const rows = Object.keys(labels).map(function (key) {
     const status = String(integrations?.[key]?.status || "needs_configuration");

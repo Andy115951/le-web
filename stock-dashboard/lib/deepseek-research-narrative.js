@@ -38,11 +38,19 @@ function normalizeAllowedPacketFingerprint(value) {
   return /^[a-f0-9]{64}$/.test(fingerprint) ? fingerprint : null;
 }
 
-function getDeepSeekResearchReadiness(env = process.env) {
+function getDeepSeekGatewayConfig(env = process.env) {
   const apiKey = String(env.DEEPSEEK_API_KEY || "").trim();
   const model = String(env.DEEPSEEK_MODEL || "").trim();
   const apiUrl = normalizeDeepSeekApiUrl(env.DEEPSEEK_API_URL);
-  if (apiKey.length < 16 || !model || !apiUrl) return { status: "needs_configuration" };
+  if (apiKey.length < 16) return { configured: false, reason: "missing_api_key" };
+  if (!model) return { configured: false, reason: "missing_model" };
+  if (!apiUrl) return { configured: false, reason: "invalid_api_url" };
+  return { configured: true, apiKey, model: model.slice(0, 100), apiUrl };
+}
+
+function getDeepSeekResearchReadiness(env = process.env) {
+  const gateway = getDeepSeekGatewayConfig(env);
+  if (!gateway.configured) return { status: "needs_configuration" };
   if (!isEnabledFlag(env.DEEPSEEK_RESEARCH_ENABLED)) return { status: "disabled" };
   if (!isEnabledFlag(env.DEEPSEEK_RESEARCH_DATA_APPROVED)) return { status: "data_approval_required" };
   return { status: "ready" };
@@ -55,19 +63,15 @@ function safeErrorMessage(error) {
 function isDeepSeekResearchConfigured(env = process.env) {
   const enabled = isEnabledFlag(env.DEEPSEEK_RESEARCH_ENABLED);
   const dataApproved = isEnabledFlag(env.DEEPSEEK_RESEARCH_DATA_APPROVED);
-  const apiKey = String(env.DEEPSEEK_API_KEY || "").trim();
-  const model = String(env.DEEPSEEK_MODEL || "").trim();
   if (!enabled) return { enabled: false, reason: "disabled" };
-  if (apiKey.length < 16) return { enabled: false, reason: "missing_api_key" };
-  if (!model) return { enabled: false, reason: "missing_model" };
-  const apiUrl = normalizeDeepSeekApiUrl(env.DEEPSEEK_API_URL);
-  if (!apiUrl) return { enabled: false, reason: "invalid_api_url" };
+  const gateway = getDeepSeekGatewayConfig(env);
+  if (!gateway.configured) return { enabled: false, reason: gateway.reason };
   if (!dataApproved) return { enabled: false, reason: "data_transfer_not_approved" };
   return {
     enabled: true,
-    apiKey,
-    model: model.slice(0, 100),
-    apiUrl,
+    apiKey: gateway.apiKey,
+    model: gateway.model,
+    apiUrl: gateway.apiUrl,
     maxDailyRequests: boundedPositiveInteger(env.DEEPSEEK_MAX_DAILY_REQUESTS, 1, MAX_DAILY_REQUESTS_HARD_LIMIT),
     maxOutputTokens: boundedPositiveInteger(env.DEEPSEEK_MAX_OUTPUT_TOKENS, 900, MAX_OUTPUT_TOKENS_HARD_LIMIT)
   };
@@ -219,9 +223,11 @@ module.exports = {
   buildDeepSeekRequest,
   countAttemptsForNewYorkDate,
   getDeepSeekResearchReadiness,
+  getDeepSeekGatewayConfig,
   isDeepSeekResearchConfigured,
   normalizeDeepSeekApiUrl,
   normalizeAllowedPacketFingerprint,
   parseDeepSeekResponse,
+  requestDeepSeek,
   runDeepSeekResearchNarrative
 };

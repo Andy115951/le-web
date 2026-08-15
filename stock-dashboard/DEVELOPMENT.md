@@ -598,6 +598,28 @@ curl --fail-with-body -X POST \
 
 后续若要再次验证，必须先使用**不含项目研究数据**的最小请求确认该网关会返回完整结束状态和 JSON 对象，再由维护者重新明确批准一份新的不可变快照、单独设置新的指纹与一次性变量。不得复用这次已经消耗的验证授权，也不得通过关闭保护重试同一份研究输入。
 
+#### 8.2.4.2 无项目数据网关兼容性探针
+
+`POST /api/cron/check-model-gateway-compatibility` 是与研究快照完全分离的协议检查入口。它仅发送固定 JSON：要求返回 `{"ok":true,"probeVersion":"model-gateway-compatibility-v1"}`；不会读取 Supabase 的市场、事件、新闻、持仓或研究包数据。请求仍可能产生模型费用，因此默认关闭，并同时要求 `CRON_SECRET` 与 `DEEPSEEK_GATEWAY_COMPATIBILITY_ENABLED=true`。
+
+探针先向仅服务端的 `model_gateway_compatibility_audits` 写入 `pending` 预留记录，再允许请求网关；相同“探针版本 + 提供商 + 模型”组合只能尝试一次。审计只保存状态、`finish_reason`、输出 SHA-256 指纹、受控错误码和耗时，不保存输出原文、请求头、密钥或异常原文。无论成功还是失败，要再次尝试都必须升级探针版本、重新部署并得到新的人工批准，避免反复收费或用探针绕开研究快照出站审批。
+
+在维护者已明确批准后，才临时在本机与 Vercel Production 设置：
+
+```dotenv
+DEEPSEEK_GATEWAY_COMPATIBILITY_ENABLED=true
+```
+
+重新部署后使用以下命令；请求体不会被读取：
+
+```bash
+curl --fail-with-body -X POST \
+  https://stock-dashboard-psi-henna.vercel.app/api/cron/check-model-gateway-compatibility \
+  -H "Authorization: Bearer $CRON_SECRET"
+```
+
+完成后立刻把该变量恢复为 `false` 并重新部署。探针成功仅说明网关协议可用，不等同于研究摘要已获批准，也不会开启 `DEEPSEEK_RESEARCH_ENABLED` 或 `DEEPSEEK_RESEARCH_DATA_APPROVED`。
+
 启用前先使用已归档的历史快照做一次人工、可审计验证：
 
 ```bash
@@ -865,7 +887,7 @@ GET /api/nasdaq/research-tasks?limit=20
 
 当前生产环境没有 `SEC_USER_AGENT` 或 `FRED_API_KEY`；因此 SEC 公司披露和宏观观测仍是待配置能力。模型网关参数已配置，但 `DEEPSEEK_RESEARCH_ENABLED` 与 `DEEPSEEK_RESEARCH_DATA_APPROVED` 保持 `false`，模型摘要同样不会运行。下一次完整收盘采集会开始填充新的阶段账本，历史运行不做推测性回填。
 
-覆盖面板中的“研究集成准备度”会把内置市场采集固定标为 `ready`，并按当前服务端环境分别显示 SEC、FRED 和模型摘要状态。模型摘要会精确区分 `needs_configuration`（缺少网关参数）、`disabled`（已配置但功能开关关闭）、`data_approval_required`（功能已打开但尚未批准把研究快照发送给第三方）和 `ready`。这是为多端协作准备的安全检查，不会返回 `SEC_USER_AGENT`、`FRED_API_KEY`、`DEEPSEEK_API_KEY`、联系人、环境变量值或具体配置失败原因；状态为待配置时，按第 6 节和第 13 节在本机 `.env.local` 与 Vercel Production 分别补齐变量后重新部署即可。
+覆盖面板中的“研究集成准备度”会把内置市场采集固定标为 `ready`，并按当前服务端环境分别显示 SEC、FRED、模型摘要和无项目数据网关探针状态。模型摘要会精确区分 `needs_configuration`（缺少网关参数）、`disabled`（已配置但功能开关关闭）、`data_approval_required`（功能已打开但尚未批准把研究快照发送给第三方）和 `ready`。网关探针只显示 `needs_configuration / disabled / ready`，它不表示研究数据获准出站。这是为多端协作准备的安全检查，不会返回 `SEC_USER_AGENT`、`FRED_API_KEY`、`DEEPSEEK_API_KEY`、联系人、环境变量值或具体配置失败原因；状态为待配置时，按第 6 节和第 13 节在本机 `.env.local` 与 Vercel Production 分别补齐变量后重新部署即可。
 
 覆盖面板还会以最新 QQQ 价格日为基准，读取 `daily_market_features`、`market_forward_labels` 和 `similar_day_matches` 的最近日期，显示 `最新 / 滞后 / 未构建 / 未观测`。这只是只读的新鲜度提示：相似日没有匹配行时不能推断它从未计算过，因此保持 `未观测`；网页和 Cron 都不会自动执行全量重建。需要更新时，仍在受控环境依次运行 `npm run features:qqq`、`npm run labels:qqq`、`npm run similar-days:qqq`，并先检查命令输出。
 
@@ -1350,7 +1372,7 @@ Could not find the table 'public.watchlist_states' in the schema cache
 
 ## 13. 后续环境变量
 
-DeepSeek 摘要是可选功能，默认关闭。它使用下列服务端变量：`DEEPSEEK_RESEARCH_ENABLED`、`DEEPSEEK_RESEARCH_DATA_APPROVED`、`DEEPSEEK_API_KEY`、`DEEPSEEK_API_URL`、`DEEPSEEK_MODEL`、`DEEPSEEK_MAX_DAILY_REQUESTS`、`DEEPSEEK_MAX_OUTPUT_TOKENS`。启用前必须先设置不超过预算的每日请求数，并在 Vercel Production 与本机 `.env.local` 分别配置；无需在 Vercel Development 保存 Secret。
+DeepSeek 摘要是可选功能，默认关闭。它使用下列服务端变量：`DEEPSEEK_RESEARCH_ENABLED`、`DEEPSEEK_RESEARCH_DATA_APPROVED`、`DEEPSEEK_API_KEY`、`DEEPSEEK_API_URL`、`DEEPSEEK_MODEL`、`DEEPSEEK_MAX_DAILY_REQUESTS`、`DEEPSEEK_MAX_OUTPUT_TOKENS`。启用前必须先设置不超过预算的每日请求数，并在 Vercel Production 与本机 `.env.local` 分别配置；无需在 Vercel Development 保存 Secret。无项目数据的协议探针另用 `DEEPSEEK_GATEWAY_COMPATIBILITY_ENABLED`，它不替代研究快照的两道出站开关。
 
 以后增加其他 AI 摘要或收费数据源时，应在接入代码的同一变更中：
 

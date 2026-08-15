@@ -3,14 +3,15 @@ const test = require("node:test");
 const { buildDerivedDataFreshness, buildResearchIntegrationReadiness, buildResearchQualitySummary, getDerivedDataFreshness, getResearchQuality } = require("../lib/research-quality");
 
 test("integration readiness exposes only safe state labels", function () {
-  const readiness = buildResearchIntegrationReadiness({ SEC_USER_AGENT: "valid contact@example.com", FRED_API_KEY: "a".repeat(32), DEEPSEEK_RESEARCH_ENABLED: "true", DEEPSEEK_RESEARCH_DATA_APPROVED: "true", DEEPSEEK_API_KEY: "secret-key-value-long-enough", DEEPSEEK_MODEL: "deepseek-chat" });
+  const readiness = buildResearchIntegrationReadiness({ SEC_USER_AGENT: "valid contact@example.com", FRED_API_KEY: "a".repeat(32), DEEPSEEK_RESEARCH_ENABLED: "true", DEEPSEEK_RESEARCH_DATA_APPROVED: "true", DEEPSEEK_GATEWAY_COMPATIBILITY_ENABLED: "true", DEEPSEEK_API_KEY: "secret-key-value-long-enough", DEEPSEEK_MODEL: "deepseek-chat" });
   assert.deepEqual(Object.fromEntries(Object.entries(readiness).map(function ([name, item]) { return [name, item.status]; })), {
-    marketCollection: "ready", secFilings: "ready", fredMacro: "ready", modelNarrative: "ready"
+    marketCollection: "ready", secFilings: "ready", fredMacro: "ready", modelNarrative: "ready", modelGatewayCompatibility: "ready"
   });
   assert.equal(JSON.stringify(readiness).includes("secret-key"), false);
   assert.equal(JSON.stringify(buildResearchIntegrationReadiness({})).includes("missing_api_key"), false);
   const modelBase = { DEEPSEEK_API_KEY: "a".repeat(24), DEEPSEEK_MODEL: "deepseek-v4-flash" };
   assert.equal(buildResearchIntegrationReadiness(modelBase).modelNarrative.status, "disabled");
+  assert.equal(buildResearchIntegrationReadiness(modelBase).modelGatewayCompatibility.status, "disabled");
   assert.equal(buildResearchIntegrationReadiness({ ...modelBase, DEEPSEEK_RESEARCH_ENABLED: "true" }).modelNarrative.status, "data_approval_required");
 });
 
