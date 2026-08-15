@@ -1009,7 +1009,7 @@ npm run earnings:import -- data/earnings/candidates/<file>.json --approve
 
 候选可为 JSON 数组或 `{ "events": [...] }`，每项必须含 `symbol`、`marketDate`、`sourceUrl`、`provider` 和 `sourceTitle`。`scheduledAt` 只在官方页面给出确切时点时填写 ISO 时间；只写“盘后”或没有时点时保持空值并使用 `session`，不得补造时间。导入会按标的和官方 URL 生成稳定键、去重来源，并拒绝未注册标的；它不会抓取网页、不会导入估算为实际、不会写入 `events` 市场归因表。
 
-读取接口：`GET /api/nasdaq/earnings?start=YYYY-MM-DD&end=YYYY-MM-DD&limit=100`。动态日历会把这些事项标记为“财报”，单日详情显示来源与时段，并明确不是当日涨跌原因。当前远程 `earnings_events` 已创建并验证 RLS，已有 1 条已核对记录：NVIDIA `FY2027 Q2` 在 `2026-08-26 13:20 PT`（`20:20 UTC`）预定公布，来源为 `data/earnings/candidates/nvda-fy2027-q2-2026-08-26.json` 中保留的官方 IR 原页；它仍是 `scheduled`，不代表已公布结果。
+读取接口：`GET /api/nasdaq/earnings?start=YYYY-MM-DD&end=YYYY-MM-DD&limit=100`。动态日历会把这些事项标记为“财报”，单日详情显示来源与时段，并明确不是当日涨跌原因；首页还会读取未来 30 天、最多 8 条已归档事项，直接展示市场日期、时段、状态和官方 IR 原页。空状态仅表示没有当前范围内已核对的候选，不能推导为市场没有财报。当前远程 `earnings_events` 已创建并验证 RLS，已有 1 条已核对记录：NVIDIA `FY2027 Q2` 在 `2026-08-26 13:20 PT`（`20:20 UTC`）预定公布，来源为 `data/earnings/candidates/nvda-fy2027-q2-2026-08-26.json` 中保留的官方 IR 原页；它仍是 `scheduled`，不代表已公布结果。
 
 ### 8.4 Nasdaq 动态日历与单日详情
 

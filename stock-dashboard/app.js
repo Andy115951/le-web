@@ -61,6 +61,8 @@ const els = {
   marketEventsBody: document.getElementById("marketEventsBody"),
   marketNewsFeed: document.getElementById("marketNewsFeed"),
   marketEventsHint: document.getElementById("marketEventsHint"),
+  upcomingEarningsBody: document.getElementById("upcomingEarningsBody"),
+  upcomingEarningsHint: document.getElementById("upcomingEarningsHint"),
   marketHistoryBody: document.getElementById("marketHistoryBody"),
   marketHistoryHint: document.getElementById("marketHistoryHint"),
   calendarPrevBtn: document.getElementById("calendarPrevBtn"),
@@ -147,6 +149,14 @@ const state = {
   marketEventsLoading: false,
   marketEventsError: "",
   marketEventsFetchedAt: 0,
+  upcomingEarnings: {
+    events: [],
+    startDate: "",
+    endDate: "",
+    loading: false,
+    error: "",
+    requestId: 0
+  },
   marketHistory: [],
   marketHistoryLoading: false,
   marketHistoryError: "",
@@ -245,7 +255,7 @@ async function init() {
   updateCloudButtons();
   await initCloud(cloudConfig);
   await refreshQuotes();
-  await Promise.all([refreshMarketHistory(), refreshMarketCalendar(), refreshCurrentMarketScenario(), refreshResearchReplay(), refreshModelReview(), refreshResearchHealth(), refreshResearchQuality(), refreshResearchTasks(), refreshEventReview(), refreshDailyReports(), refreshWeeklyReports()]);
+  await Promise.all([refreshUpcomingEarnings(), refreshMarketHistory(), refreshMarketCalendar(), refreshCurrentMarketScenario(), refreshResearchReplay(), refreshModelReview(), refreshResearchHealth(), refreshResearchQuality(), refreshResearchTasks(), refreshEventReview(), refreshDailyReports(), refreshWeeklyReports()]);
 }
 
 function getNewYorkMonth(now = new Date()) {
@@ -254,6 +264,25 @@ function getNewYorkMonth(now = new Date()) {
     year: "numeric",
     month: "2-digit"
   }).format(now).slice(0, 7);
+}
+
+function getNewYorkDate(now = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(now).reduce(function (result, part) {
+    result[part.type] = part.value;
+    return result;
+  }, {});
+  return parts.year + "-" + parts.month + "-" + parts.day;
+}
+
+function shiftMarketDate(date, offset) {
+  const parsed = new Date(date + "T12:00:00.000Z");
+  parsed.setUTCDate(parsed.getUTCDate() + offset);
+  return parsed.toISOString().slice(0, 10);
 }
 
 function isAShareSymbol(symbol) {
@@ -989,6 +1018,73 @@ async function syncMarketEventsToHistory(events) {
   if (!cloud.client || !cloud.user || !Array.isArray(events) || !events.length) return;
   const result = await saveMarketEventHistory(cloud.client, cloud.user.id, events);
   if (result.error) return;
+}
+
+async function refreshUpcomingEarnings() {
+  if (!els.upcomingEarningsBody || !els.upcomingEarningsHint) return;
+  const earnings = state.upcomingEarnings;
+  const requestId = ++earnings.requestId;
+  earnings.startDate = getNewYorkDate();
+  earnings.endDate = shiftMarketDate(earnings.startDate, 30);
+  earnings.loading = true;
+  earnings.error = "";
+  renderUpcomingEarnings();
+  try {
+    const query = new URLSearchParams({ start: earnings.startDate, end: earnings.endDate, limit: "16" });
+    const response = await fetch("./api/nasdaq/earnings?" + query.toString());
+    const payload = await response.json().catch(function () { return {}; });
+    if (!response.ok) throw new Error(payload?.error || "读取官方财报日历失败");
+    if (requestId !== earnings.requestId) return;
+    earnings.events = Array.isArray(payload?.events) ? payload.events : [];
+    earnings.loading = false;
+    renderUpcomingEarnings();
+  } catch (error) {
+    if (requestId !== earnings.requestId) return;
+    earnings.loading = false;
+    earnings.error = error?.message || "读取官方财报日历失败";
+    renderUpcomingEarnings();
+  }
+}
+
+function renderUpcomingEarnings() {
+  if (!els.upcomingEarningsBody || !els.upcomingEarningsHint) return;
+  const earnings = state.upcomingEarnings;
+  if (earnings.loading && !earnings.events.length) {
+    els.upcomingEarningsHint.textContent = "正在读取未来 30 天已审核归档的公司 IR 事项…";
+    els.upcomingEarningsBody.innerHTML = '<article class="upcoming-earnings-empty"><strong>正在加载近期财报</strong><p>只显示已核对来源，不从新闻标题推测日期。</p></article>';
+    return;
+  }
+  if (earnings.error) {
+    els.upcomingEarningsHint.textContent = "暂时无法读取近期财报，已归档数据不会被客户端猜测补齐。";
+    els.upcomingEarningsBody.innerHTML = '<article class="upcoming-earnings-empty is-error"><strong>财报日历暂不可用</strong><p>' + escapeHtml(earnings.error) + "</p></article>";
+    return;
+  }
+
+  const visible = earnings.events.slice(0, 8);
+  els.upcomingEarningsHint.textContent = "未来 30 天 · " + visible.length + " 项已审核公司 IR 事项；计划日期不等于业绩结果或交易结论。";
+  if (!visible.length) {
+    els.upcomingEarningsBody.innerHTML = '<article class="upcoming-earnings-empty"><strong>未来 30 天暂无已核对事项</strong><p>这只表示当前库中没有通过人工核对并归档的官方 IR 候选，不代表市场没有公司将披露财报。</p></article>';
+    return;
+  }
+
+  const sessionLabels = { before_market: "盘前", after_market: "盘后", during_market: "盘中", unknown: "时段未知" };
+  const statusLabels = { scheduled: "预定", reported: "已公布", cancelled: "已取消" };
+  els.upcomingEarningsBody.innerHTML = visible.map(function (event) {
+    const source = event?.source || {};
+    const symbol = String(event?.symbol || "--");
+    const scheduled = event?.scheduledAt ? formatDualMarketTime(event.scheduledAt) : (sessionLabels[event?.session] || "时段未知");
+    const fiscalPeriod = event?.fiscalPeriod ? " · " + String(event.fiscalPeriod) : "";
+    const sourceLink = source.canonicalUrl
+      ? '<a href="' + escapeHtml(source.canonicalUrl) + '" target="_blank" rel="noreferrer">查看官方 IR</a>'
+      : '<span>来源链接待补充</span>';
+    return [
+      '<article class="upcoming-earnings-card">',
+      '<div class="upcoming-earnings-date"><time datetime="' + escapeHtml(String(event?.marketDate || "")) + '">' + escapeHtml(formatMarketDate(event?.marketDate || earnings.startDate)) + '</time><span>' + escapeHtml(statusLabels[event?.status] || "未知") + "</span></div>",
+      '<div class="upcoming-earnings-main"><strong>' + escapeHtml(symbol) + '</strong><p>' + escapeHtml(String(event?.displayName || "公司财报事项")) + escapeHtml(fiscalPeriod) + '</p></div>',
+      '<div class="upcoming-earnings-meta"><span>' + escapeHtml(scheduled) + '</span><span>' + escapeHtml(source.provider || "官方来源") + '</span>' + sourceLink + '</div>',
+      "</article>"
+    ].join("");
+  }).join("");
 }
 
 async function refreshMarketHistory(options) {
