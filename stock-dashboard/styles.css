@@ -2209,6 +2209,16 @@ body {
 .workspace-card { padding: 20px; }
 .overview-card:first-child { background: linear-gradient(145deg, #ffffff, #f4f7ff); }
 .workspace-card:last-child { background: linear-gradient(145deg, #ffffff, #f7fbf9); }
+.ndx-snapshot-status { margin: -2px 0 12px; }
+.ndx-snapshot-note { display: grid; gap: 4px; padding: 10px 11px; border: 1px solid #d9e1ec; border-left: 3px solid #98a9c2; border-radius: 10px; background: #f9fbfe; }
+.ndx-snapshot-note > div { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ndx-snapshot-note span { color: #667b98; font-size: .64rem; font-weight: 850; letter-spacing: .06em; }
+.ndx-snapshot-note strong { color: #4c607c; font-size: .72rem; }
+.ndx-snapshot-note p, .ndx-snapshot-note small { margin: 0; color: #728198; font-size: .67rem; line-height: 1.42; }
+.ndx-snapshot-note.is-current { border-color: #cde5d8; border-left-color: #328262; background: #f5fcf8; }.ndx-snapshot-note.is-current strong { color: #267451; }
+.ndx-snapshot-note.is-aging { border-color: #eedbb5; border-left-color: #b77a19; background: #fffaf1; }.ndx-snapshot-note.is-aging strong { color: #8a661c; }
+.ndx-snapshot-note.is-stale, .ndx-snapshot-note.is-inconsistent-future { border-color: #edc8cc; border-left-color: #bf5660; background: #fff7f7; }.ndx-snapshot-note.is-stale strong, .ndx-snapshot-note.is-inconsistent-future strong { color: #a44750; }
+.ndx-snapshot-note.is-loading, .ndx-snapshot-note.is-unknown { border-left-color: #7b90ac; background: #f6f8fb; }
 .eyebrow { color: #526ea9; font-size: 0.7rem; font-weight: 800; letter-spacing: 0.13em; }
 .overview-head { margin-bottom: 16px; }
 .overview-head h2,

@@ -104,6 +104,7 @@ const els = {
   flatStat: document.getElementById("flatStat"),
   marketPulseBody: document.getElementById("marketPulseBody"),
   mag7SnapshotBody: document.getElementById("mag7SnapshotBody"),
+  ndxSnapshotStatusBody: document.getElementById("ndxSnapshotStatusBody"),
   leadersBody: document.getElementById("leadersBody"),
   currentScenarioBody: document.getElementById("currentScenarioBody"),
   refreshCurrentScenarioBtn: document.getElementById("refreshCurrentScenarioBtn"),
@@ -1547,6 +1548,7 @@ async function refreshResearchQuality() {
   }
   quality.loading = false;
   renderResearchQuality();
+  renderNdxSnapshotStatus();
 }
 
 function renderResearchQuality() {
@@ -2250,11 +2252,40 @@ function fillQuoteCells(cells, quote) {
 
 function renderOverview() {
   renderMarketPulse();
+  renderNdxSnapshotStatus();
   renderMag7Snapshot();
   renderRelativeLeaders();
   renderCurrentMarketScenario();
   renderPortfolioSnapshot();
   renderDecisionWorkspace();
+}
+
+function renderNdxSnapshotStatus() {
+  if (!els.ndxSnapshotStatusBody) return;
+  const quality = state.researchQuality;
+  if (quality.loading && !quality.value) {
+    els.ndxSnapshotStatusBody.innerHTML = '<div class="ndx-snapshot-note is-loading"><span>NDX 成分核对</span><strong>正在读取已审核快照…</strong></div>';
+    return;
+  }
+  if (!quality.value?.ndxConstituents) {
+    els.ndxSnapshotStatusBody.innerHTML = '<div class="ndx-snapshot-note is-unknown"><span>NDX 成分核对</span><strong>快照状态暂不可用</strong><small>核心卡片不会把本地观察篮子声明为完整当前成分。</small></div>';
+    return;
+  }
+  const freshness = quality.value.ndxConstituents;
+  const status = String(freshness.status || "awaiting_snapshot");
+  const label = ndxFreshnessLabel(status);
+  const age = Number(freshness.ageDays);
+  const effectiveDate = freshness.effectiveDate;
+  const count = Number(freshness.constituentCount || 0);
+  const detail = effectiveDate
+    ? formatMarketDate(effectiveDate) + " · " + count + " 个证券" + (Number.isFinite(age) ? " · " + age + " 天前" : "")
+    : "尚无可用官方快照";
+  const caution = status === "current"
+    ? "核心雷达基于已审核官方快照；不会自动改写历史权重。"
+    : status === "aging"
+      ? "快照接近维护阈值，仍需从官方来源核对下一份候选。"
+      : "快照不能被当作当前完整成分；系统不会从新闻或非官方名单补齐。";
+  els.ndxSnapshotStatusBody.innerHTML = '<div class="ndx-snapshot-note is-' + escapeHtml(status) + '"><div><span>NDX 成分核对</span><strong>' + escapeHtml(label) + '</strong></div><p>' + escapeHtml(detail) + '</p><small>' + escapeHtml(caution) + '</small></div>';
 }
 
 function renderCurrentMarketScenario() {

@@ -91,3 +91,21 @@ test("research quality safely composes independently injected read sources", asy
   assert.equal(quality.ndxConstituents.status, "current");
   assert.equal(quality.limitations.some(function (item) { return item.includes("No archived research snapshot"); }), true);
 });
+
+test("research quality uses the New York market date for constituent freshness", async function () {
+  let requestedAsOf = null;
+  const quality = await getResearchQuality({
+    config: { url: "https://example.invalid" },
+    now: new Date("2026-08-15T01:30:00.000Z"),
+    getHealth: async function () { return { snapshotCount: 0, matureOutcomeCount: 0, latestCapture: null }; },
+    getDailyReports: async function () { return { count: 0, reports: [] }; },
+    getWeeklyReports: async function () { return { count: 0, reports: [] }; },
+    getReviewQueue: async function () { return { totalCount: 0, needsAttentionCount: 0, unreviewedCount: 0 }; },
+    getTaskRuns: async function () { return { count: 0, runs: [] }; },
+    getDerivedFreshness: async function () { return buildDerivedDataFreshness({}); },
+    getNdxSnapshot: async function (asOfDate) { requestedAsOf = asOfDate; return { effective_date: "2026-08-01", constituent_count: 101 }; },
+    getIntegrationReadiness: function () { return {}; }
+  });
+  assert.equal(requestedAsOf, "2026-08-14");
+  assert.equal(quality.ndxConstituents.asOfDate, "2026-08-14");
+});

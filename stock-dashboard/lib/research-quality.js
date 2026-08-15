@@ -9,6 +9,7 @@ const { getFredApiKey } = require("./fred-macro");
 const { getDeepSeekResearchReadiness } = require("./deepseek-research-narrative");
 const { getGatewayCompatibilityConfig } = require("./model-gateway-compatibility");
 const { getNdxSnapshot } = require("./ndx-snapshots");
+const { marketDate } = require("./historical-market-data");
 const { SIMILARITY_METHOD_VERSION } = require("./similar-days");
 
 const RESEARCH_QUALITY_VERSION = "research-quality-v3";
@@ -207,7 +208,7 @@ async function getResearchQuality(options = {}) {
   const getDerivedFreshness = options.getDerivedFreshness || getDerivedDataFreshness;
   const getNdx = options.getNdxSnapshot || getNdxSnapshot;
   const now = options.now instanceof Date ? options.now : new Date();
-  const asOfDate = normalizeMarketDate(options.asOfDate) || now.toISOString().slice(0, 10);
+  const asOfDate = normalizeMarketDate(options.asOfDate) || marketDate(now.getTime());
   const [health, daily, weekly, review, tasks, derivedData, ndxSnapshot] = await Promise.all([
     getHealth({ config, requestImpl, env: options.env }),
     getDailyReports({ limit: 30 }, config, requestImpl),
