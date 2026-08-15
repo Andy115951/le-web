@@ -32,6 +32,7 @@
       <div class="command-links">
         <button type="button" class="command-link is-active" data-scroll-target="marketOverview">Nasdaq 100</button>
         <button type="button" class="command-link" data-scroll-target="marketEvents">动态新闻</button>
+        <button type="button" class="command-link" data-scroll-target="personalObservations">观察记录</button>
         <button type="button" class="command-link" data-scroll-target="marketCalendar">市场日历</button>
         <button type="button" class="command-link" data-scroll-target="researchReplay">研究回放</button>
         <button type="button" class="command-link" data-scroll-target="researchQuality">研究覆盖</button>
@@ -206,6 +207,17 @@
         <p class="muted">只列出需要你判断或执行的信号，不等同于买卖建议。</p>
       </div>
       <div class="action-queue-list" id="actionQueueBody"></div>
+    </section>
+
+    <section class="personal-observations" id="personalObservations">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">PERSONAL OBSERVATION LOG</p>
+          <h2>自动观察记录</h2>
+        </div>
+        <p class="muted" id="observationsHint">刷新行情后会记录触发条件，供后续复核。</p>
+      </div>
+      <div class="personal-observations-list" id="observationsBody" aria-live="polite"></div>
     </section>
 
     <section class="market-events" id="marketEvents">

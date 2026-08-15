@@ -1,3 +1,5 @@
+import { normalizePersonalObservations } from "./personal-observations.mjs";
+
 const STORAGE_KEY = "stock-dashboard-state-v2";
 
 const CORE_US_TECH_ITEMS = [
@@ -177,7 +179,8 @@ export function loadState() {
       items: dedupeItems(DEFAULT_ITEMS.map(normalizeItem)),
       preferences: { ...DEFAULT_PREFERENCES },
       usPeaks: {},
-      marketEvents: []
+      marketEvents: [],
+      observations: []
     };
   }
 
@@ -194,7 +197,8 @@ export function loadState() {
     items: mergedItems,
     preferences: normalizePreferences(raw.preferences),
     usPeaks: normalizeUsPeaks(raw.usPeaks),
-    marketEvents: normalizeMarketEvents(raw.marketEvents)
+    marketEvents: normalizeMarketEvents(raw.marketEvents),
+    observations: normalizePersonalObservations(raw.observations)
   };
 }
 
@@ -203,7 +207,8 @@ export function saveState(state) {
     items: dedupeItems((state.items || []).map(normalizeItem)),
     preferences: normalizePreferences(state.preferences || {}),
     usPeaks: normalizeUsPeaks(state.usPeaks),
-    marketEvents: normalizeMarketEvents(state.marketEvents)
+    marketEvents: normalizeMarketEvents(state.marketEvents),
+    observations: normalizePersonalObservations(state.observations)
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 }

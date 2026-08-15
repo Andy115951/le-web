@@ -11,6 +11,7 @@ create table if not exists public.watchlist_states (
   preferences jsonb not null default '{}'::jsonb,
   us_peaks jsonb not null default '{}'::jsonb,
   market_events jsonb not null default '[]'::jsonb,
+  observations jsonb not null default '[]'::jsonb,
   updated_at timestamptz not null default now()
 );
 
@@ -41,6 +42,9 @@ with check (auth.uid() = user_id);
 ```sql
 alter table public.watchlist_states
 add column if not exists market_events jsonb not null default '[]'::jsonb;
+
+alter table public.watchlist_states
+add column if not exists observations jsonb not null default '[]'::jsonb;
 ```
 
 ### 行情历史表
@@ -371,6 +375,7 @@ vercel dev
 - `preferences`: 筛选/排序/分页/自动刷新偏好
 - `us_peaks`: 全市场峰值记录（用于计算较峰值回撤，字段名为历史遗留）
 - `market_events`: 最近 14 天的自动行情事件。每只股票每天保留一条最新快照，包含当日涨跌、`QQQ` 对照、关联资讯与来源链接。
+- `observations`: 最近 90 天的个人自动观察记录。仅保存回撤纪律、目标价、相对 `QQQ` 弱势和单日波动等已触发事实；按“美东日期 + 标的 + 触发类型 + 阈值”去重，不代表买卖指令。
 
 当前 `items` 里除了基础字段外，还会保存这些持仓上下文字段：
 
@@ -380,7 +385,7 @@ vercel dev
 
 所以如果你在一台设备补了持仓数据，同步后另一台设备也会直接拿到，用于生成“我的持仓上下文”和“今日决策摘要”。
 
-行情事件也会随着普通云同步保存。迁移未执行前，看板会自动降级为只同步原有数据，不会影响自选股和持仓同步；执行迁移后，事件才能跨设备保留。
+行情事件与个人观察记录也会随着普通云同步保存。迁移未执行前，看板会自动降级为只同步原有数据，不会影响自选股和持仓同步；执行迁移后，对应记录才能跨设备保留。
 
 `nasdaq_market_event_history` 是公共市场主历史表；`market_event_history` 只保留个人兼容数据。同一交易日和股票重复运行时更新原记录，不产生重复行。
 

@@ -1,6 +1,7 @@
 import { loadState, saveState, upsertItem, removeItem, collectGroups } from "./storage.js";
 import { fetchQuotes } from "./quotes.js";
 import { renderSparkline, renderTrendChart } from "./chart.js";
+import { buildPersonalObservations, mergePersonalObservations } from "./personal-observations.mjs";
 import {
   loadCloudConfig,
   saveCloudConfig,
@@ -58,6 +59,8 @@ const els = {
   stockTableBody: document.getElementById("stockTableBody"),
   lastUpdated: document.getElementById("lastUpdated"),
   actionQueueBody: document.getElementById("actionQueueBody"),
+  observationsBody: document.getElementById("observationsBody"),
+  observationsHint: document.getElementById("observationsHint"),
   marketEventsBody: document.getElementById("marketEventsBody"),
   marketNewsFeed: document.getElementById("marketNewsFeed"),
   marketEventsHint: document.getElementById("marketEventsHint"),
@@ -149,6 +152,7 @@ const state = {
   quotes: {},
   usPeaks: {},
   marketEvents: [],
+  observations: [],
   marketEventsLoading: false,
   marketEventsError: "",
   marketEventsFetchedAt: 0,
@@ -248,6 +252,7 @@ async function init() {
   state.preferences = saved.preferences;
   state.usPeaks = saved.usPeaks || {};
   state.marketEvents = saved.marketEvents || [];
+  state.observations = saved.observations || [];
   bindEvents();
   syncCloudConfigInputs(cloudConfig);
   syncControls();
@@ -709,6 +714,13 @@ function bindEvents() {
     if (!button) return;
     void openAnalysis(button.getAttribute("data-analyze-symbol"));
   });
+  if (els.observationsBody) {
+    els.observationsBody.addEventListener("click", function (event) {
+      const button = event.target.closest("[data-analyze-symbol]");
+      if (!button) return;
+      void openAnalysis(button.getAttribute("data-analyze-symbol"));
+    });
+  }
   els.detailOverlay.addEventListener("click", function (event) {
     if (event.target.closest("[data-close-detail]")) {
       closeAnalysis();
@@ -866,13 +878,15 @@ async function pullFromCloud(options) {
       items: state.items,
       preferences: state.preferences,
       usPeaks: state.usPeaks,
-      marketEvents: state.marketEvents
+      marketEvents: state.marketEvents,
+      observations: state.observations
     });
     const remoteFingerprint = JSON.stringify({
       items: Array.isArray(remote.data.items) ? remote.data.items : [],
       preferences: remote.data.preferences && typeof remote.data.preferences === "object" ? remote.data.preferences : {},
       usPeaks: remote.data.us_peaks && typeof remote.data.us_peaks === "object" ? remote.data.us_peaks : {},
-      marketEvents: Array.isArray(remote.data.market_events) ? remote.data.market_events : []
+      marketEvents: Array.isArray(remote.data.market_events) ? remote.data.market_events : [],
+      observations: Array.isArray(remote.data.observations) ? remote.data.observations : []
     });
 
     if (localFingerprint !== remoteFingerprint) {
@@ -896,6 +910,7 @@ function applyRemoteState(remoteData) {
   };
   state.usPeaks = remoteData.us_peaks && typeof remoteData.us_peaks === "object" ? remoteData.us_peaks : {};
   state.marketEvents = Array.isArray(remoteData.market_events) ? remoteData.market_events : [];
+  state.observations = mergePersonalObservations(state.observations, remoteData.observations);
   persist({ skipCloudSync: true });
   renderGroupFilter();
   syncControls();
@@ -916,7 +931,8 @@ async function pushToCloud(reason) {
     items: state.items,
     preferences: state.preferences,
     usPeaks: state.usPeaks,
-    marketEvents: state.marketEvents
+    marketEvents: state.marketEvents,
+    observations: state.observations
   });
   cloud.syncing = false;
   updateCloudButtons();
@@ -976,6 +992,7 @@ async function refreshQuotesInternal(options) {
     }))));
     state.quotes = await fetchQuotes(quoteSymbols);
     syncPeaksWithQuotes();
+    capturePersonalObservations();
     persist();
     refreshed = true;
     state.lastSuccessAt = new Date();
@@ -2213,6 +2230,7 @@ function render() {
 
   renderStats(rows);
   renderActionQueue();
+  renderPersonalObservations();
   renderMarketEvents();
   renderMarketHistory();
   renderMarketCalendar();
@@ -3179,6 +3197,52 @@ function renderActionQueue() {
   }
 
   els.actionQueueBody.innerHTML = entries.slice(0, 6).map(renderActionQueueCard).join("");
+}
+
+function renderPersonalObservations() {
+  if (!els.observationsBody || !els.observationsHint) return;
+
+  const observations = state.observations.slice(0, 8);
+  els.observationsHint.textContent = observations.length
+    ? "行情刷新后自动保留触发时的价格事实与个人阈值，最多 90 天；它不是买卖指令。"
+    : "刷新行情后，达到个人回撤纪律、目标价或显著弱势时会自动留下可回看记录。";
+
+  if (!observations.length) {
+    els.observationsBody.innerHTML = [
+      '<article class="personal-observation-empty">',
+      '<strong>还没有自动观察记录</strong>',
+      '<p class="muted">添加目标价或回撤规则后刷新行情；记录只在条件真实触发时创建。</p>',
+      "</article>"
+    ].join("");
+    return;
+  }
+
+  els.observationsBody.innerHTML = observations.map(renderPersonalObservationCard).join("");
+}
+
+function renderPersonalObservationCard(entry) {
+  const kindLabels = {
+    drawdown_rule: "回撤纪律",
+    target_hit: "目标已到",
+    target_near: "临近目标",
+    relative_weakness: "相对弱势",
+    daily_drop: "单日波动"
+  };
+  const tone = entry.kind === "target_hit" && entry.metrics?.targetDirection === "up"
+    ? "positive"
+    : entry.kind === "target_near" ? "neutral" : "negative";
+  const capturedAt = new Date(entry.capturedAt);
+  const timeText = Number.isFinite(capturedAt.getTime()) ? formatDualMarketTime(entry.capturedAt) : "时间未知";
+
+  return [
+    '<article class="personal-observation-card ' + tone + '">',
+    '<div class="personal-observation-head"><span>' + escapeHtml(kindLabels[entry.kind] || "观察") + '</span><strong>' + escapeHtml(entry.symbol) + "</strong></div>",
+    '<h3>' + escapeHtml(entry.title) + "</h3>",
+    '<p class="personal-observation-name">' + escapeHtml(entry.displayName || entry.symbol) + "</p>",
+    '<p class="personal-observation-detail">' + escapeHtml(entry.detail) + "</p>",
+    '<div class="personal-observation-foot"><time datetime="' + escapeHtml(entry.capturedAt) + '">' + escapeHtml(formatMarketDate(entry.marketDate)) + " · " + escapeHtml(timeText) + '</time><button type="button" class="btn btn-ghost" data-analyze-symbol="' + escapeHtml(entry.symbol) + '">查看分析</button></div>',
+    "</article>"
+  ].join("");
 }
 
 function renderMarketEvents() {
@@ -4198,7 +4262,8 @@ function persist(options) {
     items: state.items,
     preferences: state.preferences,
     usPeaks: state.usPeaks,
-    marketEvents: state.marketEvents
+    marketEvents: state.marketEvents,
+    observations: state.observations
   });
 
   if (!options?.skipCloudSync) {
@@ -4296,6 +4361,18 @@ function syncPeaksWithQuotes() {
       delete state.usPeaks[symbol];
     }
   }
+}
+
+function capturePersonalObservations() {
+  const candidates = buildPersonalObservations({
+    marketDate: getNewYorkDate(),
+    capturedAt: new Date().toISOString(),
+    items: state.items,
+    quotes: state.quotes,
+    peaks: state.usPeaks,
+    strategyRules: parseStrategyRules(state.preferences.strategyRulesText)
+  });
+  state.observations = mergePersonalObservations(state.observations, candidates);
 }
 
 function getDrawdownPercent(item, quote) {

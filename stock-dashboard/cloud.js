@@ -98,18 +98,25 @@ export function onCloudAuthChange(client, callback) {
 export async function loadRemoteState(client, userId) {
   const current = await client
     .from(TABLE_NAME)
-    .select("items,preferences,us_peaks,market_events,updated_at")
+    .select("items,preferences,us_peaks,market_events,observations,updated_at")
     .eq("user_id", userId)
     .limit(1);
 
-  // Keep existing users working until they run the one-column migration.
-  const fallback = current.error && /market_events|column/i.test(current.error.message || "")
+  // Keep existing users working until they run the additive state migrations.
+  const withoutObservations = current.error && /observations|column/i.test(current.error.message || "")
+    ? await client
+      .from(TABLE_NAME)
+      .select("items,preferences,us_peaks,market_events,updated_at")
+      .eq("user_id", userId)
+      .limit(1)
+    : current;
+  const fallback = withoutObservations.error && /market_events|column/i.test(withoutObservations.error.message || "")
     ? await client
       .from(TABLE_NAME)
       .select("items,preferences,us_peaks,updated_at")
       .eq("user_id", userId)
       .limit(1)
-    : current;
+    : withoutObservations;
   const { data, error } = fallback;
 
   if (error) {
@@ -127,6 +134,7 @@ export async function saveRemoteState(client, userId, state) {
     preferences: state.preferences && typeof state.preferences === "object" ? state.preferences : {},
     us_peaks: state.usPeaks && typeof state.usPeaks === "object" ? state.usPeaks : {},
     market_events: Array.isArray(state.marketEvents) ? state.marketEvents : [],
+    observations: Array.isArray(state.observations) ? state.observations : [],
     updated_at: new Date().toISOString()
   };
 
@@ -134,8 +142,20 @@ export async function saveRemoteState(client, userId, state) {
     .from(TABLE_NAME)
     .upsert(payload, { onConflict: "user_id" });
 
-  // The fallback avoids breaking the existing watchlist sync before SQL is applied.
-  const fallback = current.error && /market_events|column/i.test(current.error.message || "")
+  // The fallbacks avoid breaking existing watchlist sync before additive SQL is applied.
+  const withoutObservations = current.error && /observations|column/i.test(current.error.message || "")
+    ? await client
+      .from(TABLE_NAME)
+      .upsert({
+        user_id: payload.user_id,
+        items: payload.items,
+        preferences: payload.preferences,
+        us_peaks: payload.us_peaks,
+        market_events: payload.market_events,
+        updated_at: payload.updated_at
+      }, { onConflict: "user_id" })
+    : current;
+  const fallback = withoutObservations.error && /market_events|column/i.test(withoutObservations.error.message || "")
     ? await client
       .from(TABLE_NAME)
       .upsert({
@@ -145,7 +165,7 @@ export async function saveRemoteState(client, userId, state) {
         us_peaks: payload.us_peaks,
         updated_at: payload.updated_at
       }, { onConflict: "user_id" })
-    : current;
+    : withoutObservations;
   const { error } = fallback;
 
   return { error: error ? (error.message || "写入云端数据失败") : null };

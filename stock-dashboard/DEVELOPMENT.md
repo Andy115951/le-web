@@ -218,6 +218,7 @@ supabase projects list --agent no --output-format text
 
 - `watchlist_states`
 - `watchlist_states.market_events`
+- `watchlist_states.observations`
 - `market_event_history`
 - `nasdaq_market_event_history`
 - `market_capture_runs`
@@ -355,7 +356,8 @@ npx vercel dev
 3. A 股与美股分析弹层能够请求 `api/`。
 4. 页面填写 Supabase URL/Anon Key 后可以发送 Magic Link。
 5. 登录后可以拉取和同步 `watchlist_states`。
-6. 历史页面可以读取 `market_event_history`。
+6. 刷新行情后，个人回撤纪律、目标价或弱势触发会出现在“自动观察记录”；同一美东日期的同一触发不会重复创建。
+7. 历史页面可以读取 `market_event_history`。
 
 ## 8. Cron 本地验证
 
