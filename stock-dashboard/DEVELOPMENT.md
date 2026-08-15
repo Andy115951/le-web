@@ -43,6 +43,7 @@
 - [x] `research_task_runs` 已通过 Management API 扩展为 `research-task-run-v2`：新增安全的每次尝试、排队与运行耗时列及受限失败码约束
 - [x] Cron 运行日志、失败诊断、手动重跑和最近运行记录接口
 - [x] Cron 诊断接口脱敏：只返回状态、计数和公共观察宇宙失败摘要，不返回用户 ID、个人标的、原始异常或内部运行详情
+- [x] 公共行情 Collector 已拆出独立模块，瞬时网络失败最多重试一次；可用受保护 `runId` 单条摘要关联具体运行，不重试个人自选写入或触发模型
 - [x] Nasdaq 核心行情/新闻入口已与个人自选解耦，无登录也可运行
 
 页面、API、事件规则和数据库开发现在都可进行；当前未完成项不会阻塞下一批代码开发。
@@ -925,7 +926,7 @@ npm run agents:replay -- 2026-08-12 --apply
 
 模型审计的查询分为两条：所有尝试只读取 `status / provider / model / failure_code / created_at` 摘要；只有 `accepted` 记录才读取并显示已通过校验的叙述。`rejected` 尝试会按固定白名单汇总“响应未完整结束、空响应、无效 JSON、网关 HTTP 异常、网关请求失败、输出契约不通过”；旧行或未知码只标记为未分类历史拒绝。回放绝不读取或返回原始模型文本、验证错误、元数据、请求头或密钥。日报和结果若不存在只标记 `not_archived`，该状态不推断是任务未执行、仍在 20 日窗口中，还是历史记录缺失。
 
-该接口不触发 Cron、模型或写入。迁移之前的历史快照因没有 `capture_run_id` 会标记为 `not_linked`，绝不按日期、时间或日志推断关联；首次新的完整收盘采集后才会出现真实关联回放。Attribution 与 Labeler 已具有独立运行、重试遥测与追加式结果；Collector 的独立重试和受保护逐条运维诊断仍未建模，因此“完整跨 Agent 运维回放”仍属于后续任务。
+该接口不触发 Cron、模型或写入。迁移之前的历史快照因没有 `capture_run_id` 会标记为 `not_linked`，绝不按日期、时间或日志推断关联；首次新的完整收盘采集后才会出现真实关联回放。Attribution、Labeler 与公共行情 Collector 都具有独立运行和受限重试遥测；Collector 的单次运维摘要可通过受 `CRON_SECRET` 保护的 `/api/cron/market-history-runs?runId=<uuid>` 查询。它只返回固定状态、次数、计数和公共失败摘要，不返回个人标的、用户 ID、原始异常或模型数据。完整跨 Agent 流程回放仍不会伪造缺失阶段。
 
 #### 8.2.18 冻结失败案例的事后市场阶段诊断
 
@@ -1129,6 +1130,18 @@ $cronHeaders = @{ Authorization = "Bearer $cronSecretForTest" }
 Invoke-RestMethod -Method Get -Uri 'http://localhost:3000/api/cron/market-history-runs?limit=20' -Headers $cronHeaders
 Remove-Variable cronSecretForTest, cronHeaders
 ```
+
+如需查看某一次运行的脱敏 Collector 摘要，使用响应中的 `runId`：
+
+```powershell
+$cronSecretForTest = Read-Host '请输入本地 CRON_SECRET'
+$runId = Read-Host '请输入 UUID 格式的 runId'
+$cronHeaders = @{ Authorization = "Bearer $cronSecretForTest" }
+Invoke-RestMethod -Method Get -Uri "http://localhost:3000/api/cron/market-history-runs?runId=$runId" -Headers $cronHeaders
+Remove-Variable cronSecretForTest, runId, cronHeaders
+```
+
+该查询不是网页接口，且只返回脱敏的状态、计数、重试次数及公共观察宇宙失败摘要。
 
 手动入口不会绕过美东收盘时间和上游行情日期检查，也不支持为任意历史日期倒推新闻原因。
 

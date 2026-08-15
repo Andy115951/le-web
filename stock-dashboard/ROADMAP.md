@@ -484,7 +484,7 @@ CRON_SECRET
 - [x] 快照回放阶段计数：同次收盘运行的行情、归因、日报、周报和结果阶段仅回放固定白名单计数；不公开错误、标的、来源、内部 ID 或原始 JSON
 - [x] 独立确定性 Attribution Agent：统一事件写入后以版本化结构化输入、QQQ 对照与来源关系计数生成追加式归因；同输入幂等、输入/版本变化可复跑留痕，保守降级为 `insufficient_evidence`，不调用模型或外部网页
 - [x] 独立确定性 Labeler：复用既有审核规则生成追加式风险标签，输入指纹可复跑留痕；自动标签不覆盖人工结论，也不自动排除研究证据
-- [ ] 扩展任务账本（部分完成）：已纳入真实 `market_collection`、独立 `event_attribution`、独立 `event_labeling`、`weekly_fact_report` 阶段和 `partial` 状态；已追加记录可重试阶段的真实尝试、排队耗时和运行耗时，失败不公开原始错误。后续仍需拆出 Collector 并提供受保护的诊断链接
+- [x] 扩展任务账本：已纳入真实 `market_collection`、独立 `event_attribution`、独立 `event_labeling`、`weekly_fact_report` 阶段和 `partial` 状态；可重试阶段记录真实尝试、排队耗时和运行耗时，失败不公开原始错误。公共行情 Collector 已拆出并复用最多两次的瞬时故障重试；`CRON_SECRET` 保护的 `market-history-runs?runId=<uuid>` 提供单次脱敏诊断摘要
 - [ ] 某日完整 Agent 流程回放（含采集、模型输出与审计结果）
 
 验收：任务可观测、可重跑、可审计，结论可回到来源和中间结果。

@@ -6,6 +6,7 @@ const {
   determineRunStatus,
   normalizeHistoryDays,
   normalizeCaptureOptions,
+  normalizeCaptureRunId,
   sanitizeCaptureResultForOps,
   sanitizeCaptureRunForOps,
   toHistoryRow,
@@ -93,6 +94,12 @@ test("normalizeCaptureOptions preserves cron and manual triggers", function () {
   assert.deepEqual(normalizeCaptureOptions(now), { now, trigger: "manual" });
 });
 
+test("capture run ids only accept UUIDs for protected single-run diagnostics", function () {
+  assert.equal(normalizeCaptureRunId("7ca68fea-797e-46c9-9ee2-34b503dfceb1"), "7ca68fea-797e-46c9-9ee2-34b503dfceb1");
+  assert.equal(normalizeCaptureRunId("not-a-run-id"), null);
+  assert.equal(normalizeCaptureRunId("7ca68fea-797e-46c9-9ee2-34b503dfceb1&details=*"), null);
+});
+
 test("determineRunStatus distinguishes complete and partial failures", function () {
   assert.equal(determineRunStatus(2, 0, 0), "succeeded");
   assert.equal(determineRunStatus(0, 0, 0), "skipped");
@@ -112,6 +119,7 @@ test("capture diagnostics remove user data, raw errors, and non-public symbols",
     researchNarrativeReason: "another raw error"
   });
   assert.deepEqual(details.publicFailedSymbols, ["NVDA", "QQQ"]);
+  assert.equal(details.publicFailedSymbolCount, 2);
   assert.equal(details.personalFailedSymbolCount, 3);
   assert.equal(JSON.stringify(details).includes("private-user"), false);
   assert.equal(JSON.stringify(details).includes("raw upstream failure"), false);
@@ -135,6 +143,7 @@ test("operational capture responses expose only a bounded safe summary", functio
   });
   assert.equal(run.runId, "run-123");
   assert.deepEqual(run.details.publicFailedSymbols, ["QQQ"]);
+  assert.equal(run.details.publicFailedSymbolCount, 1);
   assert.equal(JSON.stringify(run).includes("private-user"), false);
   assert.equal(JSON.stringify(run).includes("database hostname"), false);
 
@@ -148,6 +157,7 @@ test("operational capture responses expose only a bounded safe summary", functio
   });
   assert.equal(result.skipReason, "outside_post_close_window");
   assert.deepEqual(result.publicFailedSymbols, ["QQQ"]);
+  assert.equal(result.publicFailedSymbolCount, 1);
   assert.equal(JSON.stringify(result).includes("do-not-expose"), false);
   assert.equal(JSON.stringify(result).includes("raw upstream reason"), false);
 });

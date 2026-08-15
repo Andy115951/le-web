@@ -48,6 +48,7 @@
 - 采集可观测性：每次 Cron/手动重跑写入 `market_capture_runs`，记录状态、耗时、计数和脱敏失败摘要；运维接口不返回用户 ID、个人标的或原始异常
 - 采集任务支持单用户失败隔离，不会因一个用户异常中断整批任务
 - 受 `CRON_SECRET` 保护的手动重跑与最近运行记录接口
+- 公共行情 Collector 独立运行：瞬时网络失败最多重试一次；可按 `runId` 获取脱敏单次诊断摘要
 - 标准公共行情层：`instruments`、`market_days`、`price_bars_daily`，均由服务端密钥访问
 - `QQQ` 五年日线已回填：1,254 个唯一交易日，覆盖 `2021-08-12` 至 `2026-08-11`
 - 公共日线查询接口：`GET /api/nasdaq/prices?symbol=QQQ&limit=1254`

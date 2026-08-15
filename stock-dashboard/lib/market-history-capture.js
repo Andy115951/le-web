@@ -2,7 +2,7 @@ const crypto = require("crypto");
 const { getDailyMarketEvents, isAfterUsMarketClose, marketDate } = require("./daily-market-events");
 const { NASDAQ_FOCUS_INSTRUMENTS, NASDAQ_UNIVERSE_AS_OF } = require("./nasdaq-universe");
 const { getSupabaseConfig, requestSupabase } = require("./supabase-server");
-const { persistUnifiedMarketEvents } = require("./unified-market-events");
+const { runMarketCollectionAgent, toPublicHistoryRow } = require("./market-collection-agent");
 const { runMarketAttributionAgent } = require("./market-attribution-agent");
 const { runEventLabelerAgent } = require("./event-labeler-agent");
 const { captureRecentSecFilings, isSecEdgarConfigured } = require("./sec-edgar");
@@ -13,17 +13,14 @@ const { persistDailyResearchReport } = require("./daily-research-reports");
 const { freezeWeeklyResearchReport } = require("./weekly-research-reports");
 const { runDeepSeekResearchNarrative } = require("./deepseek-research-narrative");
 const { evaluateMatureResearchOutcomes } = require("./research-outcome-evaluations");
-const { buildResearchTaskRunRows, buildTaskAttempt, persistResearchTaskRuns, runResearchTaskWithRetry } = require("./research-task-runs");
+const { buildResearchTaskRunRows, persistResearchTaskRuns, runResearchTaskWithRetry } = require("./research-task-runs");
 
 const RUNS_TABLE = "market_capture_runs";
 const PUBLIC_HISTORY_TABLE = "nasdaq_market_event_history";
-const INSTRUMENT_ROLES = new Map(NASDAQ_FOCUS_INSTRUMENTS.map(function (item) {
-  return [item.symbol, item.role];
-}));
 const PUBLIC_SYMBOLS = new Set(NASDAQ_FOCUS_INSTRUMENTS.map(function (item) {
   return item.symbol;
 }));
-const SAFE_COMPONENT_STATUSES = new Set(["pending", "succeeded", "partial", "skipped", "failed", "disabled"]);
+const SAFE_COMPONENT_STATUSES = new Set(["pending", "running", "succeeded", "partial", "skipped", "failed", "disabled"]);
 
 function isGlobalStockSymbol(symbol) {
   return /^[A-Z][A-Z0-9.-]{0,9}$/.test(String(symbol || "").trim().toUpperCase());
@@ -48,29 +45,6 @@ function toHistoryRow(userId, event, now) {
     summary: event.summary,
     reasons: Array.isArray(event.reasons) ? event.reasons : [],
     news: Array.isArray(event.news) ? event.news : [],
-    captured_at: event.capturedAt,
-    updated_at: now.toISOString()
-  };
-}
-
-function toPublicHistoryRow(event, now, universe) {
-  const instruments = Array.isArray(universe?.instruments) ? universe.instruments : NASDAQ_FOCUS_INSTRUMENTS;
-  const role = instruments.find(function (item) { return item.symbol === event.symbol; })?.role;
-  return {
-    market_date: event.date,
-    symbol: event.symbol,
-    display_name: event.name,
-    instrument_role: role || INSTRUMENT_ROLES.get(event.symbol) || "component",
-    universe_as_of: universe?.asOf || NASDAQ_UNIVERSE_AS_OF,
-    change_percent: event.changePercent,
-    benchmark_change_percent: event.benchmarkChangePercent,
-    driver_type: event.driverType,
-    confidence: event.confidence,
-    summary: event.summary,
-    reasons: Array.isArray(event.reasons) ? event.reasons : [],
-    news: Array.isArray(event.news) ? event.news : [],
-    event_time: event.eventTime || null,
-    available_at: event.availableAt || event.capturedAt,
     captured_at: event.capturedAt,
     updated_at: now.toISOString()
   };
@@ -109,10 +83,13 @@ function publicFailedSymbols(values) {
 function buildSafeCaptureDetails(details) {
   const source = details && typeof details === "object" ? details : {};
   const safePublicFailedSymbols = publicFailedSymbols(source.publicFailedSymbols || source.failedSymbols);
+  const publicFailedSymbolCount = Math.min(16, normalizeCount(source.publicFailedSymbolCount || safePublicFailedSymbols.length));
   return {
     publicFailedSymbols: safePublicFailedSymbols,
-    publicFailedSymbolCount: safePublicFailedSymbols.length,
+    publicFailedSymbolCount,
     personalFailedSymbolCount: normalizeCount(source.personalFailedSymbolCount),
+    marketCollectionStatus: safeComponentStatus(source.marketCollectionStatus),
+    marketCollectorAttemptCount: Math.min(3, normalizeCount(source.marketCollectorAttemptCount)),
     publicSavedEvents: normalizeCount(source.publicSavedEvents),
     unifiedSavedEvents: normalizeCount(source.unifiedSavedEvents),
     unifiedSavedSources: normalizeCount(source.unifiedSavedSources),
@@ -156,6 +133,7 @@ function sanitizeCaptureResultForOps(result) {
   const source = result && typeof result === "object" ? result : {};
   const status = safeComponentStatus(source.status);
   const skipped = source.skipped === true || status === "skipped";
+  const safePublicFailedSymbols = publicFailedSymbols(source.publicFailedSymbols || source.failedSymbols);
   return {
     runId: typeof source.runId === "string" ? source.runId : null,
     trigger: source.trigger === "manual" ? "manual" : "cron",
@@ -170,8 +148,11 @@ function sanitizeCaptureResultForOps(result) {
     savedEvents: normalizeCount(source.savedEvents),
     publicSavedEvents: normalizeCount(source.publicSavedEvents),
     personalSavedEvents: normalizeCount(source.personalSavedEvents),
-    publicFailedSymbols: publicFailedSymbols(source.publicFailedSymbols || source.failedSymbols),
+    publicFailedSymbols: safePublicFailedSymbols,
+    publicFailedSymbolCount: Math.min(16, normalizeCount(source.publicFailedSymbolCount || safePublicFailedSymbols.length)),
     personalFailedSymbolCount: normalizeCount(source.personalFailedSymbolCount),
+    marketCollectionStatus: safeComponentStatus(source.marketCollectionStatus),
+    marketCollectorAttemptCount: Math.min(3, normalizeCount(source.marketCollectorAttemptCount)),
     secFilingStatus: safeComponentStatus(source.secFilingStatus),
     fredMacroStatus: safeComponentStatus(source.fredMacroStatus),
     researchPacketSnapshotStatus: safeComponentStatus(source.researchPacketSnapshotStatus),
@@ -283,18 +264,21 @@ async function captureMarketHistory(input) {
 
   try {
     const today = marketDate(now);
-    const marketCollectionStartedAt = new Date();
-    const publicSnapshot = await getDailyMarketEvents([]);
-    const publicFailedSymbolSet = new Set(publicSnapshot.failedSymbols || []);
-    const failedSymbolSet = new Set(publicFailedSymbolSet);
-    const personalFailedSymbolSet = new Set();
+    const collectorResult = await runResearchTaskWithRetry({
+      queuedAt: startedAt,
+      run: function () {
+        return runMarketCollectionAgent({ now, marketDate: today, config });
+      }
+    });
 
-    if (!publicSnapshot.events.length && publicSnapshot.failedSymbols?.length) {
-      throw new Error("Public Nasdaq snapshot failed for all requested symbols");
+    if (collectorResult.status === "failed") {
+      const error = new Error("Public Nasdaq collector failed after retry");
+      error.collectorAttemptCount = Array.isArray(collectorResult.attempts) ? collectorResult.attempts.length : 0;
+      throw error;
     }
 
     // A market holiday or stale upstream quote must never be stamped as today.
-    if (publicSnapshot.date !== today || !publicSnapshot.events.length) {
+    if (collectorResult.status === "skipped") {
       const result = {
         runId,
         trigger: options.trigger,
@@ -304,8 +288,11 @@ async function captureMarketHistory(input) {
         reason: "Public Nasdaq snapshot is not for the current US market date",
         publicSavedEvents: 0,
         savedEvents: 0,
-        publicFailedSymbols: publicFailedSymbols(Array.from(publicFailedSymbolSet)),
+        publicFailedSymbols: collectorResult.publicFailedSymbols,
+        publicFailedSymbolCount: collectorResult.publicFailedSymbols.length,
         personalFailedSymbolCount: 0,
+        marketCollectionStatus: collectorResult.status,
+        marketCollectorAttemptCount: collectorResult.attempts.length,
         loggingError
       };
       if (!loggingError) {
@@ -315,7 +302,10 @@ async function captureMarketHistory(input) {
           "skipped",
           {
             publicFailedSymbols: result.publicFailedSymbols,
-            personalFailedSymbolCount: result.personalFailedSymbolCount
+            publicFailedSymbolCount: result.publicFailedSymbolCount,
+            personalFailedSymbolCount: result.personalFailedSymbolCount,
+            marketCollectionStatus: result.marketCollectionStatus,
+            marketCollectorAttemptCount: result.marketCollectorAttemptCount
           },
           null
         ));
@@ -323,13 +313,12 @@ async function captureMarketHistory(input) {
       return result;
     }
 
-    const publicRows = publicSnapshot.events.map(function (event) {
-      return toPublicHistoryRow(event, now, publicSnapshot.universe);
-    });
-    await upsertRows(config, PUBLIC_HISTORY_TABLE, "market_date,symbol", publicRows);
-    const publicSavedEvents = publicRows.length;
-    const unifiedResult = await persistUnifiedMarketEvents(config, publicSnapshot.events, now);
-    const marketCollectionFinishedAt = new Date();
+    const publicSavedEvents = collectorResult.publicRowsWritten;
+    const unifiedResult = {
+      eventsWritten: collectorResult.unifiedEventsWritten,
+      sourcesWritten: collectorResult.unifiedSourcesWritten
+    };
+    const personalFailedSymbolSet = new Set();
     const eventAttributionResult = await runResearchTaskWithRetry({
       queuedAt: startedAt,
       run: function () {
@@ -346,8 +335,9 @@ async function captureMarketHistory(input) {
     };
     if (isSecEdgarConfigured()) {
       try {
-        const secSymbols = (publicSnapshot.universe?.instruments || NASDAQ_FOCUS_INSTRUMENTS)
-          .map(function (instrument) { return instrument.symbol; });
+        const secSymbols = collectorResult.universeSymbols.length
+          ? collectorResult.universeSymbols
+          : NASDAQ_FOCUS_INSTRUMENTS.map(function (instrument) { return instrument.symbol; });
         const captured = await captureRecentSecFilings(config, secSymbols, { now });
         secFilingResult = { status: "succeeded", error: null, ...captured };
       } catch (error) {
@@ -440,18 +430,12 @@ async function captureMarketHistory(input) {
     let researchTaskRunResult = { status: "pending", written: 0, error: null };
     try {
       const marketCollectionResult = {
-        status: failedSymbolSet.size ? "partial" : "succeeded",
+        status: collectorResult.status,
         publicRowsWritten: publicSavedEvents,
         unifiedEventsWritten: unifiedResult.eventsWritten,
         unifiedSourcesWritten: unifiedResult.sourcesWritten,
-        failedSymbolCount: failedSymbolSet.size,
-        attempts: [buildTaskAttempt({
-          status: failedSymbolSet.size ? "partial" : "succeeded",
-          queuedAt: startedAt,
-          startedAt: marketCollectionStartedAt,
-          finishedAt: marketCollectionFinishedAt,
-          queueDelayMs: marketCollectionStartedAt.getTime() - startedAt.getTime()
-        })]
+        failedSymbolCount: collectorResult.publicFailedSymbols.length,
+        attempts: collectorResult.attempts
       };
       const rows = buildResearchTaskRunRows({
         captureRunId: runId,
@@ -496,10 +480,7 @@ async function captureMarketHistory(input) {
         const key = symbols.join(",");
         if (!resultCache.has(key)) resultCache.set(key, getDailyMarketEvents(symbols));
         const snapshot = await resultCache.get(key);
-        (snapshot.failedSymbols || []).forEach(function (symbol) {
-          failedSymbolSet.add(symbol);
-          personalFailedSymbolSet.add(symbol);
-        });
+        (snapshot.failedSymbols || []).forEach(function (symbol) { personalFailedSymbolSet.add(symbol); });
 
         if (!snapshot.events.length && snapshot.failedSymbols?.length) {
           failedUsers += 1;
@@ -560,8 +541,11 @@ async function captureMarketHistory(input) {
       personalSavedEvents,
       skippedUsers,
       failedUsers,
-      publicFailedSymbols: publicFailedSymbols(Array.from(publicFailedSymbolSet)),
+      publicFailedSymbols: collectorResult.publicFailedSymbols,
+      publicFailedSymbolCount: collectorResult.publicFailedSymbols.length,
       personalFailedSymbolCount: personalFailedSymbolSet.size,
+      marketCollectionStatus: collectorResult.status,
+      marketCollectorAttemptCount: collectorResult.attempts.length,
       loggingError
     };
 
@@ -572,7 +556,10 @@ async function captureMarketHistory(input) {
         status,
         {
           publicFailedSymbols: result.publicFailedSymbols,
+          publicFailedSymbolCount: result.publicFailedSymbolCount,
           personalFailedSymbolCount: result.personalFailedSymbolCount,
+          marketCollectionStatus: result.marketCollectionStatus,
+          marketCollectorAttemptCount: result.marketCollectorAttemptCount,
           publicSavedEvents,
           unifiedSavedEvents: result.unifiedSavedEvents,
           unifiedSavedSources: result.unifiedSavedSources,
@@ -595,7 +582,7 @@ async function captureMarketHistory(input) {
           researchTaskRunStatus: researchTaskRunResult.status,
           researchTaskRunsWritten: researchTaskRunResult.written,
           personalSavedEvents,
-          publicUniverseAsOf: publicSnapshot.universe?.asOf || NASDAQ_UNIVERSE_AS_OF
+          publicUniverseAsOf: collectorResult.universeAsOf || NASDAQ_UNIVERSE_AS_OF
         },
         failedUsers > 0 ? failedUsers + " user capture(s) failed" : null
       ));
@@ -607,7 +594,10 @@ async function captureMarketHistory(input) {
         startedAt,
         null,
         "failed",
-        {},
+        {
+          marketCollectionStatus: error?.collectorAttemptCount ? "failed" : "unknown",
+          marketCollectorAttemptCount: Math.min(3, normalizeCount(error?.collectorAttemptCount))
+        },
         error
       ));
     }
@@ -620,6 +610,11 @@ async function captureMarketHistory(input) {
 function normalizeHistoryDays(days) {
   const value = Number(days) || 30;
   return [30, 90, 180].includes(value) ? value : 30;
+}
+
+function normalizeCaptureRunId(value) {
+  const id = String(value || "").trim();
+  return /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(id) ? id : null;
 }
 
 async function getNasdaqMarketHistory(days) {
@@ -656,9 +651,11 @@ async function getNasdaqMarketHistory(days) {
   return Array.isArray(rows) ? rows : [];
 }
 
-async function getRecentCaptureRuns(limit) {
+async function getRecentCaptureRuns(options) {
   const config = getSupabaseConfig();
-  const normalizedLimit = Math.min(50, Math.max(1, Number(limit) || 20));
+  const input = options && typeof options === "object" ? options : { limit: options };
+  const normalizedLimit = Math.min(50, Math.max(1, Number(input.limit) || 20));
+  const runId = normalizeCaptureRunId(input.runId);
   const columns = [
     "id",
     "trigger_type",
@@ -675,10 +672,9 @@ async function getRecentCaptureRuns(limit) {
     "error_message",
     "details"
   ].join(",");
-  const rows = await requestSupabase(
-    config,
-    "/rest/v1/" + RUNS_TABLE + "?select=" + columns + "&order=started_at.desc&limit=" + normalizedLimit
-  );
+  const filters = runId ? "&id=eq." + encodeURIComponent(runId) : "";
+  const rows = await requestSupabase(config, "/rest/v1/" + RUNS_TABLE
+    + "?select=" + columns + filters + "&order=started_at.desc&limit=" + normalizedLimit);
   return Array.isArray(rows) ? rows : [];
 }
 
@@ -690,6 +686,7 @@ module.exports = {
   getNasdaqMarketHistory,
   getRecentCaptureRuns,
   normalizeCaptureOptions,
+  normalizeCaptureRunId,
   normalizeHistoryDays,
   sanitizeCaptureResultForOps,
   sanitizeCaptureRunForOps,

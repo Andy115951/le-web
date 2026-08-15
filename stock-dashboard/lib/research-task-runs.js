@@ -5,6 +5,7 @@ const { DAILY_RESEARCH_REPORT_VERSION } = require("./daily-research-reports");
 const { RESEARCH_OUTCOME_EVALUATION_VERSION } = require("./research-outcome-evaluations");
 const { MARKET_ATTRIBUTION_AGENT_VERSION } = require("./market-attribution-agent");
 const { EVENT_LABELER_AGENT_VERSION } = require("./event-labeler-agent");
+const { MARKET_COLLECTION_AGENT_VERSION } = require("./market-collection-agent");
 
 const RESEARCH_TASK_RUN_VERSION = "research-task-run-v2";
 const TASK_KINDS = new Set(["market_collection", "event_attribution", "event_labeling", "research_input_snapshot", "daily_fact_report", "weekly_fact_report", "model_recap", "outcome_evaluation"]);
@@ -113,7 +114,7 @@ function buildResearchTaskRunRows(input) {
   const rows = [
     {
       task_kind: "market_collection",
-      task_version: "market-collection-v1",
+      task_version: MARKET_COLLECTION_AGENT_VERSION,
       result: stages.marketCollection,
       details: {
         publicRowsWritten: finiteNonNegative(stages.marketCollection?.publicRowsWritten),
