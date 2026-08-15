@@ -1,0 +1,15 @@
+{
+  "events": [
+    {
+      "symbol": "NVDA",
+      "marketDate": "2026-08-26",
+      "scheduledAt": "2026-08-26T20:20:00.000Z",
+      "session": "after_market",
+      "status": "scheduled",
+      "fiscalPeriod": "FY2027 Q2",
+      "sourceUrl": "https://investor.nvidia.com/news/press-release-details/2026/NVIDIA-Sets-Conference-Call-for-Second-Quarter-Financial-Results/default.aspx",
+      "provider": "NVIDIA Investor Relations",
+      "sourceTitle": "NVIDIA Sets Conference Call for Second-Quarter Financial Results"
+    }
+  ]
+}

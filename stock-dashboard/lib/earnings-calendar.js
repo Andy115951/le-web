@@ -89,7 +89,11 @@ function normalizeEarningsCandidate(input, now = new Date()) {
 }
 
 function buildEarningsImportRecords(input, now = new Date()) {
-  const candidates = Array.isArray(input) ? input : [input];
+  const candidates = Array.isArray(input)
+    ? input
+    : Array.isArray(input?.events)
+      ? input.events
+      : [input];
   const byKey = new Map();
   candidates.forEach(function (candidate) {
     const normalized = normalizeEarningsCandidate(candidate, now);

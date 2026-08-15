@@ -35,10 +35,10 @@ test("earnings candidates preserve unknown exact times and normalize official so
 });
 
 test("earnings import records deduplicate shared official sources without merging separate issuers", function () {
-  const records = buildEarningsImportRecords([
+  const records = buildEarningsImportRecords({ events: [
     candidate(),
     candidate({ symbol: "MSFT", marketDate: "2026-08-27", fiscalPeriod: "FY2026 Q4" })
-  ], new Date("2026-08-02T00:00:00.000Z"));
+  ] }, new Date("2026-08-02T00:00:00.000Z"));
   assert.equal(records.events.length, 2);
   assert.equal(records.sources.length, 1);
   assert.notEqual(records.events[0].eventKey, records.events[1].eventKey);

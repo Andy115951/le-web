@@ -418,7 +418,7 @@ CRON_SECRET
 
 ### Phase 2：官方事件骨架
 
-- [ ] 接入 SEC EDGAR、FRED 和财报日历（财报日历数据契约、受控 IR 候选导入、只读查询与日历展示已完成；等待真实官方候选）
+- [ ] 接入 SEC EDGAR、FRED 和财报日历（财报日历数据契约、受控 IR 候选导入、只读查询与日历展示已完成；首条 NVIDIA FY2027 Q2 官方候选已归档，等待覆盖更多核心公司）
 - [x] 实现 SEC EDGAR filings collector、官方来源关系和接受时间字段
 - [x] 实现 FRED 宏观观测 collector、稳定去重和保守可知时间处理
 - [ ] 维护 Nasdaq-100 当前成分

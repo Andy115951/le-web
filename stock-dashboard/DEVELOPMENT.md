@@ -46,7 +46,7 @@
 - [x] 公共行情 Collector 已拆出独立模块，瞬时网络失败最多重试一次；可用受保护 `runId` 单条摘要关联具体运行，不重试个人自选写入或触发模型
 - [x] Nasdaq 核心行情/新闻入口已与个人自选解耦，无登录也可运行
 - [x] NDX 成分变更只读查询已接入动态日历：`GET /api/nasdaq/constituent-changes` 与单日详情只读取审核后快照及追加式变更行；首份快照不会被误写为“无变更”
-- [x] 财报日历基础层：`earnings_events` migration、官方 IR 候选校验/显式导入、`GET /api/nasdaq/earnings` 和动态日历展示已实现；尚未导入任何真实候选，预定事项不进入涨跌归因
+- [x] 财报日历基础层：`earnings_events` migration、官方 IR 候选校验/显式导入、`GET /api/nasdaq/earnings` 和动态日历展示已实现；首条 NVIDIA FY2027 Q2 官方候选已归档，预定事项不进入涨跌归因
 
 页面、API、事件规则和数据库开发现在都可进行；当前未完成项不会阻塞下一批代码开发。
 
@@ -1009,7 +1009,7 @@ npm run earnings:import -- data/earnings/candidates/<file>.json --approve
 
 候选可为 JSON 数组或 `{ "events": [...] }`，每项必须含 `symbol`、`marketDate`、`sourceUrl`、`provider` 和 `sourceTitle`。`scheduledAt` 只在官方页面给出确切时点时填写 ISO 时间；只写“盘后”或没有时点时保持空值并使用 `session`，不得补造时间。导入会按标的和官方 URL 生成稳定键、去重来源，并拒绝未注册标的；它不会抓取网页、不会导入估算为实际、不会写入 `events` 市场归因表。
 
-读取接口：`GET /api/nasdaq/earnings?start=YYYY-MM-DD&end=YYYY-MM-DD&limit=100`。动态日历会把这些事项标记为“财报”，单日详情显示来源与时段，并明确不是当日涨跌原因。当前远程 `earnings_events` 已创建并验证 RLS，但没有真实候选行；空结果是预期状态。
+读取接口：`GET /api/nasdaq/earnings?start=YYYY-MM-DD&end=YYYY-MM-DD&limit=100`。动态日历会把这些事项标记为“财报”，单日详情显示来源与时段，并明确不是当日涨跌原因。当前远程 `earnings_events` 已创建并验证 RLS，已有 1 条已核对记录：NVIDIA `FY2027 Q2` 在 `2026-08-26 13:20 PT`（`20:20 UTC`）预定公布，来源为 `data/earnings/candidates/nvda-fy2027-q2-2026-08-26.json` 中保留的官方 IR 原页；它仍是 `scheduled`，不代表已公布结果。
 
 ### 8.4 Nasdaq 动态日历与单日详情
 

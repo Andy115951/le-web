@@ -208,7 +208,7 @@ with check (auth.uid() = user_id);
 - `source_id` 必须引用已归档的官方 IR `sources` 记录；同时保留来源可知和系统采集时间
 - 表启用 RLS，仅 `service_role` 可读写；浏览器通过 `GET /api/nasdaq/earnings` 获取经过服务端限制的数据
 
-真实数据仅能通过审核后的 [data/earnings/candidates/README.md](data/earnings/candidates/README.md) 格式和显式 `npm run earnings:import -- <file> --approve` 进入。当前远程表为空，这表示尚无核对后的官方候选，而不是“没有任何公司将发布财报”。
+真实数据仅能通过审核后的 [data/earnings/candidates/README.md](data/earnings/candidates/README.md) 格式和显式 `npm run earnings:import -- <file> --approve` 进入。当前远程表已有 1 条已核对的 NVIDIA FY2027 Q2 预定事项（`2026-08-26 13:20 PT`，官方 IR 原页）；它是日历数据而非实际业绩结果或市场归因。后续空结果仍只表示尚无对应日期范围内的核对候选，不表示“没有任何公司将发布财报”。
 
 四张表启用 RLS，仅允许服务端 Secret Key 直接读写。migration 会把已有 `nasdaq_market_event_history` 兼容记录幂等回填到统一层；旧记录无法可靠恢复的 `event_time` 保持 `null`，不会伪造为采集时间或 Unix epoch。
 
