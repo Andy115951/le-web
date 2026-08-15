@@ -1281,21 +1281,24 @@ function renderReplayCaptureTaskSummary(captureRun) {
   }).map(function (kind) {
     const task = captureRun.tasks[kind];
     const status = String(task.status || "unknown");
-    return '<div><span>' + escapeHtml(researchTaskLabels[kind]) + '</span><b class="is-' + escapeHtml(status) + '">' + escapeHtml(taskStatusLabel(status)) + '</b><small>' + escapeHtml(replayCaptureTaskMetric(kind, task.details)) + "</small></div>";
+    return '<div><span>' + escapeHtml(researchTaskLabels[kind]) + '</span><b class="is-' + escapeHtml(status) + '">' + escapeHtml(taskStatusLabel(status)) + '</b><small>' + escapeHtml(replayCaptureTaskMetric(kind, task.details, task)) + "</small></div>";
   });
   if (!taskRows.length) return '<p class="replay-capture-tasks-empty">已关联本次收盘运行，但尚无已追加的阶段摘要。</p>';
   return '<div class="replay-capture-tasks"><span>同次收盘阶段</span><section>' + taskRows.join("") + "</section></div>";
 }
 
-function replayCaptureTaskMetric(kind, detail) {
+function replayCaptureTaskMetric(kind, detail, task) {
   const values = detail && typeof detail === "object" ? detail : {};
-  if (kind === "market_collection") return "行情 " + Number(values.publicRowsWritten || 0) + " · 事件 " + Number(values.unifiedEventsWritten || 0) + " · 失败 " + Number(values.failedSymbolCount || 0);
-  if (kind === "event_attribution") return "归因 " + Number(values.deterministicAttributions || 0) + " · 新增 " + Number(values.attributionsWritten || 0) + " · 证据 " + Number(values.evidenceSourcesLinked || 0);
-  if (kind === "event_labeling") return "标签 " + Number(values.labelsWritten || 0) + " · 待核对 " + Number(values.requiresReviewCount || 0);
-  if (kind === "weekly_fact_report") return "归档日 " + Number(values.archivedDailyReportCount || 0) + " / " + Number(values.expectedBusinessDateCount || 0);
-  if (kind === "outcome_evaluation") return "新增结果 " + Number(values.matureOutcomesWritten || 0);
-  if (["research_input_snapshot", "daily_fact_report", "model_recap"].includes(kind)) return values.created ? "本次新增" : "未新增";
-  return "--";
+  let metric = "--";
+  if (kind === "market_collection") metric = "行情 " + Number(values.publicRowsWritten || 0) + " · 事件 " + Number(values.unifiedEventsWritten || 0) + " · 失败 " + Number(values.failedSymbolCount || 0);
+  if (kind === "event_attribution") metric = "归因 " + Number(values.deterministicAttributions || 0) + " · 新增 " + Number(values.attributionsWritten || 0) + " · 证据 " + Number(values.evidenceSourcesLinked || 0);
+  if (kind === "event_labeling") metric = "标签 " + Number(values.labelsWritten || 0) + " · 待核对 " + Number(values.requiresReviewCount || 0);
+  if (kind === "weekly_fact_report") metric = "归档日 " + Number(values.archivedDailyReportCount || 0) + " / " + Number(values.expectedBusinessDateCount || 0);
+  if (kind === "outcome_evaluation") metric = "新增结果 " + Number(values.matureOutcomesWritten || 0);
+  if (["research_input_snapshot", "daily_fact_report", "model_recap"].includes(kind)) metric = values.created ? "本次新增" : "未新增";
+  const attempts = Math.max(1, Number(task?.attemptCount || 1));
+  const duration = Number(task?.durationMs);
+  return metric + " · 尝试 " + attempts + " 次" + (Number.isFinite(duration) ? " · " + duration + "ms" : "");
 }
 
 function replayFlowStatusLabel(status) {
@@ -1304,7 +1307,7 @@ function replayFlowStatusLabel(status) {
 
 function replayFlowNote(status, stage) {
   if (status === "archived") return stage.createdAt ? "归档 " + formatDualMarketTime(stage.createdAt) : (stage.capturedAt ? "采集 " + formatDualMarketTime(stage.capturedAt) : "已保存真实工件");
-  if (status === "linked") return "关联 " + Number(stage.taskCount || 0) + " 个真实阶段";
+  if (status === "linked") return "关联 " + Number(stage.taskCount || 0) + " 个真实阶段 · " + Number(stage.attemptCount || 0) + " 次尝试";
   if (status === "accepted") return "通过校验 " + Number(stage.acceptedCount || 0) + " 份";
   if (status === "rejected") {
     const first = Array.isArray(stage.rejectionCodes) ? stage.rejectionCodes[0] : null;

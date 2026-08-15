@@ -1,7 +1,7 @@
 const { getSupabaseConfig, requestSupabase } = require("./supabase-server");
 const { normalizeNarrativeFailureCode } = require("./research-narrative-contract");
 
-const RESEARCH_FLOW_REPLAY_VERSION = "research-flow-replay-v4";
+const RESEARCH_FLOW_REPLAY_VERSION = "research-flow-replay-v5";
 
 function normalizeSnapshotId(value) {
   const id = String(value || "").trim();
@@ -94,18 +94,38 @@ function summarizeCaptureTasks(runs) {
   const latest = new Map();
   (Array.isArray(runs) ? runs : []).forEach(function (run) {
     const kind = String(run?.task_kind || "").trim();
-    if (!kind || latest.has(kind)) return;
+    if (!kind) return;
+    const attempt = optionalFiniteNonNegative(run.attempt) || 1;
+    const current = latest.get(kind);
+    if (current) {
+      current.attemptNumbers.add(attempt);
+      return;
+    }
     latest.set(kind, {
       status: String(run.status || "unknown"),
       taskVersion: run.task_version || null,
       createdAt: run.created_at || null,
-      attempt: optionalFiniteNonNegative(run.attempt) || 1,
+      attempt,
+      attemptNumbers: new Set([attempt]),
       queueDelayMs: optionalFiniteNonNegative(run.queue_delay_ms),
       durationMs: optionalFiniteNonNegative(run.duration_ms),
       details: summarizeCaptureTaskDetails(kind, run.details)
     });
   });
-  return Object.fromEntries(latest);
+  return Object.fromEntries(Array.from(latest.entries()).map(function ([kind, task]) {
+    const attemptCount = task.attemptNumbers.size;
+    return [kind, {
+      status: task.status,
+      taskVersion: task.taskVersion,
+      createdAt: task.createdAt,
+      attempt: task.attempt,
+      attemptCount,
+      retryCount: Math.max(0, attemptCount - 1),
+      queueDelayMs: task.queueDelayMs,
+      durationMs: task.durationMs,
+      details: task.details
+    }];
+  }));
 }
 
 function buildResearchFlowReplay(input) {
@@ -122,12 +142,17 @@ function buildResearchFlowReplay(input) {
   const rejectionSummary = summarizeNarrativeRejections(narrativeAudits);
   const latestDailyReport = dailyReports[0] || null;
   const latestOutcome = outcomeEvaluations[0] || null;
+  const captureRunTasks = summarizeCaptureTasks(captureTasks);
   return {
     version: RESEARCH_FLOW_REPLAY_VERSION,
     snapshot: safeSnapshot,
     stages: {
       captureRun: snapshot.capture_run_id
-        ? stage("linked", { taskCount: captureTasks.length, tasks: summarizeCaptureTasks(captureTasks) })
+        ? stage("linked", {
+          taskCount: Object.keys(captureRunTasks).length,
+          attemptCount: captureTasks.length,
+          tasks: captureRunTasks
+        })
         : stage("not_linked", { reason: "This historical snapshot has no stored capture-run association." }),
       inputArchive: stage("archived", {
         capturedAt: snapshot.captured_at || null,

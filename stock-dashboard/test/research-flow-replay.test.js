@@ -48,13 +48,16 @@ test("research flow replays only safe stage summaries from an exactly linked cap
     ]
   });
   assert.equal(flow.stages.captureRun.status, "linked");
-  assert.equal(flow.stages.captureRun.taskCount, 4);
+  assert.equal(flow.stages.captureRun.taskCount, 3);
+  assert.equal(flow.stages.captureRun.attemptCount, 4);
   assert.deepEqual(flow.stages.captureRun.tasks.market_collection.details, {
     publicRowsWritten: 14, unifiedEventsWritten: 12, unifiedSourcesWritten: 30, failedSymbolCount: 2
   });
   assert.equal(flow.stages.captureRun.tasks.daily_fact_report.status, "succeeded");
   assert.deepEqual(flow.stages.captureRun.tasks.daily_fact_report.details, { created: true });
   assert.equal(flow.stages.captureRun.tasks.daily_fact_report.attempt, 2);
+  assert.equal(flow.stages.captureRun.tasks.daily_fact_report.attemptCount, 2);
+  assert.equal(flow.stages.captureRun.tasks.daily_fact_report.retryCount, 1);
   assert.equal(flow.stages.captureRun.tasks.daily_fact_report.queueDelayMs, 1250);
   assert.equal(flow.stages.captureRun.tasks.daily_fact_report.durationMs, 900);
   assert.equal(flow.stages.captureRun.tasks.model_recap.status, "disabled");
@@ -67,6 +70,8 @@ test("research flow replays only safe stage summaries from an exactly linked cap
       taskVersion: null,
       createdAt: null,
       attempt: 1,
+      attemptCount: 1,
+      retryCount: 0,
       queueDelayMs: null,
       durationMs: null,
       details: { publicRowsWritten: 0, unifiedEventsWritten: 0, unifiedSourcesWritten: 0, failedSymbolCount: 0 }

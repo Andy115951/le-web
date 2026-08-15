@@ -867,9 +867,9 @@ GET /api/nasdaq/daily-reports?limit=7
 
 #### 8.2.15 研究任务账本与看板
 
-`research_task_runs` 是收盘采集的独立、追加式阶段账本。每个进入完整收盘采集流程的 `market_capture_runs.id` 会尝试记录 7 个阶段：`market_collection`、`event_attribution`、`research_input_snapshot`、`daily_fact_report`、`weekly_fact_report`、`model_recap`、`outcome_evaluation`。记录保存市场日、固定任务版本、`succeeded / partial / skipped / failed / disabled` 状态及少量公共计数；不保存原始异常文本、用户标识、完整输入包、模型原文、请求头或密钥。
+`research_task_runs` 是收盘采集的独立、追加式阶段账本。每个进入完整收盘采集流程的 `market_capture_runs.id` 会尝试记录 8 个阶段：`market_collection`、`event_attribution`、`event_labeling`、`research_input_snapshot`、`daily_fact_report`、`weekly_fact_report`、`model_recap`、`outcome_evaluation`。记录保存市场日、固定任务版本、`succeeded / partial / skipped / failed / disabled` 状态及少量公共计数；不保存原始异常文本、用户标识、完整输入包、模型原文、请求头或密钥。
 
-从 `research-task-run-v2` 起，账本还安全保存每次尝试的 `attempt`、入队/开始/结束时间、排队耗时和运行耗时。研究输入、每日事实报告、冻结周报和到期结果审计在确定性网络瞬断（例如超时、`429`、部分 `5xx`）时最多自动再试一次：首次失败和后续尝试会作为两条追加式记录保存，失败码仅为 `retryable_task_failure` 或 `task_failed`，不保存原始错误。非瞬断错误不会盲目重试；模型摘要仍不自动重试，以免增加第三方调用或费用。
+从 `research-task-run-v2` 起，账本还安全保存每次尝试的 `attempt`、入队/开始/结束时间、排队耗时和运行耗时。公共行情 Collector、研究输入、每日事实报告、冻结周报和到期结果审计在确定性网络瞬断（例如超时、`429`、部分 `5xx`）时最多自动再试一次：首次失败和后续尝试会作为两条追加式记录保存，失败码仅为 `retryable_task_failure` 或 `task_failed`，不保存原始错误。非瞬断错误不会盲目重试；模型摘要仍不自动重试，以免增加第三方调用或费用。
 
 `market_collection` 仅追加 `publicRowsWritten`、`unifiedEventsWritten`、`unifiedSourcesWritten` 和 `failedSymbolCount`。只要公共市场快照可用但有个别标的失败，就标记为 `partial`，不把部分成功伪装为完全成功，也不公开失败标的名称。它不表示 SEC、FRED、Attribution 或其他尚未配置的 Agent 已运行。
 
@@ -922,7 +922,7 @@ npm run agents:replay -- 2026-08-12 --apply
 
 #### 8.2.17 快照级研究流程回放
 
-`GET /api/nasdaq/research-flow?snapshotId=<uuid>` 以单个不可变 `research_packet_snapshots.id` 为唯一入口，精确关联：该输入包、同一 `snapshot_id` 的确定性日报、同一 `packet_fingerprint` 的模型审计状态，以及同一 `snapshot_id` 的 20 交易日结果审计。新建快照还会把保存时的 `capture_run_id` 只用于服务端查询同一次 `research_task_runs`，看板显示“收盘运行已关联 + 阶段数量”，并列出七个固定阶段的安全状态和严格白名单的计数摘要（例如行情/事件行数、归因/证据数、周报归档日数、结果写入数）；不返回内部运行 ID、错误、标的、来源 URL、任务原始 JSON 或密钥。看板“研究输入回放”选择快照后，展示收盘运行、输入归档、每日事实、模型摘要和结果审计五个阶段的真实状态。
+`GET /api/nasdaq/research-flow?snapshotId=<uuid>` 以单个不可变 `research_packet_snapshots.id` 为唯一入口，精确关联：该输入包、同一 `snapshot_id` 的确定性日报、同一 `packet_fingerprint` 的模型审计状态，以及同一 `snapshot_id` 的 20 交易日结果审计。新建快照还会把保存时的 `capture_run_id` 只用于服务端查询同一次 `research_task_runs`，看板显示已关联的阶段数、总尝试次数、最终尝试编号和安全耗时，并列出八个固定阶段的白名单计数摘要（例如行情/事件行数、归因/证据数、周报归档日数、结果写入数）；不返回内部运行 ID、错误、标的、来源 URL、任务原始 JSON 或密钥。看板“研究输入回放”选择快照后，展示收盘运行、输入归档、每日事实、模型摘要和结果审计五个阶段的真实状态。
 
 模型审计的查询分为两条：所有尝试只读取 `status / provider / model / failure_code / created_at` 摘要；只有 `accepted` 记录才读取并显示已通过校验的叙述。`rejected` 尝试会按固定白名单汇总“响应未完整结束、空响应、无效 JSON、网关 HTTP 异常、网关请求失败、输出契约不通过”；旧行或未知码只标记为未分类历史拒绝。回放绝不读取或返回原始模型文本、验证错误、元数据、请求头或密钥。日报和结果若不存在只标记 `not_archived`，该状态不推断是任务未执行、仍在 20 日窗口中，还是历史记录缺失。
 
