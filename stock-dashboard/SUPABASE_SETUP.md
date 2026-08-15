@@ -198,6 +198,18 @@ with check (auth.uid() = user_id);
 - `event_sources`：事件与主来源、证据、上下文来源的多对多关系
 - `event_entities`：事件与主标的、QQQ 基准及相关标的的多对多关系
 
+### 财报日历表
+
+`20260815110000_add_earnings_calendar.sql` 新增 `earnings_events`。它不复用 `events`，因为预定财报不应自动被解释为已经发生的市场事件或涨跌原因。
+
+- `instrument_id`、`market_date`、可选 `scheduled_at` 与 `session` 保存日历语义；没有官方精确时间时 `scheduled_at` 保持 `null`
+- `event_status` 仅允许 `scheduled / reported / cancelled`
+- 估计和实际 EPS / 收入字段可为空，空值不能被前端补成 `0`
+- `source_id` 必须引用已归档的官方 IR `sources` 记录；同时保留来源可知和系统采集时间
+- 表启用 RLS，仅 `service_role` 可读写；浏览器通过 `GET /api/nasdaq/earnings` 获取经过服务端限制的数据
+
+真实数据仅能通过审核后的 [data/earnings/candidates/README.md](data/earnings/candidates/README.md) 格式和显式 `npm run earnings:import -- <file> --approve` 进入。当前远程表为空，这表示尚无核对后的官方候选，而不是“没有任何公司将发布财报”。
+
 四张表启用 RLS，仅允许服务端 Secret Key 直接读写。migration 会把已有 `nasdaq_market_event_history` 兼容记录幂等回填到统一层；旧记录无法可靠恢复的 `event_time` 保持 `null`，不会伪造为采集时间或 Unix epoch。
 
 当前远程验证基线：14 个唯一事件、36 个唯一 URL、39 条事件来源关系、27 条事件实体关系；每条事件均有主行情来源和主实体。公开读取统一走 `GET /api/nasdaq/events`。

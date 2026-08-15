@@ -1,5 +1,6 @@
 const { getMarketCalendar, getMarketDayDetail } = require("../../lib/market-calendar");
 const { getNdxConstituentChangeSummary, getNdxSnapshot } = require("../../lib/ndx-snapshots");
+const { getEarningsEvents } = require("../../lib/earnings-calendar");
 const { getUnifiedMarketEvents } = require("../../lib/unified-market-events");
 const { getMarketEventAttributions } = require("../../lib/market-attribution-agent");
 const { getStoredDailyFeatures, normalizeFeatureDate } = require("../../lib/daily-feature-store");
@@ -154,6 +155,24 @@ const resources = {
         return;
       }
       sendFailure(res, "Failed to load NDX constituent changes", error);
+    }
+  },
+
+  async earnings(req, res) {
+    try {
+      const result = await getEarningsEvents({
+        startDate: req.query?.start,
+        endDate: req.query?.end,
+        limit: req.query?.limit
+      });
+      res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=900");
+      sendJson(res, 200, { ok: true, count: result.events.length, ...result });
+    } catch (error) {
+      if (/Invalid earnings (start date|end date|market date|date range)/.test(error?.message || "")) {
+        sendInvalidQuery(res, "Invalid earnings date range; expected YYYY-MM-DD");
+        return;
+      }
+      sendFailure(res, "Failed to load earnings calendar", error);
     }
   },
 

@@ -46,6 +46,7 @@
 - [x] 公共行情 Collector 已拆出独立模块，瞬时网络失败最多重试一次；可用受保护 `runId` 单条摘要关联具体运行，不重试个人自选写入或触发模型
 - [x] Nasdaq 核心行情/新闻入口已与个人自选解耦，无登录也可运行
 - [x] NDX 成分变更只读查询已接入动态日历：`GET /api/nasdaq/constituent-changes` 与单日详情只读取审核后快照及追加式变更行；首份快照不会被误写为“无变更”
+- [x] 财报日历基础层：`earnings_events` migration、官方 IR 候选校验/显式导入、`GET /api/nasdaq/earnings` 和动态日历展示已实现；尚未导入任何真实候选，预定事项不进入涨跌归因
 
 页面、API、事件规则和数据库开发现在都可进行；当前未完成项不会阻塞下一批代码开发。
 
@@ -233,6 +234,7 @@ supabase projects list --agent no --output-format text
 - `ndx_constituent_snapshots`
 - `ndx_constituent_members`
 - `ndx_constituent_changes`
+- `earnings_events`
 - 对应索引、唯一约束和 RLS Policies
 
 当前市场数据 migrations：
@@ -245,6 +247,7 @@ supabase/migrations/20260812220000_add_ndx_constituent_snapshots.sql
 supabase/migrations/20260812230000_add_daily_market_features.sql
 supabase/migrations/20260812240000_add_similar_day_matches.sql
 supabase/migrations/20260812250000_add_ndx_constituent_changes.sql
+supabase/migrations/20260815110000_add_earnings_calendar.sql
 ```
 
 ### 5.3 配置登录回调
@@ -993,6 +996,20 @@ GET /api/nasdaq/constituents?asOf=2026-08-12
 当前远程验证：1 个快照、101 个唯一成员、101 个唯一排名、权重 `99.96%`、0 个缺失 instrument；`ndx_constituent_changes` 表已建但因还没有第二份快照而为 0 行。后续新增快照只能追加新的 `effective_date`，不得覆盖旧日期来伪造历史。
 
 研究覆盖面板会额外显示 NDX 成分新鲜度：参考日与最近已审核 `effective_date` 相差不超过 `45` 天为 `current`，`46–90` 天为 `aging`，超过 `90` 天为 `stale`；快照日期晚于参考日则为 `inconsistent_future`。它只提示维护待办，不会自动抓取、导入或替换官方成分。截至 `2026-08-15`，现有 `2026-05-01` 快照会正确标记为 `stale`，应通过既有候选审核流程补充下一份官方快照。
+
+#### 8.2.20 财报日历候选导入
+
+`earnings_events` 是独立于市场涨跌事件的服务端表，保存经人工核对的公司 Investor Relations 财报事项。每条记录保存标的、市场日期、可选精确公布时间、`before_market / after_market / during_market / unknown` 时段、`scheduled / reported / cancelled` 状态、可选财务期和来源的可知/采集时间。表已启用 RLS，仅服务端 Secret Key 可读写；浏览器只能读取受限 API。
+
+候选放在 [data/earnings/candidates/](data/earnings/candidates/) 后，先核对公司官方 IR 页面与日期、时段、来源链接，再显式执行：
+
+```bash
+npm run earnings:import -- data/earnings/candidates/<file>.json --approve
+```
+
+候选可为 JSON 数组或 `{ "events": [...] }`，每项必须含 `symbol`、`marketDate`、`sourceUrl`、`provider` 和 `sourceTitle`。`scheduledAt` 只在官方页面给出确切时点时填写 ISO 时间；只写“盘后”或没有时点时保持空值并使用 `session`，不得补造时间。导入会按标的和官方 URL 生成稳定键、去重来源，并拒绝未注册标的；它不会抓取网页、不会导入估算为实际、不会写入 `events` 市场归因表。
+
+读取接口：`GET /api/nasdaq/earnings?start=YYYY-MM-DD&end=YYYY-MM-DD&limit=100`。动态日历会把这些事项标记为“财报”，单日详情显示来源与时段，并明确不是当日涨跌原因。当前远程 `earnings_events` 已创建并验证 RLS，但没有真实候选行；空结果是预期状态。
 
 ### 8.4 Nasdaq 动态日历与单日详情
 

@@ -3296,6 +3296,7 @@ function renderCalendarDay(day) {
   const selected = day.date === state.marketCalendar.selectedDate;
   const today = day.date === state.marketCalendar.today;
   const eventCount = Number(day.eventSummary?.count || 0);
+  const earningsCount = Number(day.eventSummary?.earningsCount || 0);
   const dayNumber = Number(day.date.slice(-2));
   const statusLabels = {
     trading: "交易日",
@@ -3310,7 +3311,7 @@ function renderCalendarDay(day) {
     day.qqq
       ? '<span class="calendar-move ' + tone + '">' + escapeHtml(formatSigned(change) + "%") + "</span>"
       : '<span class="calendar-status">' + escapeHtml(statusLabels[day.status] || "无数据") + "</span>",
-    '<span class="calendar-day-meta">' + (eventCount ? '<b>' + eventCount + " 事件</b>" : "<span>无事件</span>") + (day.qqq?.volatilityLevel && day.qqq.volatilityLevel !== "unknown" ? "<i>" + escapeHtml(volatilityLabels[day.qqq.volatilityLevel]) + "</i>" : "") + "</span>",
+    '<span class="calendar-day-meta">' + (eventCount ? '<b>' + eventCount + " 事件</b>" : "<span>无事件</span>") + (earningsCount ? '<i class="calendar-earnings">' + earningsCount + " 财报</i>" : day.qqq?.volatilityLevel && day.qqq.volatilityLevel !== "unknown" ? "<i>" + escapeHtml(volatilityLabels[day.qqq.volatilityLevel]) + "</i>" : "") + "</span>",
     "</button>"
   ].join("");
 }
@@ -3341,6 +3342,7 @@ function renderMarketDayDetail() {
   };
   const qqq = day.qqq;
   const events = Array.isArray(detail.events) ? detail.events : [];
+  const earningsEvents = Array.isArray(detail.earningsEvents) ? detail.earningsEvents : [];
   const outcome = day.researchOutcome;
   els.calendarDetail.innerHTML = [
     '<div class="calendar-detail-head">',
@@ -3348,11 +3350,29 @@ function renderMarketDayDetail() {
     '<span class="calendar-status-chip ' + escapeHtml(day.status) + '">' + escapeHtml(statusLabels[day.status] || day.status) + "</span>",
     "</div>",
     qqq ? renderDayMarketMetrics(qqq, day.eventSummary) : '<div class="day-no-session"><strong>没有确认的 QQQ 交易数据</strong><p>周末会明确标记；工作日缺失不会被自动宣称为法定休市。</p></div>',
+    renderDayEarningsEvents(earningsEvents),
     events.length ? '<div class="day-timeline"><div class="day-section-title"><strong>事件时间线</strong><span>' + events.length + " 条</span></div>" + events.map(renderUnifiedDayEvent).join("") + "</div>" : '<div class="day-empty-block"><strong>暂无结构化事件</strong><p>价格存在不代表已经找到可靠原因；系统不会无证据补写归因。</p></div>',
     renderResearchOutcome(outcome),
     renderSimilarDays(),
     renderNdxSnapshotSummary(detail.ndxSnapshot),
     "<p class=\"calendar-time-note\">市场日期按美东归属；事件时间同时显示美东和北京时间。事后标签不会作为当天判断输入。</p>"
+  ].join("");
+}
+
+function renderDayEarningsEvents(events) {
+  if (!events.length) return "";
+  const sessionLabels = { before_market: "盘前", after_market: "盘后", during_market: "盘中", unknown: "时段未知" };
+  const statusLabels = { scheduled: "预定", reported: "已公布", cancelled: "已取消" };
+  return [
+    '<div class="day-earnings"><div class="day-section-title"><strong>财报日历</strong><span>' + events.length + " 项</span></div>",
+    '<p>这是已归档官方来源的预定/已公布事项，不等同于当日涨跌归因。</p>',
+    '<div class="day-earnings-list">' + events.map(function (event) {
+      const source = event.source || {};
+      const label = sessionLabels[event.session] || "时段未知";
+      const status = statusLabels[event.status] || "未知";
+      const time = event.scheduledAt ? formatDualMarketTime(event.scheduledAt) : label;
+      return '<article><div><strong>' + escapeHtml(event.symbol || "--") + '</strong><span>' + escapeHtml(event.fiscalPeriod || status) + '</span></div><p>' + escapeHtml(time) + " · " + escapeHtml(status) + '</p>' + (source.canonicalUrl ? '<a href="' + escapeHtml(source.canonicalUrl) + '" target="_blank" rel="noreferrer">' + escapeHtml(source.provider || "官方来源") + "</a>" : "") + "</article>";
+    }).join("") + "</div></div>"
   ].join("");
 }
 

@@ -13,6 +13,7 @@
     "ndx:discover": "node scripts/discover-ndx-candidates.js",
     "ndx:import": "node scripts/import-ndx-snapshot.js",
     "ndx:review": "node scripts/review-ndx-snapshot.js",
+    "earnings:import": "node scripts/import-earnings-events.js",
     "labels:qqq": "node scripts/rebuild-market-labels.js QQQ",
     "similar-days:qqq": "node scripts/rebuild-similar-days.js QQQ",
     "narrative:validate": "node scripts/validate-research-narrative.js",

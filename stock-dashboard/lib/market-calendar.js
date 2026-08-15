@@ -1,4 +1,5 @@
 const { getNdxConstituentChangeSummary, getNdxSnapshot } = require("./ndx-snapshots");
+const { getEarningsEvents } = require("./earnings-calendar");
 const { getSupabaseConfig, requestSupabase } = require("./supabase-server");
 const { getUnifiedMarketEventsRange } = require("./unified-market-events");
 
@@ -103,6 +104,11 @@ function buildCalendarDays(options) {
     if (!eventsByDate.has(event.market_date)) eventsByDate.set(event.market_date, []);
     eventsByDate.get(event.market_date).push(event);
   });
+  const earningsByDate = new Map();
+  (options.earnings || []).forEach(function (event) {
+    if (!earningsByDate.has(event.marketDate)) earningsByDate.set(event.marketDate, []);
+    earningsByDate.get(event.marketDate).push(event);
+  });
   const observedPrices = [];
 
   return calendarDates(options.start, options.end).map(function (date) {
@@ -111,6 +117,7 @@ function buildCalendarDays(options) {
     });
     const price = priceByDate.get(date) || null;
     const events = eventsByDate.get(date) || [];
+    const earnings = earningsByDate.get(date) || [];
     const weekday = new Date(date + "T12:00:00.000Z").getUTCDay();
     let status = "closed-or-missing";
     if (price) status = "trading";
@@ -137,6 +144,7 @@ function buildCalendarDays(options) {
       } : null,
       eventSummary: {
         count: events.length,
+        earningsCount: earnings.length,
         highestImpact: highestImpact(events),
         types: Array.from(new Set(events.map(function (event) { return event.event_type; }))),
         symbols: Array.from(new Set(events.flatMap(function (event) { return event.tickers || []; })))
@@ -166,14 +174,15 @@ async function loadCalendarData(month, now = new Date()) {
   const bounds = monthBounds(month);
   const lookbackStart = shiftDate(bounds.start, -45);
   const instrument = await getQqqInstrument(config);
-  const [prices, labels, events] = await Promise.all([
+  const [prices, labels, events, earnings] = await Promise.all([
     requestSupabase(config, "/rest/v1/price_bars_daily?select=market_date,open,high,low,close,adjusted_close,volume,change_percent"
       + "&instrument_id=eq." + instrument.id + "&market_date=gte." + lookbackStart + "&market_date=lte." + bounds.end
       + "&order=market_date.asc&limit=100"),
     requestSupabase(config, "/rest/v1/market_forward_labels?select=market_date,return_1d_percent,return_3d_percent,return_5d_percent,return_20d_percent,max_drawdown_20d_percent,realized_volatility_20d_percent,label_version"
       + "&instrument_id=eq." + instrument.id + "&market_date=gte." + bounds.start + "&market_date=lte." + bounds.end
       + "&order=market_date.asc&limit=40"),
-    getUnifiedMarketEventsRange(bounds.start, bounds.end)
+    getUnifiedMarketEventsRange(bounds.start, bounds.end),
+    getEarningsEvents({ startDate: bounds.start, endDate: bounds.end, limit: 250 })
   ]);
   return {
     instrument,
@@ -184,9 +193,11 @@ async function loadCalendarData(month, now = new Date()) {
       today: newYorkDate(now),
       prices: Array.isArray(prices) ? prices : [],
       labels: Array.isArray(labels) ? labels : [],
-      events
+      events,
+      earnings: earnings.events
     }),
-    events
+    events,
+    earnings: earnings.events
   };
 }
 
@@ -213,6 +224,7 @@ async function getMarketDayDetail(value, now = new Date()) {
     timezone: "America/New_York",
     day,
     events: data.events.filter(function (event) { return event.market_date === date; }),
+    earningsEvents: data.earnings.filter(function (event) { return event.marketDate === date; }),
     ndxSnapshot: snapshot ? {
       effectiveDate: snapshot.effective_date,
       sourceUrl: snapshot.source_url,

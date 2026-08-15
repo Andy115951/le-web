@@ -58,13 +58,15 @@ test("calendar separates trading, weekend, missing and upcoming dates", function
       event_type: "market_move_attribution",
       impact_level: "high",
       tickers: ["QQQ", "NVDA"]
-    }]
+    }],
+    earnings: [{ marketDate: "2026-08-03", symbol: "NVDA", session: "after_market" }]
   });
   assert.equal(days[0].status, "weekend");
   assert.equal(days[2].status, "trading");
   assert.equal(days[3].status, "closed-or-missing");
   assert.equal(days[5].status, "upcoming");
   assert.equal(days[2].eventSummary.highestImpact, "high");
+  assert.equal(days[2].eventSummary.earningsCount, 1);
   assert.deepEqual(days[2].eventSummary.symbols, ["QQQ", "NVDA"]);
   assert.equal(days[2].researchOutcome.return1dPercent, 1.2);
   assert.equal(days[2].researchOutcome.return3dPercent, null);

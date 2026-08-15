@@ -1919,6 +1919,7 @@ body {
 .day-empty-block,
 .research-outcome,
 .day-snapshot,
+.day-earnings,
 .similar-days { margin-top: 10px; padding: 11px; border: 1px solid rgba(178, 199, 233, 0.14); border-radius: 11px; background: rgba(255, 255, 255, 0.045); }
 .day-no-session strong,
 .day-empty-block strong { color: #f1f5fc; font-size: 0.8rem; }
@@ -1927,6 +1928,15 @@ body {
 .research-outcome > p,
 .day-snapshot > p { margin: 5px 0 0; color: #9faec5; font-size: 0.68rem; line-height: 1.5; }
 .research-outcome { background: rgba(44, 96, 191, 0.12); }
+.day-earnings { background: linear-gradient(135deg, rgba(173, 116, 36, 0.17), rgba(49, 84, 151, 0.08)); }
+.day-earnings > p { margin: 3px 0 0; color: #a8b8d0; font-size: 0.61rem; line-height: 1.45; }
+.day-earnings-list { display: grid; gap: 6px; margin-top: 8px; }
+.day-earnings-list article { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; padding: 8px; border: 1px solid rgba(238, 194, 111, 0.16); border-radius: 8px; background: rgba(7, 18, 40, 0.16); }
+.day-earnings-list article > div { display: flex; align-items: baseline; gap: 5px; min-width: 0; }
+.day-earnings-list strong { color: #ffe0a2; font-size: 0.69rem; }
+.day-earnings-list span, .day-earnings-list p, .day-earnings-list a { margin: 0; color: #a9b8cf; font-size: 0.58rem; }
+.day-earnings-list a { color: #a8c6ff; font-weight: 700; text-decoration: none; }
+.calendar-day-meta i.calendar-earnings { color: #c18a28; }
 .similar-days { background: linear-gradient(135deg, rgba(115, 80, 190, 0.18), rgba(38, 94, 181, 0.1)); }
 .similar-days.is-error { background: rgba(191, 66, 85, 0.12); }
 .similar-day-list { display: grid; gap: 6px; margin-top: 9px; }
