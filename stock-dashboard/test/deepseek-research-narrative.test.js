@@ -10,6 +10,7 @@ const {
   normalizeDeepSeekApiUrl,
   parseDeepSeekResponse,
   normalizeAllowedPacketFingerprint,
+  classifyDeepSeekFailure,
   runDeepSeekResearchNarrative
 } = require("../lib/deepseek-research-narrative");
 
@@ -213,17 +214,21 @@ test("DeepSeek execution validates and audits a JSON response before accepting i
 
 test("invalid or truncated DeepSeek output becomes an audited rejection without preserving raw text", async function () {
   let persistedOutput = null;
+  let persistedMetadata = null;
   const result = await runDeepSeekResearchNarrative(packet, {
     config: configured(),
     getAccepted: async function () { return null; },
     getAttempts: async function () { return []; },
     requestModel: async function () { return { choices: [{ finish_reason: "length", message: { content: '{"secret":"should-not-be-stored"}' } }] }; },
-    persistAudit: async function (inputPacket, modelOutput) {
+    persistAudit: async function (inputPacket, modelOutput, metadata) {
       persistedOutput = modelOutput;
+      persistedMetadata = metadata;
       return { validation: validateResearchNarrative(modelOutput, inputPacket), audit: { id: "audit-2" } };
     }
   });
   assert.equal(result.status, "rejected");
+  assert.equal(result.failureCode, "model_response_incomplete");
+  assert.equal(persistedMetadata.failureCode, "model_response_incomplete");
   assert.equal(persistedOutput.modelResponseRejected, true);
   assert.equal(JSON.stringify(persistedOutput).includes("should-not-be-stored"), false);
 });
@@ -233,4 +238,12 @@ test("DeepSeek response parser accepts clean JSON and rejects incomplete complet
   assert.throws(function () {
     parseDeepSeekResponse({ choices: [{ finish_reason: "length", message: { content: "{}" } }] });
   }, /finish cleanly/);
+});
+
+test("model failure classification is limited to safe replay categories", function () {
+  assert.equal(classifyDeepSeekFailure(new Error("Model response did not finish cleanly")), "model_response_incomplete");
+  assert.equal(classifyDeepSeekFailure(new Error("Model returned empty JSON content")), "model_response_empty");
+  assert.equal(classifyDeepSeekFailure(new Error("Model returned invalid JSON")), "model_response_invalid_json");
+  assert.equal(classifyDeepSeekFailure(new Error("DeepSeek request failed with status 502")), "gateway_http_error");
+  assert.equal(classifyDeepSeekFailure(new Error("sensitive upstream response body")), "gateway_request_failed");
 });

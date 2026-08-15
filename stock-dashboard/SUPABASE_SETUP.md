@@ -116,8 +116,13 @@ with check (auth.uid() = user_id);
 
 - `supabase/migrations/20260812260000_add_research_narrative_audits.sql`
 - `supabase/migrations/20260812300000_add_research_narrative_idempotency.sql`
+- `supabase/migrations/20260815093000_add_research_narrative_failure_codes.sql`
 
-只有服务端 Secret Key 可以读写。第二份 migration 增加部分唯一索引：同一个研究输入指纹、同一个 provider、同一个模型最多有一条 `accepted` 记录；`rejected` 记录仍保持追加式，便于审计模型失败或越权输出。浏览器只通过 `GET /api/nasdaq/research-narratives` 读取已经接受的摘要，永远不会获得审计表直接权限或模型 Key。
+只有服务端 Secret Key 可以读写。第二份 migration 增加部分唯一索引：同一个研究输入指纹、同一个 provider、同一个模型最多有一条 `accepted` 记录；`rejected` 记录仍保持追加式，便于审计模型失败或越权输出。第三份 migration 增加只允许白名单值的 `failure_code`，用于回放“响应未完整结束 / 无效 JSON / 网关失败 / 输出契约不通过”等类别；不保存或公开原始网关错误。浏览器只通过 `GET /api/nasdaq/research-narratives` 读取已经接受的摘要，永远不会获得审计表直接权限或模型 Key。
+
+### 网关兼容性审计
+
+`model_gateway_compatibility_audits` 由 `supabase/migrations/20260815090000_add_model_gateway_compatibility_audits.sql` 创建，仅供服务端一次性无项目数据探针使用。它保存探针/模型版本、`pending / accepted / rejected` 状态、受控完成状态、输出指纹、受控错误码与耗时；不保存探针输出原文、市场数据、请求头或密钥。唯一键 `(probe_version, provider, model)` 会在发送前预留一次尝试，阻止重复费用。
 
 ### 公共 Nasdaq 历史表
 
@@ -243,11 +248,11 @@ FRED API Key 只放在服务端 `FRED_API_KEY`。API 请求 URL 不会写库，�
 
 ### 研究摘要审计表
 
-`20260812260000_add_research_narrative_audits.sql` 新增 `research_narrative_audits`，仅允许服务端 Secret Key 写入和读取。它为未来的 DeepSeek/LLM 输出保存：目标市场日、输入包/输出契约版本、输入/输出 SHA-256 指纹、提供商/模型、接受或拒绝状态、原始 JSON、验证错误和运行元数据。
+`20260812260000_add_research_narrative_audits.sql` 新增 `research_narrative_audits`，仅允许服务端 Secret Key 写入和读取。它为受控 DeepSeek/LLM 输出保存：目标市场日、输入包/输出契约版本、输入/输出 SHA-256 指纹、提供商/模型、接受或拒绝状态、受控 JSON、验证错误和运行元数据。
 
-当前没有任何模型调用，也没有审计行写入。后续接入时必须先调用 `validateResearchNarrative`，然后无论接受还是拒绝都写入审计表；浏览器不能直接访问该表。验证器要求每条事实引用输入包里的事件 key + 对应原始来源 URL，或引用已有相似日候选；并拒绝交易指令、目标价与“预测概率”表述。
+`2026-08-15` 已有一条受控验证审计被拒绝，未发布摘要。后续接入时必须先调用 `validateResearchNarrative`，然后无论接受还是拒绝都写入审计表；浏览器不能直接访问该表。验证器要求每条事实引用输入包里的事件 key + 对应原始来源 URL，或引用已有相似日候选；并拒绝交易指令、目标价与“预测概率”表述。
 
-审计元数据采用白名单，只保留 `runId`、生成时间、延迟、输入/输出 token 数和 temperature；API Key、Authorization、请求头、完整上游响应和任意额外字段都会被丢弃，不会写库。
+审计元数据采用白名单，只保留 `runId`、生成时间、延迟、输入/输出 token 数和 temperature；拒绝原因只另存为固定 `failure_code`，不能透传任意错误字符串。API Key、Authorization、请求头、完整上游响应和任意额外字段都会被丢弃，不会写库。
 
 可通过 `GET /api/nasdaq/research-narrative-contract?date=YYYY-MM-DD` 读取该日期允许引用的 event key 与历史候选日期，以及 `research-narrative-v1` 的固定输出形状。人工 `rejected` 事件会被契约二次过滤，即使调用方自行构造旧输入包也不能通过引用校验。这个端点只提供规则和证据标识，不会调用或代理任何模型。
 

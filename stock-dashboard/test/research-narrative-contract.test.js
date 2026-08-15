@@ -89,6 +89,7 @@ test("research narrative audit fingerprints both accepted and rejected output", 
   assert.equal(accepted.packet_fingerprint.length, 64);
   assert.equal(accepted.output_fingerprint.length, 64);
   assert.equal(accepted.provider, "DeepSeek");
+  assert.equal(accepted.failure_code, null);
   assert.deepEqual(accepted.metadata, {
     runId: null,
     generatedAt: accepted.metadata.generatedAt,
@@ -101,7 +102,13 @@ test("research narrative audit fingerprints both accepted and rejected output", 
   const invalid = validateResearchNarrative({}, packet);
   const rejected = buildNarrativeAuditRecord(packet, {}, invalid);
   assert.equal(rejected.status, "rejected");
+  assert.equal(rejected.failure_code, "narrative_contract_invalid");
   assert.ok(rejected.validation_errors.length > 0);
+
+  const providerRejected = buildNarrativeAuditRecord(packet, {}, invalid, { failureCode: "model_response_incomplete" });
+  assert.equal(providerRejected.failure_code, "model_response_incomplete");
+  const unknownRejected = buildNarrativeAuditRecord(packet, {}, invalid, { failureCode: "private-upstream-detail" });
+  assert.equal(unknownRejected.failure_code, "narrative_contract_invalid");
 });
 
 test("research narrative audit uses the same stable fact fingerprint as a replay snapshot", function () {

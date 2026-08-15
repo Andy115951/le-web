@@ -1,4 +1,5 @@
 const { getSupabaseConfig, requestSupabase } = require("./supabase-server");
+const { normalizeNarrativeFailureCode } = require("./research-narrative-contract");
 
 const RESEARCH_FLOW_REPLAY_VERSION = "research-flow-replay-v4";
 
@@ -26,6 +27,24 @@ function optionalFiniteNonNegative(value) {
 
 function boolean(value) {
   return value === true;
+}
+
+function summarizeNarrativeRejections(audits) {
+  const counts = new Map();
+  let unclassifiedCount = 0;
+  (Array.isArray(audits) ? audits : []).forEach(function (audit) {
+    if (audit?.status !== "rejected") return;
+    const code = normalizeNarrativeFailureCode(audit?.failure_code);
+    if (!code) {
+      unclassifiedCount += 1;
+      return;
+    }
+    counts.set(code, (counts.get(code) || 0) + 1);
+  });
+  return {
+    codes: Array.from(counts.entries()).map(function ([code, count]) { return { code, count }; }),
+    unclassifiedCount
+  };
 }
 
 function summarizeCaptureTaskDetails(kind, details) {
@@ -100,6 +119,7 @@ function buildResearchFlowReplay(input) {
   const captureTasks = Array.isArray(input?.captureTasks) ? input.captureTasks : [];
   const acceptedNarratives = Array.isArray(input?.narratives) ? input.narratives : narrativeAudits.filter(function (audit) { return audit?.status === "accepted"; });
   const rejectedNarrativeCount = narrativeAudits.filter(function (audit) { return audit?.status === "rejected"; }).length;
+  const rejectionSummary = summarizeNarrativeRejections(narrativeAudits);
   const latestDailyReport = dailyReports[0] || null;
   const latestOutcome = outcomeEvaluations[0] || null;
   return {
@@ -117,9 +137,9 @@ function buildResearchFlowReplay(input) {
         ? stage("archived", { reportVersion: latestDailyReport.report_version || null, createdAt: latestDailyReport.created_at || null, report: latestDailyReport.report || null })
         : stage("not_archived", { reason: "No daily fact report has been archived for this exact snapshot." }),
       modelNarrative: acceptedNarratives.length
-        ? stage("accepted", { acceptedCount: acceptedNarratives.length, rejectedCount: rejectedNarrativeCount, narratives: acceptedNarratives })
+        ? stage("accepted", { acceptedCount: acceptedNarratives.length, rejectedCount: rejectedNarrativeCount, rejectionCodes: rejectionSummary.codes, unclassifiedRejectedCount: rejectionSummary.unclassifiedCount, narratives: acceptedNarratives })
         : rejectedNarrativeCount
-          ? stage("rejected", { acceptedCount: 0, rejectedCount: rejectedNarrativeCount })
+          ? stage("rejected", { acceptedCount: 0, rejectedCount: rejectedNarrativeCount, rejectionCodes: rejectionSummary.codes, unclassifiedRejectedCount: rejectionSummary.unclassifiedCount })
           : stage("not_generated", { acceptedCount: 0, rejectedCount: 0 }),
       outcomeEvaluation: latestOutcome
         ? stage("evaluated", { evaluation: latestOutcome })
@@ -138,7 +158,7 @@ async function getResearchFlowReplay(options = {}, config = getSupabaseConfig(),
   if (!snapshot) return null;
   const [dailyReports, narrativeAttempts, narratives, outcomeEvaluations, captureTasks] = await Promise.all([
     requestImpl(config, "/rest/v1/daily_research_reports?select=report_version,report,created_at&snapshot_id=eq." + encodeURIComponent(snapshot.id) + "&order=created_at.desc&limit=5"),
-    requestImpl(config, "/rest/v1/research_narrative_audits?select=status,provider,model,created_at&packet_fingerprint=eq." + encodeURIComponent(snapshot.packet_fingerprint) + "&order=created_at.desc&limit=10"),
+    requestImpl(config, "/rest/v1/research_narrative_audits?select=status,provider,model,failure_code,created_at&packet_fingerprint=eq." + encodeURIComponent(snapshot.packet_fingerprint) + "&order=created_at.desc&limit=10"),
     requestImpl(config, "/rest/v1/research_narrative_audits?select=status,provider,model,narrative,created_at&status=eq.accepted&packet_fingerprint=eq." + encodeURIComponent(snapshot.packet_fingerprint) + "&order=created_at.desc&limit=5"),
     requestImpl(config, "/rest/v1/research_outcome_evaluations?select=evaluation_version,horizon_trading_days,label_version,realized_return_percent,maximum_drawdown_percent,realized_volatility_percent,evaluated_at,created_at&snapshot_id=eq." + encodeURIComponent(snapshot.id) + "&order=evaluated_at.desc,created_at.desc&limit=5"),
     snapshot.capture_run_id
@@ -153,6 +173,7 @@ module.exports = {
   buildResearchFlowReplay,
   getResearchFlowReplay,
   normalizeSnapshotId,
+  summarizeNarrativeRejections,
   summarizeCaptureTaskDetails,
   summarizeCaptureTasks
 };

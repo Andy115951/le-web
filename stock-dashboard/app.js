@@ -1306,9 +1306,24 @@ function replayFlowNote(status, stage) {
   if (status === "archived") return stage.createdAt ? "归档 " + formatDualMarketTime(stage.createdAt) : (stage.capturedAt ? "采集 " + formatDualMarketTime(stage.capturedAt) : "已保存真实工件");
   if (status === "linked") return "关联 " + Number(stage.taskCount || 0) + " 个真实阶段";
   if (status === "accepted") return "通过校验 " + Number(stage.acceptedCount || 0) + " 份";
-  if (status === "rejected") return "拒绝 " + Number(stage.rejectedCount || 0) + " 次，未公开原始输出";
+  if (status === "rejected") {
+    const first = Array.isArray(stage.rejectionCodes) ? stage.rejectionCodes[0] : null;
+    const reason = first ? replayNarrativeFailureLabel(first.code) + " " + Number(first.count || 0) + " 次" : "未分类历史拒绝 " + Number(stage.unclassifiedRejectedCount || 0) + " 次";
+    return "拒绝 " + Number(stage.rejectedCount || 0) + " 次 · " + reason + "，未公开原始输出";
+  }
   if (status === "evaluated") return "真实结果已追加";
   return stage.reason || "当前没有对应的已归档工件";
+}
+
+function replayNarrativeFailureLabel(code) {
+  return ({
+    model_response_incomplete: "模型响应未完整结束",
+    model_response_empty: "模型响应为空",
+    model_response_invalid_json: "模型响应不是有效 JSON",
+    gateway_http_error: "网关 HTTP 响应异常",
+    gateway_request_failed: "网关请求失败",
+    narrative_contract_invalid: "输出未通过摘要契约"
+  })[code] || "未分类历史拒绝";
 }
 
 function renderReplayNarrative(replay) {

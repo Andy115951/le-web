@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { buildResearchFlowReplay, getResearchFlowReplay, normalizeSnapshotId, summarizeCaptureTasks } = require("../lib/research-flow-replay");
+const { buildResearchFlowReplay, getResearchFlowReplay, normalizeSnapshotId, summarizeCaptureTasks, summarizeNarrativeRejections } = require("../lib/research-flow-replay");
 
 const SNAPSHOT_ID = "123e4567-e89b-12d3-a456-426614174000";
 const FINGERPRINT = "a".repeat(64);
@@ -10,7 +10,7 @@ test("research flow replay binds only real artifacts to one immutable snapshot",
     snapshot: { id: SNAPSHOT_ID, market_date: "2026-08-11", packet_fingerprint: FINGERPRINT, captured_at: "2026-08-12T00:00:00.000Z" },
     dailyReports: [{ report_version: "daily-research-report-v1", report: { market: { symbol: "QQQ" } }, created_at: "2026-08-12T00:01:00.000Z" }],
     narrativeAudits: [
-      { status: "rejected", provider: "deepseek", model: "x", narrative: { raw: "must not appear" }, validation_errors: ["private"] },
+      { status: "rejected", provider: "deepseek", model: "x", failure_code: "model_response_incomplete", narrative: { raw: "must not appear" }, validation_errors: ["private"] },
       { status: "accepted", provider: "deepseek", model: "x", narrative: { recap: "cited fact" }, created_at: "2026-08-12T00:02:00.000Z" }
     ],
     outcomeEvaluations: [{ evaluation_version: "research-outcome-20d-v1", realized_return_percent: 2.5, evaluated_at: "2026-09-09T00:00:00.000Z" }]
@@ -20,10 +20,21 @@ test("research flow replay binds only real artifacts to one immutable snapshot",
   assert.equal(flow.stages.dailyFactReport.status, "archived");
   assert.equal(flow.stages.modelNarrative.status, "accepted");
   assert.equal(flow.stages.modelNarrative.rejectedCount, 1);
+  assert.deepEqual(flow.stages.modelNarrative.rejectionCodes, [{ code: "model_response_incomplete", count: 1 }]);
   assert.equal(flow.stages.modelNarrative.narratives.length, 1);
   assert.equal(flow.stages.outcomeEvaluation.status, "evaluated");
   assert.equal(JSON.stringify(flow).includes("validation_errors"), false);
   assert.equal(JSON.stringify(flow).includes("must not appear"), false);
+});
+
+test("research flow replays only approved rejection categories and leaves legacy rows unclassified", function () {
+  const summary = summarizeNarrativeRejections([
+    { status: "rejected", failure_code: "gateway_http_error" },
+    { status: "rejected", failure_code: "private-upstream-error" },
+    { status: "accepted", failure_code: "model_response_incomplete" }
+  ]);
+  assert.deepEqual(summary, { codes: [{ code: "gateway_http_error", count: 1 }], unclassifiedCount: 1 });
+  assert.equal(JSON.stringify(summary).includes("private-upstream-error"), false);
 });
 
 test("research flow replays only safe stage summaries from an exactly linked capture run", function () {
@@ -82,7 +93,7 @@ test("research flow replay queries exact snapshot and fingerprint keys", async f
   assert.equal(paths.some(function (path) { return path.includes("daily_research_reports") && path.includes("snapshot_id=eq." + SNAPSHOT_ID); }), true);
   assert.equal(paths.some(function (path) { return path.includes("research_narrative_audits") && path.includes("packet_fingerprint=eq." + FINGERPRINT); }), true);
   assert.equal(paths.some(function (path) { return path.includes("research_narrative_audits") && path.includes("status=eq.accepted") && path.includes("select=status,provider,model,narrative,created_at"); }), true);
-  assert.equal(paths.some(function (path) { return path.includes("research_narrative_audits") && !path.includes("status=eq.accepted") && path.includes("select=status,provider,model,created_at"); }), true);
+  assert.equal(paths.some(function (path) { return path.includes("research_narrative_audits") && !path.includes("status=eq.accepted") && path.includes("select=status,provider,model,failure_code,created_at"); }), true);
   assert.equal(paths.some(function (path) { return path.includes("research_task_runs") && path.includes("capture_run_id=eq.999e4567-e89b-12d3-a456-426614174000") && path.includes("select=task_kind,task_version,status,attempt,queue_delay_ms,duration_ms,details,created_at"); }), true);
   assert.throws(function () { normalizeSnapshotId("not-a-uuid"); }, /Invalid research snapshot id/);
 });

@@ -922,7 +922,7 @@ npm run agents:replay -- 2026-08-12 --apply
 
 `GET /api/nasdaq/research-flow?snapshotId=<uuid>` 以单个不可变 `research_packet_snapshots.id` 为唯一入口，精确关联：该输入包、同一 `snapshot_id` 的确定性日报、同一 `packet_fingerprint` 的模型审计状态，以及同一 `snapshot_id` 的 20 交易日结果审计。新建快照还会把保存时的 `capture_run_id` 只用于服务端查询同一次 `research_task_runs`，看板显示“收盘运行已关联 + 阶段数量”，并列出七个固定阶段的安全状态和严格白名单的计数摘要（例如行情/事件行数、归因/证据数、周报归档日数、结果写入数）；不返回内部运行 ID、错误、标的、来源 URL、任务原始 JSON 或密钥。看板“研究输入回放”选择快照后，展示收盘运行、输入归档、每日事实、模型摘要和结果审计五个阶段的真实状态。
 
-模型审计的查询分为两条：所有尝试只读取 `status / provider / model / created_at` 摘要；只有 `accepted` 记录才读取并显示已通过校验的叙述。`rejected` 尝试仅显示次数和状态，绝不读取或返回原始模型文本、验证错误、元数据、请求头或密钥。日报和结果若不存在只标记 `not_archived`，该状态不推断是任务未执行、仍在 20 日窗口中，还是历史记录缺失。
+模型审计的查询分为两条：所有尝试只读取 `status / provider / model / failure_code / created_at` 摘要；只有 `accepted` 记录才读取并显示已通过校验的叙述。`rejected` 尝试会按固定白名单汇总“响应未完整结束、空响应、无效 JSON、网关 HTTP 异常、网关请求失败、输出契约不通过”；旧行或未知码只标记为未分类历史拒绝。回放绝不读取或返回原始模型文本、验证错误、元数据、请求头或密钥。日报和结果若不存在只标记 `not_archived`，该状态不推断是任务未执行、仍在 20 日窗口中，还是历史记录缺失。
 
 该接口不触发 Cron、模型或写入。迁移之前的历史快照因没有 `capture_run_id` 会标记为 `not_linked`，绝不按日期、时间或日志推断关联；首次新的完整收盘采集后才会出现真实关联回放。Attribution 与 Labeler 已具有独立运行、重试遥测与追加式结果；Collector 的独立重试和受保护逐条运维诊断仍未建模，因此“完整跨 Agent 运维回放”仍属于后续任务。
 

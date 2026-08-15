@@ -4,6 +4,14 @@ const RESEARCH_NARRATIVE_VERSION = "research-narrative-v1";
 const MAX_TITLE_LENGTH = 100;
 const MAX_RECAP_LENGTH = 900;
 const MAX_CLAIM_LENGTH = 420;
+const NARRATIVE_FAILURE_CODES = new Set([
+  "model_response_incomplete",
+  "model_response_empty",
+  "model_response_invalid_json",
+  "gateway_http_error",
+  "gateway_request_failed",
+  "narrative_contract_invalid"
+]);
 const BANNED_NARRATIVE_PATTERNS = [
   /\b(buy|sell|long|short|overweight|underweight)\b/i,
   /买入|卖出|加仓|减仓|建仓|清仓|止盈|止损|目标价|价格目标|投资建议|荐股|必涨|必跌/,
@@ -37,6 +45,11 @@ function researchPacketFingerprint(packet) {
 
 function safeText(value, maximum = 160) {
   return typeof value === "string" ? value.trim().slice(0, maximum) || null : null;
+}
+
+function normalizeNarrativeFailureCode(value) {
+  const code = String(value || "").trim();
+  return NARRATIVE_FAILURE_CODES.has(code) ? code : null;
 }
 
 function sanitizeAuditMetadata(metadata = {}) {
@@ -176,6 +189,7 @@ function buildResearchNarrativeInstructions(packet) {
 
 function buildNarrativeAuditRecord(packet, output, validation, metadata = {}) {
   const safeMetadata = sanitizeAuditMetadata(metadata);
+  const valid = Boolean(validation?.valid);
   return {
     market_date: packet?.asOf?.marketDate || null,
     packet_contract_version: packet?.contractVersion || null,
@@ -184,7 +198,8 @@ function buildNarrativeAuditRecord(packet, output, validation, metadata = {}) {
     output_fingerprint: fingerprint(output),
     provider: safeText(metadata.provider),
     model: safeText(metadata.model),
-    status: validation?.valid ? "accepted" : "rejected",
+    status: valid ? "accepted" : "rejected",
+    failure_code: valid ? null : (normalizeNarrativeFailureCode(metadata.failureCode) || "narrative_contract_invalid"),
     narrative: output || {},
     validation_errors: validation?.errors || [],
     metadata: safeMetadata
@@ -193,12 +208,14 @@ function buildNarrativeAuditRecord(packet, output, validation, metadata = {}) {
 
 module.exports = {
   RESEARCH_NARRATIVE_VERSION,
+  NARRATIVE_FAILURE_CODES,
   allowedEvidence,
   buildNarrativeAuditRecord,
   buildResearchNarrativeInstructions,
   canonicalJsonValue,
   fingerprint,
   materialResearchPacket,
+  normalizeNarrativeFailureCode,
   researchPacketFingerprint,
   sanitizeAuditMetadata,
   validateResearchNarrative

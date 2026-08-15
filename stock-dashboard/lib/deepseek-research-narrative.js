@@ -60,6 +60,15 @@ function safeErrorMessage(error) {
   return String(error?.message || error || "Model request failed").replace(/[\r\n]+/g, " ").slice(0, 180);
 }
 
+function classifyDeepSeekFailure(error) {
+  const message = String(error?.message || error || "");
+  if (/did not finish cleanly/i.test(message)) return "model_response_incomplete";
+  if (/empty JSON content/i.test(message)) return "model_response_empty";
+  if (/invalid JSON/i.test(message)) return "model_response_invalid_json";
+  if (/request failed with status/i.test(message)) return "gateway_http_error";
+  return "gateway_request_failed";
+}
+
 function isDeepSeekResearchConfigured(env = process.env) {
   const enabled = isEnabledFlag(env.DEEPSEEK_RESEARCH_ENABLED);
   const dataApproved = isEnabledFlag(env.DEEPSEEK_RESEARCH_DATA_APPROVED);
@@ -184,6 +193,7 @@ async function runDeepSeekResearchNarrative(packet, options = {}) {
   const startedAt = Date.now();
   let output = {};
   let providerError = null;
+  let providerFailureCode = null;
   let usage = {};
   try {
     const payload = await (options.requestModel || requestDeepSeek)(buildDeepSeekRequest(packet, config), config, options.fetchImpl);
@@ -191,6 +201,7 @@ async function runDeepSeekResearchNarrative(packet, options = {}) {
     usage = payload?.usage && typeof payload.usage === "object" ? payload.usage : {};
   } catch (error) {
     providerError = safeErrorMessage(error);
+    providerFailureCode = classifyDeepSeekFailure(error);
     output = { modelResponseRejected: true, error: providerError };
   }
 
@@ -202,12 +213,14 @@ async function runDeepSeekResearchNarrative(packet, options = {}) {
     latencyMs: Date.now() - startedAt,
     inputTokens: usage.prompt_tokens,
     outputTokens: usage.completion_tokens,
-    temperature: 0.1
+    temperature: 0.1,
+    failureCode: providerFailureCode
   }, options.supabaseConfig, options.requestSupabase);
 
   return {
     status: persisted.validation.valid && !providerError ? "accepted" : "rejected",
     reason: providerError || (persisted.validation.valid ? null : "contract_validation_failed"),
+    failureCode: providerFailureCode || (persisted.validation.valid ? null : "narrative_contract_invalid"),
     created: Boolean(persisted.audit),
     packetFingerprint,
     audit: persisted.audit,
@@ -222,6 +235,7 @@ module.exports = {
   MAX_OUTPUT_TOKENS_HARD_LIMIT,
   buildDeepSeekRequest,
   countAttemptsForNewYorkDate,
+  classifyDeepSeekFailure,
   getDeepSeekResearchReadiness,
   getDeepSeekGatewayConfig,
   isDeepSeekResearchConfigured,
