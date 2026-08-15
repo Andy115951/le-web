@@ -8,10 +8,13 @@ const { getSecUserAgent } = require("./sec-edgar");
 const { getFredApiKey } = require("./fred-macro");
 const { getDeepSeekResearchReadiness } = require("./deepseek-research-narrative");
 const { getGatewayCompatibilityConfig } = require("./model-gateway-compatibility");
+const { getNdxSnapshot } = require("./ndx-snapshots");
 const { SIMILARITY_METHOD_VERSION } = require("./similar-days");
 
-const RESEARCH_QUALITY_VERSION = "research-quality-v2";
+const RESEARCH_QUALITY_VERSION = "research-quality-v3";
 const DERIVED_DATA_SYMBOL = "QQQ";
+const NDX_FRESH_DAYS = 45;
+const NDX_AGING_DAYS = 90;
 
 function finiteNonNegative(value) {
   const number = Number(value);
@@ -78,6 +81,31 @@ function buildDerivedDataFreshness(input = {}) {
   };
 }
 
+function calendarDayDistance(later, earlier) {
+  const toUtcDay = function (value) {
+    const [year, month, day] = String(value || "").split("-").map(Number);
+    return Date.UTC(year, month - 1, day);
+  };
+  return Math.floor((toUtcDay(later) - toUtcDay(earlier)) / 86400000);
+}
+
+function buildNdxConstituentFreshness(input = {}) {
+  const asOfDate = normalizeMarketDate(input.asOfDate);
+  const effectiveDate = normalizeMarketDate(input.effectiveDate);
+  const constituentCount = finiteNonNegative(input.constituentCount);
+  if (!asOfDate) return { status: "awaiting_reference_date", asOfDate: null, effectiveDate, ageDays: null, constituentCount };
+  if (!effectiveDate) return { status: "awaiting_snapshot", asOfDate, effectiveDate: null, ageDays: null, constituentCount: 0 };
+  const ageDays = calendarDayDistance(asOfDate, effectiveDate);
+  const status = ageDays < 0
+    ? "inconsistent_future"
+    : ageDays <= NDX_FRESH_DAYS
+      ? "current"
+      : ageDays <= NDX_AGING_DAYS
+        ? "aging"
+        : "stale";
+  return { status, asOfDate, effectiveDate, ageDays, constituentCount };
+}
+
 async function getDerivedDataFreshness(config = getSupabaseConfig(), requestImpl = requestSupabase) {
   const instruments = await requestImpl(config, "/rest/v1/instruments?select=id,symbol&symbol=eq." + DERIVED_DATA_SYMBOL + "&limit=1");
   const instrument = Array.isArray(instruments) ? instruments[0] : null;
@@ -122,6 +150,7 @@ function buildResearchQualitySummary(input) {
   const tasks = input?.tasks || {};
   const integrations = input?.integrations || {};
   const derivedData = input?.derivedData || buildDerivedDataFreshness({});
+  const ndxConstituents = input?.ndxConstituents || buildNdxConstituentFreshness({});
   const snapshotCount = finiteNonNegative(health.snapshotCount);
   const matureOutcomeCount = finiteNonNegative(health.matureOutcomeCount);
   const dailyReportCount = finiteNonNegative(daily.count);
@@ -136,6 +165,7 @@ function buildResearchQualitySummary(input) {
   if (!snapshotCount) limitations.push("No archived research snapshot is available yet; wait for a successful market-close capture before evaluating coverage.");
   if (snapshotCount > matureOutcomeCount) limitations.push("Some snapshots are still inside the 20-trading-day outcome window and cannot yet be evaluated.");
   if (!taskRunCount) limitations.push("The task ledger will begin filling after the next full market-close capture; historical runs are not synthesized.");
+  if (["aging", "stale"].includes(ndxConstituents.status)) limitations.push("The NDX constituent snapshot needs an official-source review before it is treated as current coverage.");
 
   return {
     version: RESEARCH_QUALITY_VERSION,
@@ -159,6 +189,7 @@ function buildResearchQualitySummary(input) {
     },
     integrations,
     derivedData,
+    ndxConstituents,
     limitations
   };
 }
@@ -174,19 +205,39 @@ async function getResearchQuality(options = {}) {
   const getTaskRuns = options.getTaskRuns || getResearchTaskRuns;
   const getIntegrationReadiness = options.getIntegrationReadiness || buildResearchIntegrationReadiness;
   const getDerivedFreshness = options.getDerivedFreshness || getDerivedDataFreshness;
-  const [health, daily, weekly, review, tasks, derivedData] = await Promise.all([
+  const getNdx = options.getNdxSnapshot || getNdxSnapshot;
+  const now = options.now instanceof Date ? options.now : new Date();
+  const asOfDate = normalizeMarketDate(options.asOfDate) || now.toISOString().slice(0, 10);
+  const [health, daily, weekly, review, tasks, derivedData, ndxSnapshot] = await Promise.all([
     getHealth({ config, requestImpl, env: options.env }),
     getDailyReports({ limit: 30 }, config, requestImpl),
     getWeeklyReports({ limit: 12 }, config, requestImpl),
     getReviewQueue(days),
     getTaskRuns({ limit: 50 }, config, requestImpl),
-    getDerivedFreshness(config, requestImpl)
+    getDerivedFreshness(config, requestImpl),
+    getNdx(asOfDate, config, requestImpl)
   ]);
-  return buildResearchQualitySummary({ health, daily, weekly, review, tasks, derivedData, integrations: getIntegrationReadiness(options.env || process.env) });
+  return buildResearchQualitySummary({
+    health,
+    daily,
+    weekly,
+    review,
+    tasks,
+    derivedData,
+    ndxConstituents: buildNdxConstituentFreshness({
+      asOfDate,
+      effectiveDate: ndxSnapshot?.effective_date,
+      constituentCount: ndxSnapshot?.constituent_count
+    }),
+    integrations: getIntegrationReadiness(options.env || process.env)
+  });
 }
 
 module.exports = {
   RESEARCH_QUALITY_VERSION,
+  NDX_AGING_DAYS,
+  NDX_FRESH_DAYS,
+  buildNdxConstituentFreshness,
   buildDerivedDataFreshness,
   buildResearchIntegrationReadiness,
   freshnessStatus,

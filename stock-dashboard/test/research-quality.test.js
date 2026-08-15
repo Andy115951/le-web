@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { buildDerivedDataFreshness, buildResearchIntegrationReadiness, buildResearchQualitySummary, getDerivedDataFreshness, getResearchQuality } = require("../lib/research-quality");
+const { buildDerivedDataFreshness, buildNdxConstituentFreshness, buildResearchIntegrationReadiness, buildResearchQualitySummary, getDerivedDataFreshness, getResearchQuality } = require("../lib/research-quality");
 
 test("integration readiness exposes only safe state labels", function () {
   const readiness = buildResearchIntegrationReadiness({ SEC_USER_AGENT: "valid contact@example.com", FRED_API_KEY: "a".repeat(32), DEEPSEEK_RESEARCH_ENABLED: "true", DEEPSEEK_RESEARCH_DATA_APPROVED: "true", DEEPSEEK_GATEWAY_COMPATIBILITY_ENABLED: "true", DEEPSEEK_API_KEY: "secret-key-value-long-enough", DEEPSEEK_MODEL: "deepseek-chat" });
@@ -49,6 +49,14 @@ test("derived data freshness remains conservative when materializations are abse
   assert.equal(buildDerivedDataFreshness({}).dailyFeatures.status, "awaiting_market_data");
 });
 
+test("NDX constituent freshness distinguishes current, aging, stale, and invalid chronology", function () {
+  assert.equal(buildNdxConstituentFreshness({ asOfDate: "2026-08-15", effectiveDate: "2026-08-01", constituentCount: 101 }).status, "current");
+  assert.equal(buildNdxConstituentFreshness({ asOfDate: "2026-08-15", effectiveDate: "2026-06-01", constituentCount: 101 }).status, "aging");
+  assert.equal(buildNdxConstituentFreshness({ asOfDate: "2026-08-15", effectiveDate: "2026-05-01", constituentCount: 101 }).status, "stale");
+  assert.equal(buildNdxConstituentFreshness({ asOfDate: "2026-08-15", effectiveDate: "2026-09-01", constituentCount: 101 }).status, "inconsistent_future");
+  assert.equal(buildNdxConstituentFreshness({ asOfDate: "2026-08-15" }).status, "awaiting_snapshot");
+});
+
 test("derived data freshness queries only public dates and a bounded QQQ scope", async function () {
   const paths = [];
   const result = await getDerivedDataFreshness({ url: "https://example.invalid" }, async function (_config, path) {
@@ -75,9 +83,11 @@ test("research quality safely composes independently injected read sources", asy
     getReviewQueue: async function () { return { totalCount: 0, needsAttentionCount: 0, unreviewedCount: 0 }; },
     getTaskRuns: async function () { return { count: 0, runs: [] }; },
     getDerivedFreshness: async function () { return buildDerivedDataFreshness({}); },
+    getNdxSnapshot: async function () { return { effective_date: "2026-08-01", constituent_count: 101 }; },
     getIntegrationReadiness: function () { return { modelNarrative: { status: "needs_configuration" } }; }
   });
   assert.equal(quality.coverage.researchSnapshots, 0);
   assert.equal(quality.operations.taskLedgerState, "awaiting_next_capture");
+  assert.equal(quality.ndxConstituents.status, "current");
   assert.equal(quality.limitations.some(function (item) { return item.includes("No archived research snapshot"); }), true);
 });

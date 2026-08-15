@@ -1471,6 +1471,7 @@ function renderResearchQuality() {
   const operations = quality.operations || {};
   const integrations = quality.integrations || {};
   const derivedData = quality.derivedData || {};
+  const ndxConstituents = quality.ndxConstituents || {};
   const ledgerReady = operations.taskLedgerState === "recording";
   els.researchQualityHint.textContent = "只汇总真实已归档材料与待办事项：它不是数据质量认证，也不构成预测或交易建议。";
   els.researchQualityBody.innerHTML = [
@@ -1483,10 +1484,25 @@ function renderResearchQuality() {
     '<div class="research-quality-notes">',
     '<article class="research-quality-ledger"><span>TASK LEDGER</span><strong class="' + (ledgerReady ? "is-ready" : "") + '">' + (ledgerReady ? "Recording real stages" : "Waiting for next close") + '</strong><p>' + (ledgerReady ? Number(operations.taskRunCount || 0) + " 条真实阶段运行已追加，不会从旧日志合成。" : "下一次完整收盘采集后才会写入真实阶段记录，历史运行不会被猜测性补齐。") + '</p></article>',
     renderResearchIntegrationReadiness(integrations),
+    renderResearchNdxConstituentFreshness(ndxConstituents),
     renderResearchDerivedDataFreshness(derivedData),
     '<article class="research-quality-limitations"><span>LIMITATIONS</span><ul>' + (Array.isArray(quality.limitations) ? quality.limitations.slice(0, 3) : []).map(function (item) { return "<li>" + escapeHtml(String(item)) + "</li>"; }).join("") + '</ul></article>',
     '</div>'
   ].join("");
+}
+
+function renderResearchNdxConstituentFreshness(freshness) {
+  const status = String(freshness?.status || "awaiting_snapshot");
+  const ageDays = Number(freshness?.ageDays);
+  const effectiveDate = freshness?.effectiveDate;
+  const asOfDate = freshness?.asOfDate;
+  const count = Number(freshness?.constituentCount || 0);
+  const ageText = Number.isFinite(ageDays) ? ageDays + " 天前" : "尚无可比较日期";
+  return '<article class="research-quality-derived research-quality-ndx"><span>NDX CONSTITUENT FRESHNESS</span><p>只提示最近已审核官方快照距参考日的时间，不会自动下载、替换成分或把旧权重伪装为当前数据。</p><section><div><span>最近官方快照</span><b class="is-' + escapeHtml(status) + '">' + escapeHtml(ndxFreshnessLabel(status)) + '</b><small>' + escapeHtml(effectiveDate ? formatMarketDate(effectiveDate) + " · " + count + " 个证券 · " + ageText + "（参考 " + formatMarketDate(asOfDate) + "）" : "尚未归档可用官方快照") + "</small></div></section></article>";
+}
+
+function ndxFreshnessLabel(status) {
+  return ({ current: "新鲜", aging: "待检查", stale: "已滞后", awaiting_snapshot: "未归档", awaiting_reference_date: "等待日期", inconsistent_future: "日期异常" })[status] || "未知";
 }
 
 function renderResearchDerivedDataFreshness(derivedData) {

@@ -223,17 +223,16 @@ function normalizeAsOf(value) {
   return asOf;
 }
 
-async function getNdxSnapshot(asOf) {
-  const config = getSupabaseConfig();
+async function getNdxSnapshot(asOf, config = getSupabaseConfig(), requestImpl = requestSupabase) {
   const normalizedAsOf = normalizeAsOf(asOf);
-  const snapshots = await requestSupabase(
+  const snapshots = await requestImpl(
     config,
     "/rest/v1/ndx_constituent_snapshots?select=id,index_symbol,effective_date,published_at,source_url,constituent_count,total_weight_percent,weight_precision,is_pro_forma,captured_at,metadata"
       + "&effective_date=lte." + normalizedAsOf + "&order=effective_date.desc&limit=1"
   );
   const snapshot = Array.isArray(snapshots) ? snapshots[0] : null;
   if (!snapshot) return null;
-  const members = await requestSupabase(
+  const members = await requestImpl(
     config,
     "/rest/v1/ndx_constituent_members?select=security_name,weight_percent,rank,instruments(id,symbol,display_name,exchange,currency)"
       + "&snapshot_id=eq." + snapshot.id + "&order=rank.asc&limit=110"
