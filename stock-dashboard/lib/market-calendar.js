@@ -1,4 +1,4 @@
-const { getNdxSnapshot } = require("./ndx-snapshots");
+const { getNdxConstituentChangeSummary, getNdxSnapshot } = require("./ndx-snapshots");
 const { getSupabaseConfig, requestSupabase } = require("./supabase-server");
 const { getUnifiedMarketEventsRange } = require("./unified-market-events");
 
@@ -208,6 +208,7 @@ async function getMarketDayDetail(value, now = new Date()) {
   const data = await loadCalendarData(date.slice(0, 7), now);
   const day = data.days.find(function (item) { return item.date === date; });
   const snapshot = await getNdxSnapshot(date);
+  const constituentChanges = await getNdxConstituentChangeSummary(snapshot);
   return {
     timezone: "America/New_York",
     day,
@@ -217,7 +218,8 @@ async function getMarketDayDetail(value, now = new Date()) {
       sourceUrl: snapshot.source_url,
       constituentCount: snapshot.constituent_count,
       totalWeightPercent: Number(snapshot.total_weight_percent),
-      topMembers: snapshot.members.slice(0, 10)
+      topMembers: snapshot.members.slice(0, 10),
+      constituentChanges
     } : null
   };
 }

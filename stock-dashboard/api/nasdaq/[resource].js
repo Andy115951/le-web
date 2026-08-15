@@ -1,5 +1,5 @@
 const { getMarketCalendar, getMarketDayDetail } = require("../../lib/market-calendar");
-const { getNdxSnapshot } = require("../../lib/ndx-snapshots");
+const { getNdxConstituentChangeSummary, getNdxSnapshot } = require("../../lib/ndx-snapshots");
 const { getUnifiedMarketEvents } = require("../../lib/unified-market-events");
 const { getMarketEventAttributions } = require("../../lib/market-attribution-agent");
 const { getStoredDailyFeatures, normalizeFeatureDate } = require("../../lib/daily-feature-store");
@@ -133,6 +133,27 @@ const resources = {
         return;
       }
       sendFailure(res, "Failed to load NDX constituents", error);
+    }
+  },
+
+  async "constituent-changes"(req, res) {
+    try {
+      const snapshot = await getNdxSnapshot(req.query?.asOf);
+      const result = await getNdxConstituentChangeSummary(snapshot);
+      const requestedLimit = Number(req.query?.limit);
+      const limit = Number.isInteger(requestedLimit) && requestedLimit > 0 ? Math.min(requestedLimit, 50) : 12;
+      res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=86400");
+      sendJson(res, 200, {
+        ok: true,
+        asOf: snapshot?.asOf || null,
+        result: { ...result, changes: result.changes.slice(0, limit) }
+      });
+    } catch (error) {
+      if (/Invalid as-of date/.test(error?.message || "")) {
+        sendInvalidQuery(res, "Invalid asOf date; expected YYYY-MM-DD");
+        return;
+      }
+      sendFailure(res, "Failed to load NDX constituent changes", error);
     }
   },
 

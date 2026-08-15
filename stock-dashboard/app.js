@@ -3495,12 +3495,48 @@ function renderResearchOutcome(outcome) {
 function renderNdxSnapshotSummary(snapshot) {
   if (!snapshot) return "";
   const members = Array.isArray(snapshot.topMembers) ? snapshot.topMembers.slice(0, 5) : [];
+  const changeSummary = snapshot.constituentChanges || {};
   return [
     '<div class="day-snapshot">',
     '<div class="day-section-title"><strong>当时有效的 NDX 快照</strong><a href="' + escapeHtml(snapshot.sourceUrl) + '" target="_blank" rel="noreferrer">官方来源</a></div>',
     '<p>生效 ' + escapeHtml(snapshot.effectiveDate) + " · " + Number(snapshot.constituentCount || 0) + " 个证券 · 权重合计 " + escapeHtml(Number(snapshot.totalWeightPercent).toFixed(2)) + "%</p>",
     '<div class="snapshot-members">' + members.map(function (member) {
       return '<span><b>' + escapeHtml(member.instruments?.symbol || "--") + "</b> " + escapeHtml(Number(member.weight_percent).toFixed(2)) + "%</span>";
+    }).join("") + "</div>",
+    renderNdxConstituentChanges(changeSummary),
+    "</div>"
+  ].join("");
+}
+
+function renderNdxConstituentChanges(result) {
+  const status = String(result?.status || "no_snapshot");
+  const summary = result?.summary || {};
+  const changes = Array.isArray(result?.changes) ? result.changes.slice(0, 6) : [];
+  if (status === "first_snapshot") {
+    return '<div class="snapshot-change-empty"><strong>成分变更：等待下一份已审核快照</strong><p>这是当前可比较的首份快照，系统不会从市场新闻或今天的名单猜测加入、移除或权重变化。</p></div>';
+  }
+  if (status === "no_recorded_change") {
+    return '<div class="snapshot-change-empty"><strong>成分变更：未记录差异</strong><p>相较 ' + escapeHtml(formatMarketDate(result?.baselineEffectiveDate)) + ' 的基线快照，没有已保存的加入、移除或权重调整。</p></div>';
+  }
+  if (status !== "changes_recorded") return "";
+  const labels = {
+    membership_added: "加入",
+    membership_removed: "移除",
+    weight_changed: "权重调整"
+  };
+  return [
+    '<div class="snapshot-changes">',
+    '<div class="snapshot-change-head"><strong>相对 ' + escapeHtml(formatMarketDate(result.baselineEffectiveDate)) + ' 的成分变更</strong><span>' + Number(summary.total || 0) + ' 条</span></div>',
+    '<p>加入 ' + Number(summary.membershipAdded || 0) + ' · 移除 ' + Number(summary.membershipRemoved || 0) + ' · 权重调整 ' + Number(summary.weightChanged || 0) + '；仅显示已审核导入后的追加式记录。</p>',
+    '<div class="snapshot-change-list">' + changes.map(function (change) {
+      const previous = Number(change.previousWeightPercent);
+      const current = Number(change.currentWeightPercent);
+      const weight = change.changeKind === "weight_changed"
+        ? (Number.isFinite(previous) ? previous.toFixed(2) : "--") + "% → " + (Number.isFinite(current) ? current.toFixed(2) : "--") + "%"
+        : change.changeKind === "membership_added"
+          ? "权重 " + (Number.isFinite(current) ? current.toFixed(2) : "--") + "%"
+          : "原权重 " + (Number.isFinite(previous) ? previous.toFixed(2) : "--") + "%";
+      return '<div><b class="' + escapeHtml(change.changeKind) + '">' + escapeHtml(labels[change.changeKind] || "变更") + '</b><strong>' + escapeHtml(change.symbol) + '</strong><span>' + escapeHtml(weight) + '</span></div>';
     }).join("") + "</div>",
     "</div>"
   ].join("");

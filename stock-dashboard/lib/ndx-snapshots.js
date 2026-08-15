@@ -240,4 +240,105 @@ async function getNdxSnapshot(asOf, config = getSupabaseConfig(), requestImpl = 
   return { ...snapshot, asOf: normalizedAsOf, members: Array.isArray(members) ? members : [] };
 }
 
-module.exports = { getNdxSnapshot, getPriorSnapshot, getSnapshotAtEffectiveDate, importNdxSnapshot, normalizeAsOf, validateSnapshot };
+const NDX_CHANGE_KIND_ORDER = {
+  membership_added: 0,
+  membership_removed: 1,
+  weight_changed: 2
+};
+
+function finiteNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function normalizeNdxConstituentChanges(rows) {
+  return (Array.isArray(rows) ? rows : []).map(function (row) {
+    const changeKind = String(row?.change_kind || "");
+    if (!(changeKind in NDX_CHANGE_KIND_ORDER)) return null;
+    const instrument = row?.instruments || {};
+    const previousWeightPercent = finiteNumber(row?.previous_weight_percent);
+    const currentWeightPercent = finiteNumber(row?.current_weight_percent);
+    return {
+      changeKind,
+      symbol: String(instrument.symbol || "").trim().toUpperCase(),
+      displayName: String(instrument.display_name || row?.metadata?.securityName || "").trim() || null,
+      previousWeightPercent,
+      currentWeightPercent,
+      weightChangePercent: previousWeightPercent !== null && currentWeightPercent !== null
+        ? Number((currentWeightPercent - previousWeightPercent).toFixed(6))
+        : null
+    };
+  }).filter(function (row) {
+    return Boolean(row && row.symbol);
+  }).sort(function (left, right) {
+    const kindDifference = NDX_CHANGE_KIND_ORDER[left.changeKind] - NDX_CHANGE_KIND_ORDER[right.changeKind];
+    if (kindDifference) return kindDifference;
+    const magnitudeDifference = Math.abs(right.weightChangePercent || 0) - Math.abs(left.weightChangePercent || 0);
+    return magnitudeDifference || left.symbol.localeCompare(right.symbol);
+  });
+}
+
+function summarizeNdxConstituentChanges(changes) {
+  const summary = {
+    total: 0,
+    membershipAdded: 0,
+    membershipRemoved: 0,
+    weightChanged: 0
+  };
+  (Array.isArray(changes) ? changes : []).forEach(function (change) {
+    summary.total += 1;
+    if (change.changeKind === "membership_added") summary.membershipAdded += 1;
+    if (change.changeKind === "membership_removed") summary.membershipRemoved += 1;
+    if (change.changeKind === "weight_changed") summary.weightChanged += 1;
+  });
+  return summary;
+}
+
+async function getNdxConstituentChangeSummary(snapshot, config = getSupabaseConfig(), requestImpl = requestSupabase) {
+  if (!snapshot?.id || !snapshot?.effective_date) {
+    return {
+      status: "no_snapshot",
+      effectiveDate: null,
+      baselineEffectiveDate: null,
+      summary: summarizeNdxConstituentChanges([]),
+      changes: []
+    };
+  }
+  const [priorRows, changeRows] = await Promise.all([
+    requestImpl(
+      config,
+      "/rest/v1/ndx_constituent_snapshots?select=effective_date"
+        + "&index_symbol=eq." + encodeURIComponent(snapshot.index_symbol || "NDX")
+        + "&effective_date=lt." + encodeURIComponent(snapshot.effective_date)
+        + "&order=effective_date.desc&limit=1"
+    ),
+    requestImpl(
+      config,
+      "/rest/v1/ndx_constituent_changes?select=change_kind,previous_weight_percent,current_weight_percent,metadata,instruments(symbol,display_name)"
+        + "&snapshot_id=eq." + encodeURIComponent(snapshot.id)
+        + "&limit=250"
+    )
+  ]);
+  const changes = normalizeNdxConstituentChanges(changeRows);
+  const baselineEffectiveDate = Array.isArray(priorRows) ? priorRows[0]?.effective_date || null : null;
+  return {
+    status: baselineEffectiveDate ? (changes.length ? "changes_recorded" : "no_recorded_change") : "first_snapshot",
+    effectiveDate: snapshot.effective_date,
+    baselineEffectiveDate,
+    summary: summarizeNdxConstituentChanges(changes),
+    changes
+  };
+}
+
+module.exports = {
+  getNdxConstituentChangeSummary,
+  getNdxSnapshot,
+  getPriorSnapshot,
+  getSnapshotAtEffectiveDate,
+  importNdxSnapshot,
+  normalizeAsOf,
+  normalizeNdxConstituentChanges,
+  summarizeNdxConstituentChanges,
+  validateSnapshot
+};
