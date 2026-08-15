@@ -18,6 +18,12 @@ function normalizeSnapshotLimit(value) {
   return Math.max(1, Math.min(30, Math.round(limit)));
 }
 
+function normalizePacketFingerprint(value) {
+  const fingerprint = String(value || "").trim().toLowerCase();
+  if (!/^[a-f0-9]{64}$/.test(fingerprint)) throw new Error("Invalid research packet fingerprint");
+  return fingerprint;
+}
+
 function materialPacket(packet) {
   return materialResearchPacket(packet);
 }
@@ -107,11 +113,18 @@ async function getResearchPacketSnapshots(options = {}, config = getSupabaseConf
 
 async function findResearchPacketSnapshot(options = {}, config = getSupabaseConfig(), requestImpl = requestSupabase) {
   const marketDate = normalizeDate(options.marketDate);
-  const fingerprint = String(options.packetFingerprint || "").trim();
-  if (!/^[a-f0-9]{64}$/.test(fingerprint)) throw new Error("Invalid research packet fingerprint");
+  const fingerprint = normalizePacketFingerprint(options.packetFingerprint);
   const rows = await requestImpl(config, "/rest/v1/research_packet_snapshots?select=id,market_date,packet_fingerprint,source_summary,captured_at,capture_run_id"
     + "&market_date=eq." + encodeURIComponent(marketDate)
     + "&packet_fingerprint=eq." + encodeURIComponent(fingerprint) + "&limit=1");
+  return Array.isArray(rows) ? rows[0] || null : null;
+}
+
+async function findResearchPacketSnapshotByFingerprint(packetFingerprint, config = getSupabaseConfig(), requestImpl = requestSupabase) {
+  const fingerprint = normalizePacketFingerprint(packetFingerprint);
+  const rows = await requestImpl(config, "/rest/v1/research_packet_snapshots?select=id,market_date,packet_contract_version,packet_fingerprint,packet,source_summary,captured_at,capture_run_id"
+    + "&packet_fingerprint=eq." + encodeURIComponent(fingerprint)
+    + "&order=captured_at.desc,created_at.desc&limit=1");
   return Array.isArray(rows) ? rows[0] || null : null;
 }
 
@@ -148,9 +161,11 @@ module.exports = {
   buildResearchPacketSnapshot,
   buildSourceSummary,
   findResearchPacketSnapshot,
+  findResearchPacketSnapshotByFingerprint,
   getResearchPacketSnapshots,
   materialPacket,
   normalizeCaptureRunId,
+  normalizePacketFingerprint,
   normalizeSnapshotLimit,
   persistResearchPacketSnapshot,
   rehashResearchPacketSnapshots,

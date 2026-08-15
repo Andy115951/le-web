@@ -4,7 +4,9 @@ const {
   RESEARCH_PACKET_SNAPSHOT_VERSION,
   buildResearchPacketSnapshot,
   buildSourceSummary,
+  findResearchPacketSnapshotByFingerprint,
   getResearchPacketSnapshots,
+  normalizePacketFingerprint,
   persistResearchPacketSnapshot,
   rehashResearchPacketSnapshots,
   researchPacketFingerprint
@@ -92,6 +94,20 @@ test("snapshot listing omits full packet by default and validates requested date
   assert.equal(replay.includePacket, true);
   assert.equal(calls[1].includes("packet,"), true);
   await assert.rejects(function () { return getResearchPacketSnapshots({ date: "not-a-date" }, {}, client); }, /Invalid calendar date/);
+});
+
+test("private lookup retrieves an immutable packet only by its normalized fingerprint", async function () {
+  const fingerprint = "a".repeat(64);
+  const calls = [];
+  const result = await findResearchPacketSnapshotByFingerprint(fingerprint.toUpperCase(), {}, async function (_config, path) {
+    calls.push(path);
+    return [{ id: "snapshot-1", market_date: "2026-08-11", packet_fingerprint: fingerprint, packet: packet("2026-08-11T20:01:00.000Z") }];
+  });
+  assert.equal(result.id, "snapshot-1");
+  assert.match(calls[0], /packet_fingerprint=eq\.a{64}/);
+  assert.match(calls[0], /select=.*packet/);
+  assert.equal(normalizePacketFingerprint(fingerprint.toUpperCase()), fingerprint);
+  assert.throws(function () { normalizePacketFingerprint("not-a-fingerprint"); }, /Invalid research packet fingerprint/);
 });
 
 test("source summary only records aggregate provenance metadata", function () {

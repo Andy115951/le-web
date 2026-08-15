@@ -578,9 +578,19 @@ DEEPSEEK_MAX_OUTPUT_TOKENS=900
 
 第一次保持两个开关为 `false` 部署并检查运行日志；确认模型 ID、每日预算和账户归属后，才考虑把 `DEEPSEEK_RESEARCH_ENABLED` 改为 `true`。即使它为 `true`，服务端仍要求 `DEEPSEEK_RESEARCH_DATA_APPROVED=true` 才会把不可变研究包发送给第三方：这是独立于“功能启用”的人工数据出站确认。代码层硬性限制每日最多 `3` 次请求、单次最多 `1400` 输出 token，即使环境变量误填更大也不会放宽。DeepSeek 的 JSON 模式需要请求 `response_format: { type: "json_object" }` 且提示词明确要求 JSON；实现已经固定这两点，参考 [DeepSeek JSON Output](https://api-docs.deepseek.com/guides/json_mode)。
 
-如果使用兼容 OpenAI Chat Completions 的第三方网关，可额外设置仅服务端变量 `DEEPSEEK_API_URL` 为完整 HTTPS `/chat/completions` 地址；未设置时继续使用官方 DeepSeek 地址。该地址、密钥、模型名称和请求限制均必须在本机 `.env.local` 与 Vercel Production 分别配置，绝不能写入 Git 或浏览器变量。当前 Production 已配置 `deepseek-v4-flash` 与每天 `1` 次、最多 `900` 输出 token 的上限，但两个开关均保持 `false`。已用不含项目数据的最小 JSON 请求确认该网关支持 `response_format: json_object`；在项目维护者明确批准把不可变研究快照发送给该第三方前，不得把 `DEEPSEEK_RESEARCH_DATA_APPROVED` 设为 `true`。
+如果使用兼容 OpenAI Chat Completions 的第三方网关，可额外设置仅服务端变量 `DEEPSEEK_API_URL` 为完整 HTTPS `/chat/completions` 地址；未设置时继续使用官方 DeepSeek 地址。该地址、密钥、模型名称和请求限制均必须在本机 `.env.local` 与 Vercel Production 分别配置，绝不能写入 Git 或浏览器变量。先以不含项目数据的最小 JSON 请求确认该网关支持 `response_format: json_object`；在项目维护者明确批准把不可变研究快照发送给该第三方前，不得把 `DEEPSEEK_RESEARCH_DATA_APPROVED` 设为 `true`。
 
 若只批准一次指定快照验证，必须同时设置 `DEEPSEEK_ALLOWED_PACKET_FINGERPRINT=<64 位快照指纹>` 与 `DEEPSEEK_ONE_TIME_VALIDATION=true`。执行器会在任何数据库或网关请求前拒绝其它指纹，返回 `packet_not_approved`；一旦该提供方已产生过任意一次审计尝试，也会永久拒绝后续发送并返回 `one_time_validation_consumed`。这项硬限制与每日上限、已接受快照去重共同生效。完成验证后仍应将该变量和两个开关恢复为关闭状态。
+
+完成部署后，唯一的生产验证入口是 `POST /api/cron/validate-approved-research-snapshot`。它必须带 `Authorization: Bearer $CRON_SECRET`，不读取请求体、日期或指纹参数；服务端只会按环境变量中的已批准指纹查询归档快照。运行以下命令前，先在当前终端安全设置 `CRON_SECRET`，不要把真实值粘贴到聊天、Git 或 shell 历史：
+
+```bash
+curl --fail-with-body -X POST \
+  https://stock-dashboard-psi-henna.vercel.app/api/cron/validate-approved-research-snapshot \
+  -H "Authorization: Bearer $CRON_SECRET"
+```
+
+响应只含状态、已批准快照日期/指纹、审计 ID 和校验错误数量，不会返回研究包、密钥、上游请求或完整模型输出。无论首次尝试被接受还是拒绝，`DEEPSEEK_ONE_TIME_VALIDATION=true` 都会阻止第二次出站尝试；不要用改变请求参数的方式重试，因为该路由没有可变输入。
 
 启用前先使用已归档的历史快照做一次人工、可审计验证：
 
