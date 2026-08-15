@@ -1825,6 +1825,23 @@ body {
 
 .calendar-hint { margin: -4px 0 9px; line-height: 1.55; }
 
+.calendar-jump {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  margin: 0 0 11px;
+  padding: 7px;
+  border: 1px solid #d9e2ed;
+  border-radius: 11px;
+  background: #f8faff;
+}
+
+.calendar-jump label { color: #526783; font-size: .76rem; font-weight: 800; }
+.calendar-jump input { min-height: 32px; padding: 0 8px; font: inherit; font-size: .78rem; }
+.calendar-jump-btn { min-height: 32px; padding: 0 10px; border: 0; border-radius: 8px; color: #fff; background: #315fbf; font: inherit; font-size: .76rem; font-weight: 800; cursor: pointer; }
+.calendar-jump-btn:hover { background: #244d9e; }
+
 .calendar-legend {
   display: flex;
   flex-wrap: wrap;
@@ -2365,6 +2382,8 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(43, 97, 21
   .history-event-grid { grid-template-columns: 1fr; }
   .calendar-heading { align-items: stretch; }
   .calendar-nav { justify-content: space-between; width: 100%; }
+  .calendar-jump { width: 100%; }
+  .calendar-jump input { flex: 1; min-width: 0; }
   .calendar-panel { padding: 8px; }
   .calendar-grid { gap: 4px; }
   .calendar-weekdays span { padding: 3px; font-size: 0.64rem; }

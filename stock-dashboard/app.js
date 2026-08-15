@@ -68,6 +68,8 @@ const els = {
   calendarPrevBtn: document.getElementById("calendarPrevBtn"),
   calendarNextBtn: document.getElementById("calendarNextBtn"),
   calendarTodayBtn: document.getElementById("calendarTodayBtn"),
+  calendarJumpForm: document.getElementById("calendarJumpForm"),
+  calendarDateInput: document.getElementById("calendarDateInput"),
   calendarMonthLabel: document.getElementById("calendarMonthLabel"),
   calendarHint: document.getElementById("calendarHint"),
   calendarGrid: document.getElementById("calendarGrid"),
@@ -362,12 +364,19 @@ function bindEvents() {
       void refreshMarketCalendar();
     });
   }
+  if (els.calendarJumpForm) {
+    els.calendarJumpForm.addEventListener("submit", function (event) {
+      event.preventDefault();
+      void jumpToCalendarDate(els.calendarDateInput?.value);
+    });
+  }
   if (els.calendarGrid) {
     els.calendarGrid.addEventListener("click", function (event) {
       const button = event.target.closest("[data-calendar-date]");
       if (!button) return;
       const date = button.getAttribute("data-calendar-date");
       state.marketCalendar.selectedDate = date;
+      syncCalendarDateInput();
       renderMarketCalendar();
       void refreshMarketDayDetail(date);
     });
@@ -1133,6 +1142,34 @@ function shiftCalendarMonth(month, offset) {
   return date.toISOString().slice(0, 7);
 }
 
+function normalizeCalendarJumpDate(value) {
+  const date = String(value || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const parsed = new Date(date + "T12:00:00.000Z");
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date ? date : null;
+}
+
+function syncCalendarDateInput() {
+  if (!els.calendarDateInput || !state.marketCalendar.selectedDate) return;
+  els.calendarDateInput.value = state.marketCalendar.selectedDate;
+}
+
+async function jumpToCalendarDate(value) {
+  const date = normalizeCalendarJumpDate(value);
+  if (!date) {
+    if (els.calendarDateInput) {
+      els.calendarDateInput.setCustomValidity("请输入有效的 YYYY-MM-DD 日期");
+      els.calendarDateInput.reportValidity();
+      els.calendarDateInput.setCustomValidity("");
+    }
+    return;
+  }
+  state.marketCalendar.month = date.slice(0, 7);
+  state.marketCalendar.selectedDate = date;
+  syncCalendarDateInput();
+  await refreshMarketCalendar();
+}
+
 async function changeCalendarMonth(offset) {
   state.marketCalendar.month = shiftCalendarMonth(state.marketCalendar.month, offset);
   state.marketCalendar.selectedDate = "";
@@ -1160,6 +1197,7 @@ async function refreshMarketCalendar() {
       });
       calendar.selectedDate = candidates.at(-1)?.date || calendar.days[0]?.date || "";
     }
+    syncCalendarDateInput();
     calendar.loading = false;
     calendar.detail = null;
     calendar.detailError = "";
