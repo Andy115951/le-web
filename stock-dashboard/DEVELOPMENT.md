@@ -2,18 +2,22 @@
 
 本文档面向本地开发、Supabase 初始化、Vercel 部署和每日行情历史任务维护。产品功能与进度概览见 [README.md](README.md)，完整产品路线图见 [ROADMAP.md](ROADMAP.md)，数据库完整 SQL 见 [SUPABASE_SETUP.md](SUPABASE_SETUP.md)。
 
-## 当前环境状态（2026-08-13）
+## 当前环境状态（2026-08-16）
 
 当前 Windows 开发机已经完成：
 
-- Node.js 22 可用
-- Vercel CLI 已安装
-- Supabase CLI `2.113.0` 已安装到 `%LOCALAPPDATA%\Programs\Supabase`
-- Docker Desktop 已安装
-- Supabase CLI 已完成登录
-- 当前目录已执行 `supabase init`
-- 当前目录已关联 Supabase 项目 `ougpvpolmzsmaljscruo`（Singapore）
+- Node.js `22.22.2` 可用，符合 `.nvmrc` 要求
+- Vercel CLI `54.14.2` 已安装，通过 `C:\vcli\vc.cmd` wrapper 调用（绕过 EXDEV + 注入 Clash 代理）
+- Vercel 已登录账号 `xiongjiale99-5273`，已 link 到 `les-projects-1a1adf4b/stock-dashboard`
+- Supabase CLI `2.113.0` 已安装，已 link 到项目 `ougpvpolmzsmaljscruo`（`le's Project`，Singapore）
 - `supabase/.temp` 已被忽略，不会提交本机链接信息
+- `.env.local` 已配置以下变量（均验证通过）：
+  - `SUPABASE_URL` + `SUPABASE_SECRET_KEY`：REST 查询返回 200
+  - `CRON_SECRET`：本机生成随机串
+  - `FRED_API_KEY`：采集验证通过，12 条宏观观测写入成功
+  - `SEC_USER_AGENT`：采集验证通过，3 条 filings 写入成功
+- Vercel 生产环境已补充 `FRED_API_KEY` 和 `SEC_USER_AGENT`，已重新部署
+- 测试 192/192 全绿，代码零 npm 依赖，无需 `npm install`
 - 服务端归档代码已迁移到新版 `SUPABASE_SECRET_KEY`
 
 当前 Mac 开发机已经完成：
@@ -49,6 +53,85 @@
 - [x] 财报日历基础层：`earnings_events` migration、官方 IR 候选校验/显式导入、`GET /api/nasdaq/earnings` 和动态日历展示已实现；首条 NVIDIA FY2027 Q2 官方候选已归档，预定事项不进入涨跌归因
 
 页面、API、事件规则和数据库开发现在都可进行；当前未完成项不会阻塞下一批代码开发。
+
+## 0. 本机 Windows 实际环境（`E:\ecode\other\le-web`）
+
+> 本节记录当前这台 Windows 开发机的真实运行方式。它与第 4、6、7 节的通用 `--global-config` 方案是**两套并行手段**：本机实际使用的是下面的 `vc.cmd` wrapper，遇到 Vercel CLI 相关操作时以本节为准。
+
+### 0.1 关键事实
+
+- 项目实际路径：`E:\ecode\other\le-web\stock-dashboard`（文档其余部分出现的 `/Users/apple/Documents/...` 是 Mac 机路径，本机忽略）。
+- 终端：Git Bash（POSIX sh）。示例命令以 Git Bash 为准，PowerShell 段落见对应通用章节。
+- Node `22.x`、npm、Vercel CLI `54.x`、Supabase CLI `2.113.0` 均已安装。
+- **本项目代码零 npm 依赖**：只用 Node 内建 `crypto / fs / path`，`package.json` 的 `dependencies` 为空。因此 `stock-dashboard` 目录**不需要 `npm install`**，测试和脚本可直接跑。
+- Supabase CLI 已 link 到项目 `ougpvpolmzsmaljscruo`（`le's Project`），链接信息在被忽略的 `supabase/.temp/` 下。
+
+### 0.2 EXDEV + 代理：必须用 `vc.cmd` wrapper
+
+直接运行 `vercel ...` 会失败：
+
+```text
+EXDEV: cross-device link not permitted ... com.vercel.cli\config.json
+```
+
+原因是 Vercel CLI 用 `fs.rename` 写 `%APPDATA%\Roaming` 下的配置，撞上本机的目录虚拟化 / 跨卷限制。本机的解决方案不是 `--global-config`，而是一个固定 wrapper：
+
+- 路径：`C:\vcli\vc.cmd`
+- 作用：
+  1. 把 `XDG_DATA_HOME` 重定向到 `C:\vcli`，让 CLI 配置落到同卷目录 `C:\vcli\com.vercel.cli`，绕过 EXDEV；
+  2. 注入 `HTTPS_PROXY / HTTP_PROXY = http://127.0.0.1:7890`（Clash），并通过 `NODE_OPTIONS=--import .../proxy-preload.mjs` 把 Node 的全局 `https/http` agent 和 undici dispatcher 都强制走该代理——因为 Node CLI 默认**不读** `HTTPS_PROXY`，OAuth / API 请求否则无法出网。
+
+配套文件（均在 `C:\vcli\`）：`vc.cmd`、`proxy-preload.mjs`、`proxy-preload.cjs`、`com.vercel.cli/`。
+
+**前置条件：Clash 必须运行在 `127.0.0.1:7890`。** 快速自检：
+
+```bash
+curl -s -x http://127.0.0.1:7890 -o /dev/null -w "%{http_code}\n" https://api.vercel.com
+# 返回 3xx/200 即代理可达；连接被拒说明 Clash 没起
+```
+
+### 0.3 本机 Vercel 命令用法
+
+在 Git Bash 里统一通过 wrapper 调用（`cmd //c` 调用 `.cmd`）：
+
+```bash
+cmd //c "C:\\vcli\\vc.cmd whoami"        # 检查登录状态
+cmd //c "C:\\vcli\\vc.cmd login"         # 重新登录（浏览器 OAuth）
+cmd //c "C:\\vcli\\vc.cmd link"          # 关联到 stock-dashboard 项目
+cmd //c "C:\\vcli\\vc.cmd env ls"        # 只看变量名
+cmd //c "C:\\vcli\\vc.cmd dev"           # 本地起服务
+cmd //c "C:\\vcli\\vc.cmd --prod --yes"  # 生产部署
+```
+
+> 本节所有 `vercel` 操作都替换成上面的 `vc.cmd` 形式；不要在本机直接敲 `vercel` 或 `npx vercel`，否则复现 EXDEV。
+
+### 0.4 本机接入检查清单
+
+```bash
+# 1. 运行时齐不齐
+node -v            # 期望 v22.x
+cmd //c "C:\\vcli\\vc.cmd --version"      # Vercel CLI 54.x
+supabase --version                         # 2.113.0
+
+# 2. 代理在不在
+curl -s -x http://127.0.0.1:7890 -o /dev/null -w "%{http_code}\n" https://api.vercel.com
+
+# 3. 测试基线（零依赖，直接可跑）
+node --test        # 期望全绿
+
+# 4. 登录 & 关联（token 会过期，失效就重登）
+cmd //c "C:\\vcli\\vc.cmd whoami"
+cmd //c "C:\\vcli\\vc.cmd login"   # 仅当上一步报 token 无效
+cmd //c "C:\\vcli\\vc.cmd link"    # 仅当缺少 .vercel/ 目录
+
+# 5. 需要联调 Supabase 接口时，再准备 .env.local（见 6.2）
+```
+
+### 0.5 本机当前待办
+
+- [ ] Vercel token 已失效，需要重跑 `vc.cmd login`（浏览器 OAuth，需人工完成）。
+- [ ] `stock-dashboard/.env.local` 尚未创建；纯页面 / 测试不需要，联调 Supabase 接口前按第 6.2 节补齐 `SUPABASE_URL`、`SUPABASE_SECRET_KEY`、`CRON_SECRET`。
+- [ ] 本机 `.vercel/` 未生成，登录后执行 `vc.cmd link` 关联既有 `stock-dashboard`，不要新建同名项目。
 
 ## 1. 当前系统边界
 
@@ -581,10 +664,13 @@ DEEPSEEK_RESEARCH_DATA_APPROVED=false
 DEEPSEEK_API_KEY=<只放服务器的 DeepSeek Key>
 DEEPSEEK_MODEL=<DeepSeek 控制台当前可用的模型 ID>
 DEEPSEEK_MAX_DAILY_REQUESTS=1
-DEEPSEEK_MAX_OUTPUT_TOKENS=900
+DEEPSEEK_MAX_OUTPUT_TOKENS=1400
+# DEEPSEEK_REQUEST_TIMEOUT_MS=50000
 ```
 
-第一次保持两个开关为 `false` 部署并检查运行日志；确认模型 ID、每日预算和账户归属后，才考虑把 `DEEPSEEK_RESEARCH_ENABLED` 改为 `true`。即使它为 `true`，服务端仍要求 `DEEPSEEK_RESEARCH_DATA_APPROVED=true` 才会把不可变研究包发送给第三方：这是独立于“功能启用”的人工数据出站确认。代码层硬性限制每日最多 `3` 次请求、单次最多 `1400` 输出 token，即使环境变量误填更大也不会放宽。DeepSeek 的 JSON 模式需要请求 `response_format: { type: "json_object" }` 且提示词明确要求 JSON；实现已经固定这两点，参考 [DeepSeek JSON Output](https://api-docs.deepseek.com/guides/json_mode)。
+第一次保持两个开关为 `false` 部署并检查运行日志；确认模型 ID、每日预算和账户归属后，才考虑把 `DEEPSEEK_RESEARCH_ENABLED` 改为 `true`。即使它为 `true`，服务端仍要求 `DEEPSEEK_RESEARCH_DATA_APPROVED=true` 才会把不可变研究包发送给第三方：这是独立于”功能启用”的人工数据出站确认。代码层硬性限制每日最多 `3` 次请求、单次最多 `1400` 输出 token，即使环境变量误填更大也不会放宽。
+
+`DEEPSEEK_REQUEST_TIMEOUT_MS` 控制单次模型请求的超时时间，单位毫秒，默认 `50000`（50 秒），硬性上限 `90000`（90 秒）。生成 1400 token 响应约需 35–45 秒，25 秒以内的值会导致必然超时；未设置时使用默认值，只有网关延迟极高时才需要调大。DeepSeek 的 JSON 模式需要请求 `response_format: { type: "json_object" }` 且提示词明确要求 JSON；实现已经固定这两点，参考 [DeepSeek JSON Output](https://api-docs.deepseek.com/guides/json_mode)。
 
 如果使用兼容 OpenAI Chat Completions 的第三方网关，可额外设置仅服务端变量 `DEEPSEEK_API_URL` 为完整 HTTPS `/chat/completions` 地址；未设置时继续使用官方 DeepSeek 地址。该地址、密钥、模型名称和请求限制均必须在本机 `.env.local` 与 Vercel Production 分别配置，绝不能写入 Git 或浏览器变量。先以不含项目数据的最小 JSON 请求确认该网关支持 `response_format: json_object`；在项目维护者明确批准把不可变研究快照发送给该第三方前，不得把 `DEEPSEEK_RESEARCH_DATA_APPROVED` 设为 `true`。
 
@@ -638,6 +724,24 @@ npm run narrative:run -- 2026-08-11
 ```
 
 命令只打印状态、快照指纹、审计 ID 和校验错误数量，不会输出 Key、请求头或完整上游响应。成功后再次执行应返回 `already_accepted` 而不重复请求模型。若返回 `rejected`，先在 `research_narrative_audits` 排查校验错误，不应手动修改审计记录。
+
+#### 8.2.4.3 本地绕过速率限制与超时的测试脚本
+
+`scripts/dev-narrative-bypass.js` 用于本地管道调试，不受每日请求配额和生产 fetch 超时限制的约束。它通过两个注入点绕过这两项限制：
+
+- `getAttempts: () => Promise.resolve([])` —— 始终向执行器汇报"今日零次尝试"，因此无论远程审计表实际有多少记录都不会触发 `daily_request_limit`
+- `fetchImpl` —— 用 `AbortSignal.timeout(60000)` 替换生产用的 `AbortSignal`，把单次请求硬上限从 50 秒拉高到 60 秒，适合网关延迟偏高的测试环境
+
+运行前加载 `.env.local`（需包含 `DEEPSEEK_API_KEY`、`DEEPSEEK_MODEL`、`DEEPSEEK_RESEARCH_ENABLED=true`、`DEEPSEEK_RESEARCH_DATA_APPROVED=true`）：
+
+```bash
+set -a
+. ./.env.local
+set +a
+node scripts/dev-narrative-bypass.js 2026-08-14
+```
+
+脚本只打印 `status`、快照指纹和校验错误；不会输出 API Key、请求头或模型原始响应。它仅用于本地测试，不应出现在 Cron 或生产路径中，也不得用于绕过已接受快照的去重保护。
 
 #### 8.2.5 研究输入快照与回放
 
@@ -1279,7 +1383,9 @@ git status --short
 
 ### `vercel env ls` 报 EXDEV
 
-使用第 4 节的 `--global-config $vercelConfigDir` 方案，避开 Roaming 配置目录。
+通用方案：使用第 4 节的 `--global-config $vercelConfigDir`，避开 Roaming 配置目录。
+
+当前 Windows 本机（`E:\ecode\other\le-web`）用的是另一套固定 wrapper `C:\vcli\vc.cmd`（重定向 `XDG_DATA_HOME` + 注入 Clash 代理），详见第 0 节；本机所有 Vercel 命令都通过它调用，不要直接敲 `vercel` / `npx vercel`。
 
 ### Node 版本不是 22
 

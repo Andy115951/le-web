@@ -2498,6 +2498,16 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(43, 97, 21
   .model-failure-cases-head small { text-align: left; }
   .model-failure-case-list { grid-template-columns: 1fr; }
   .outcome-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* 3-col grids → 1 col on small screens */
+  .similar-distribution-grid { grid-template-columns: 1fr; }
+  .daily-report-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* 4-col grids → 1 col */
+  .research-quality-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .replay-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* 5-col model-review-metrics → 2 col avoids extreme crowding */
+  .model-review-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* ensure section headings with inline actions stack cleanly */
+  .section-heading { gap: 10px; }
   .controls-head { align-items: stretch; flex-direction: column; }
   .controls-head .btn { width: 100%; }
   .toolbar-item { min-width: 0; }
