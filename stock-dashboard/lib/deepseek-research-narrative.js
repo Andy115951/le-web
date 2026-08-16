@@ -1,5 +1,5 @@
 const { marketDate } = require("./daily-market-events");
-const { buildResearchNarrativeInstructions, researchPacketFingerprint } = require("./research-narrative-contract");
+const { RESEARCH_NARRATIVE_VERSION, buildResearchNarrativeInstructions, researchPacketFingerprint } = require("./research-narrative-contract");
 const {
   getAcceptedResearchNarrative,
   getRecentProviderNarrativeAttempts,
@@ -10,7 +10,8 @@ const DEEPSEEK_PROVIDER = "DeepSeek";
 const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";
 const MAX_DAILY_REQUESTS_HARD_LIMIT = 3;
 const MAX_OUTPUT_TOKENS_HARD_LIMIT = 1400;
-const REQUEST_TIMEOUT_MS = 25_000;
+const REQUEST_TIMEOUT_MS_DEFAULT = 50_000;
+const REQUEST_TIMEOUT_MS_HARD_MAX = 90_000;
 
 function boundedPositiveInteger(value, fallback, maximum) {
   const number = Math.round(Number(value));
@@ -82,7 +83,8 @@ function isDeepSeekResearchConfigured(env = process.env) {
     model: gateway.model,
     apiUrl: gateway.apiUrl,
     maxDailyRequests: boundedPositiveInteger(env.DEEPSEEK_MAX_DAILY_REQUESTS, 1, MAX_DAILY_REQUESTS_HARD_LIMIT),
-    maxOutputTokens: boundedPositiveInteger(env.DEEPSEEK_MAX_OUTPUT_TOKENS, 900, MAX_OUTPUT_TOKENS_HARD_LIMIT)
+    maxOutputTokens: boundedPositiveInteger(env.DEEPSEEK_MAX_OUTPUT_TOKENS, 900, MAX_OUTPUT_TOKENS_HARD_LIMIT),
+    requestTimeoutMs: boundedPositiveInteger(env.DEEPSEEK_REQUEST_TIMEOUT_MS, REQUEST_TIMEOUT_MS_DEFAULT, REQUEST_TIMEOUT_MS_HARD_MAX)
   };
 }
 
@@ -116,11 +118,18 @@ function buildDeepSeekRequest(packet, config) {
   };
 }
 
+function stripMarkdownCodeFence(text) {
+  // Some models wrap JSON output in ```json ... ``` despite instructions.
+  // Strip a leading ```[json] fence and trailing ``` so JSON.parse can succeed.
+  return text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+}
+
 function parseDeepSeekResponse(payload) {
   const choice = Array.isArray(payload?.choices) ? payload.choices[0] : null;
-  const content = typeof choice?.message?.content === "string" ? choice.message.content.trim() : "";
+  const rawContent = typeof choice?.message?.content === "string" ? choice.message.content.trim() : "";
   if (choice?.finish_reason !== "stop") throw new Error("Model response did not finish cleanly");
-  if (!content) throw new Error("Model returned empty JSON content");
+  if (!rawContent) throw new Error("Model returned empty JSON content");
+  const content = stripMarkdownCodeFence(rawContent);
   try {
     return JSON.parse(content);
   } catch (_error) {
@@ -137,7 +146,8 @@ function countAttemptsForNewYorkDate(attempts, now) {
 
 async function requestDeepSeek(body, config, fetchImpl = fetch) {
   const controller = new AbortController();
-  const timeout = setTimeout(function () { controller.abort(); }, REQUEST_TIMEOUT_MS);
+  const timeoutMs = (config && config.requestTimeoutMs) || REQUEST_TIMEOUT_MS_DEFAULT;
+  const timeout = setTimeout(function () { controller.abort(); }, timeoutMs);
   try {
     const response = await fetchImpl(config.apiUrl || DEEPSEEK_API_URL, {
       method: "POST",
@@ -198,6 +208,10 @@ async function runDeepSeekResearchNarrative(packet, options = {}) {
   try {
     const payload = await (options.requestModel || requestDeepSeek)(buildDeepSeekRequest(packet, config), config, options.fetchImpl);
     output = parseDeepSeekResponse(payload);
+    // Inject contractVersion — the model reliably omits it despite instructions.
+    if (output && typeof output === "object" && !output.contractVersion) {
+      output.contractVersion = RESEARCH_NARRATIVE_VERSION;
+    }
     usage = payload?.usage && typeof payload.usage === "object" ? payload.usage : {};
   } catch (error) {
     providerError = safeErrorMessage(error);
