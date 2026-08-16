@@ -2414,11 +2414,18 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(43, 97, 21
   .top-actions { gap: 8px; }
   .timestamp-wrap { display: none; }
   .status-wrap { flex: 1; }
-  .command-bar { align-items: stretch; flex-direction: column; padding: 8px; }
+  .command-bar { align-items: stretch; flex-direction: column; padding: 8px; gap: 6px; }
+  .top .title { font-size: 1.6rem; }
+  .top-actions { flex-wrap: wrap; }
   .command-links {
+    flex: 1;
+    min-width: 0;
     overflow-x: auto;
     padding-bottom: 2px;
     scrollbar-width: none;
+    /* stronger right-edge fade to signal scrollable content */
+    -webkit-mask-image: linear-gradient(to right, black 70%, transparent 100%);
+    mask-image: linear-gradient(to right, black 70%, transparent 100%);
   }
   .command-links::-webkit-scrollbar { display: none; }
   .command-link { white-space: nowrap; }
