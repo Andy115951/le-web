@@ -33,6 +33,7 @@
         <button type="button" class="command-link is-active" data-scroll-target="marketOverview">Nasdaq 100</button>
         <button type="button" class="command-link" data-scroll-target="marketEvents">动态新闻</button>
         <button type="button" class="command-link" data-scroll-target="personalObservations">观察记录</button>
+        <button type="button" class="command-link" data-scroll-target="decisionLog">决策日志</button>
         <button type="button" class="command-link" data-scroll-target="marketCalendar">市场日历</button>
         <button type="button" class="command-link" data-scroll-target="researchReplay">研究回放</button>
         <button type="button" class="command-link" data-scroll-target="researchQuality">研究覆盖</button>
@@ -218,6 +219,42 @@
         <p class="muted" id="observationsHint">刷新行情后会记录触发条件，供后续复核。</p>
       </div>
       <div class="personal-observations-list" id="observationsBody" aria-live="polite"></div>
+    </section>
+
+    <section class="decision-log" id="decisionLog">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">DECISION JOURNAL</p>
+          <h2>决策日志</h2>
+        </div>
+        <p class="muted" id="decisionLogHint">记录你在某标的上的实际决定与理由，之后可补录结果复盘；系统不生成买卖建议。</p>
+      </div>
+      <form id="decisionLogForm" class="decision-log-form">
+        <div class="field">
+          <label for="decisionSymbolInput">标的</label>
+          <input id="decisionSymbolInput" name="symbol" placeholder="例如 NVDA" maxlength="10" required />
+        </div>
+        <div class="field">
+          <label for="decisionActionInput">动作</label>
+          <select id="decisionActionInput" name="action" required>
+            <option value="">选择动作</option>
+            <option value="bought">买入</option>
+            <option value="added">加仓</option>
+            <option value="trimmed">减仓</option>
+            <option value="sold">清仓</option>
+            <option value="hold">继续持有</option>
+            <option value="watch">观望</option>
+            <option value="skip">放弃</option>
+          </select>
+        </div>
+        <div class="field decision-rationale-field">
+          <label for="decisionRationaleInput">理由（可留空）</label>
+          <textarea id="decisionRationaleInput" name="rationale" rows="2" maxlength="600" placeholder="例如 回撤到个人纪律位，先减仓一半观察"></textarea>
+        </div>
+        <input type="hidden" id="decisionLinkedInput" name="linkedObservationId" />
+        <button type="submit" class="btn btn-primary form-submit">记录决策</button>
+      </form>
+      <div class="decision-log-list" id="decisionLogBody" aria-live="polite"></div>
     </section>
 
     <section class="market-events" id="marketEvents">

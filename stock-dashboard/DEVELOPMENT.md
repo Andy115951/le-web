@@ -2,7 +2,7 @@
 
 本文档面向本地开发、Supabase 初始化、Vercel 部署和每日行情历史任务维护。产品功能与进度概览见 [README.md](README.md)，完整产品路线图见 [ROADMAP.md](ROADMAP.md)，数据库完整 SQL 见 [SUPABASE_SETUP.md](SUPABASE_SETUP.md)。
 
-## 当前环境状态（2026-08-16）
+## 当前环境状态（2026-08-17）
 
 当前 Windows 开发机已经完成：
 
@@ -17,7 +17,7 @@
   - `FRED_API_KEY`：采集验证通过，12 条宏观观测写入成功
   - `SEC_USER_AGENT`：采集验证通过，3 条 filings 写入成功
 - Vercel 生产环境已补充 `FRED_API_KEY` 和 `SEC_USER_AGENT`，已重新部署
-- 测试 192/192 全绿，代码零 npm 依赖，无需 `npm install`
+- 测试 198/198 全绿，代码零 npm 依赖，无需 `npm install`
 - 服务端归档代码已迁移到新版 `SUPABASE_SECRET_KEY`
 
 当前 Mac 开发机已经完成：
@@ -51,6 +51,7 @@
 - [x] Nasdaq 核心行情/新闻入口已与个人自选解耦，无登录也可运行
 - [x] NDX 成分变更只读查询已接入动态日历：`GET /api/nasdaq/constituent-changes` 与单日详情只读取审核后快照及追加式变更行；首份快照不会被误写为“无变更”
 - [x] 财报日历基础层：`earnings_events` migration、官方 IR 候选校验/显式导入、`GET /api/nasdaq/earnings` 和动态日历展示已实现；首条 NVIDIA FY2027 Q2 官方候选已归档，预定事项不进入涨跌归因
+- [x] 决策日志：`decision-logs.mjs` 纯函数模块（校验/归一/last-write-wins 合并/补录结果）、`watchlist_states.decision_logs` 加性列与 RLS 继承、`storage.js`/`cloud.js`/`app.js` 三层接线（含旧库列缺失降级）、看板面板与观察记录一键起草已实现；只记录用户已做的决定与理由，不生成买卖建议
 
 页面、API、事件规则和数据库开发现在都可进行；当前未完成项不会阻塞下一批代码开发。
 
@@ -154,6 +155,8 @@ stock-dashboard/
 ├─ app.js                            主交互与看板渲染
 ├─ storage.js                        localStorage 状态与默认股票
 ├─ cloud.js                          Supabase 登录和云同步
+├─ personal-observations.mjs         自动观察记录纯函数（触发/归一/合并）
+├─ decision-logs.mjs                 用户决策日志纯函数（校验/归一/last-write-wins 合并/补录结果）
 ├─ quotes.js                         页面行情请求
 ├─ api/
 │  ├─ a-share/detail.js              A 股分析接口
@@ -302,6 +305,7 @@ supabase projects list --agent no --output-format text
 - `watchlist_states`
 - `watchlist_states.market_events`
 - `watchlist_states.observations`
+- `watchlist_states.decision_logs`
 - `market_event_history`
 - `nasdaq_market_event_history`
 - `market_capture_runs`
@@ -440,7 +444,8 @@ npx vercel dev
 4. 页面填写 Supabase URL/Anon Key 后可以发送 Magic Link。
 5. 登录后可以拉取和同步 `watchlist_states`。
 6. 刷新行情后，个人回撤纪律、目标价或弱势触发会出现在“自动观察记录”；同一美东日期的同一触发不会重复创建。
-7. 历史页面可以读取 `market_event_history`。
+7. 在“决策日志”表单填写标的、动作与理由后可提交，或从某条观察记录点“记录决策”一键起草；提交后卡片出现在列表，可补录结果、删除，刷新页面后仍在。
+8. 历史页面可以读取 `market_event_history`。
 
 ## 8. Cron 本地验证
 
@@ -1335,6 +1340,7 @@ npx vercel --global-config $vercelConfigDir --prod
 - 没有足够证据时使用 `unclear` 和低置信度
 - 所有新闻证据保留原始链接，方便人工复核
 - 不输出“必涨”“必跌”等确定性投资结论
+- “决策日志”只记录用户已经做过的动作与理由，属个人研究记录，系统不生成任何买卖建议或概率；`action` 全部是中性的既成动作词（买入/加仓/减仓/清仓/继续持有/观望/放弃）
 
 ### 安全
 
@@ -1358,6 +1364,7 @@ git status --short
 - 桌面端与移动端基本布局
 - 行情刷新与错误提示
 - 云同步登录、拉取和写入
+- 决策日志的记录、补录结果与删除，以及刷新后本地持久化
 - 美股/A 股分析接口
 - 当日事件接口
 - 历史时间轴

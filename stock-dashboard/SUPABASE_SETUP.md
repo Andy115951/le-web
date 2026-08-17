@@ -12,6 +12,7 @@ create table if not exists public.watchlist_states (
   us_peaks jsonb not null default '{}'::jsonb,
   market_events jsonb not null default '[]'::jsonb,
   observations jsonb not null default '[]'::jsonb,
+  decision_logs jsonb not null default '[]'::jsonb,
   updated_at timestamptz not null default now()
 );
 
@@ -45,6 +46,9 @@ add column if not exists market_events jsonb not null default '[]'::jsonb;
 
 alter table public.watchlist_states
 add column if not exists observations jsonb not null default '[]'::jsonb;
+
+alter table public.watchlist_states
+add column if not exists decision_logs jsonb not null default '[]'::jsonb;
 ```
 
 ### 行情历史表
@@ -376,6 +380,7 @@ vercel dev
 - `us_peaks`: 全市场峰值记录（用于计算较峰值回撤，字段名为历史遗留）
 - `market_events`: 最近 14 天的自动行情事件。每只股票每天保留一条最新快照，包含当日涨跌、`QQQ` 对照、关联资讯与来源链接。
 - `observations`: 最近 90 天的个人自动观察记录。仅保存回撤纪律、目标价、相对 `QQQ` 弱势和单日波动等已触发事实；按“美东日期 + 标的 + 触发类型 + 阈值”去重，不代表买卖指令。
+- `decision_logs`: 用户手写的决策日志。记录你在某标的上的实际动作（买入/加仓/减仓/清仓/继续持有/观望/放弃）、理由，以及事后结果复盘；可关联到某条自动观察记录。只保存你已经做过的决定，系统不生成任何买卖建议。跨设备同步按 `updatedAt` 最后写入优先，最多保留 500 条。
 
 当前 `items` 里除了基础字段外，还会保存这些持仓上下文字段：
 

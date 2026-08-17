@@ -1,4 +1,5 @@
 import { normalizePersonalObservations } from "./personal-observations.mjs";
+import { normalizeDecisionLogs } from "./decision-logs.mjs";
 
 const STORAGE_KEY = "stock-dashboard-state-v2";
 
@@ -180,7 +181,8 @@ export function loadState() {
       preferences: { ...DEFAULT_PREFERENCES },
       usPeaks: {},
       marketEvents: [],
-      observations: []
+      observations: [],
+      decisionLogs: []
     };
   }
 
@@ -198,7 +200,8 @@ export function loadState() {
     preferences: normalizePreferences(raw.preferences),
     usPeaks: normalizeUsPeaks(raw.usPeaks),
     marketEvents: normalizeMarketEvents(raw.marketEvents),
-    observations: normalizePersonalObservations(raw.observations)
+    observations: normalizePersonalObservations(raw.observations),
+    decisionLogs: normalizeDecisionLogs(raw.decisionLogs)
   };
 }
 
@@ -208,7 +211,8 @@ export function saveState(state) {
     preferences: normalizePreferences(state.preferences || {}),
     usPeaks: normalizeUsPeaks(state.usPeaks),
     marketEvents: normalizeMarketEvents(state.marketEvents),
-    observations: normalizePersonalObservations(state.observations)
+    observations: normalizePersonalObservations(state.observations),
+    decisionLogs: normalizeDecisionLogs(state.decisionLogs)
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
 }

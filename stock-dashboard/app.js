@@ -2,6 +2,7 @@ import { loadState, saveState, upsertItem, removeItem, collectGroups } from "./s
 import { fetchQuotes } from "./quotes.js";
 import { renderSparkline, renderTrendChart } from "./chart.js";
 import { buildPersonalObservations, mergePersonalObservations } from "./personal-observations.mjs";
+import { createDecisionLog, mergeDecisionLogs, normalizeDecisionLogs, applyOutcome, DECISION_LOG_ACTIONS, DECISION_LOG_OUTCOMES } from "./decision-logs.mjs";
 import {
   loadCloudConfig,
   saveCloudConfig,
@@ -61,6 +62,13 @@ const els = {
   actionQueueBody: document.getElementById("actionQueueBody"),
   observationsBody: document.getElementById("observationsBody"),
   observationsHint: document.getElementById("observationsHint"),
+  decisionLogForm: document.getElementById("decisionLogForm"),
+  decisionSymbolInput: document.getElementById("decisionSymbolInput"),
+  decisionActionInput: document.getElementById("decisionActionInput"),
+  decisionRationaleInput: document.getElementById("decisionRationaleInput"),
+  decisionLinkedInput: document.getElementById("decisionLinkedInput"),
+  decisionLogBody: document.getElementById("decisionLogBody"),
+  decisionLogHint: document.getElementById("decisionLogHint"),
   marketEventsBody: document.getElementById("marketEventsBody"),
   marketNewsFeed: document.getElementById("marketNewsFeed"),
   marketEventsHint: document.getElementById("marketEventsHint"),
@@ -153,6 +161,7 @@ const state = {
   usPeaks: {},
   marketEvents: [],
   observations: [],
+  decisionLogs: [],
   marketEventsLoading: false,
   marketEventsError: "",
   marketEventsFetchedAt: 0,
@@ -253,6 +262,7 @@ async function init() {
   state.usPeaks = saved.usPeaks || {};
   state.marketEvents = saved.marketEvents || [];
   state.observations = saved.observations || [];
+  state.decisionLogs = saved.decisionLogs || [];
   bindEvents();
   syncCloudConfigInputs(cloudConfig);
   syncControls();
@@ -716,9 +726,34 @@ function bindEvents() {
   });
   if (els.observationsBody) {
     els.observationsBody.addEventListener("click", function (event) {
+      const draftButton = event.target.closest("[data-draft-decision]");
+      if (draftButton) {
+        draftDecisionFromObservation(draftButton);
+        return;
+      }
       const button = event.target.closest("[data-analyze-symbol]");
       if (!button) return;
       void openAnalysis(button.getAttribute("data-analyze-symbol"));
+    });
+  }
+  if (els.decisionLogForm) {
+    els.decisionLogForm.addEventListener("submit", handleDecisionLogSubmit);
+  }
+  if (els.decisionLogBody) {
+    els.decisionLogBody.addEventListener("click", function (event) {
+      const deleteButton = event.target.closest("[data-decision-delete]");
+      if (deleteButton) {
+        removeDecisionLog(deleteButton.getAttribute("data-decision-delete"));
+        return;
+      }
+      const outcomeButton = event.target.closest("[data-decision-outcome]");
+      if (outcomeButton) {
+        recordDecisionOutcome(outcomeButton.getAttribute("data-decision-outcome"));
+        return;
+      }
+      const analyzeButton = event.target.closest("[data-analyze-symbol]");
+      if (!analyzeButton) return;
+      void openAnalysis(analyzeButton.getAttribute("data-analyze-symbol"));
     });
   }
   els.detailOverlay.addEventListener("click", function (event) {
@@ -879,14 +914,16 @@ async function pullFromCloud(options) {
       preferences: state.preferences,
       usPeaks: state.usPeaks,
       marketEvents: state.marketEvents,
-      observations: state.observations
+      observations: state.observations,
+      decisionLogs: state.decisionLogs
     });
     const remoteFingerprint = JSON.stringify({
       items: Array.isArray(remote.data.items) ? remote.data.items : [],
       preferences: remote.data.preferences && typeof remote.data.preferences === "object" ? remote.data.preferences : {},
       usPeaks: remote.data.us_peaks && typeof remote.data.us_peaks === "object" ? remote.data.us_peaks : {},
       marketEvents: Array.isArray(remote.data.market_events) ? remote.data.market_events : [],
-      observations: Array.isArray(remote.data.observations) ? remote.data.observations : []
+      observations: Array.isArray(remote.data.observations) ? remote.data.observations : [],
+      decisionLogs: Array.isArray(remote.data.decision_logs) ? remote.data.decision_logs : []
     });
 
     if (localFingerprint !== remoteFingerprint) {
@@ -911,6 +948,7 @@ function applyRemoteState(remoteData) {
   state.usPeaks = remoteData.us_peaks && typeof remoteData.us_peaks === "object" ? remoteData.us_peaks : {};
   state.marketEvents = Array.isArray(remoteData.market_events) ? remoteData.market_events : [];
   state.observations = mergePersonalObservations(state.observations, remoteData.observations);
+  state.decisionLogs = mergeDecisionLogs(state.decisionLogs, remoteData.decision_logs);
   persist({ skipCloudSync: true });
   renderGroupFilter();
   syncControls();
@@ -932,7 +970,8 @@ async function pushToCloud(reason) {
     preferences: state.preferences,
     usPeaks: state.usPeaks,
     marketEvents: state.marketEvents,
-    observations: state.observations
+    observations: state.observations,
+    decisionLogs: state.decisionLogs
   });
   cloud.syncing = false;
   updateCloudButtons();
@@ -2231,6 +2270,7 @@ function render() {
   renderStats(rows);
   renderActionQueue();
   renderPersonalObservations();
+  renderDecisionLog();
   renderMarketEvents();
   renderMarketHistory();
   renderMarketCalendar();
@@ -3240,14 +3280,182 @@ function renderPersonalObservationCard(entry) {
     '<h3>' + escapeHtml(entry.title) + "</h3>",
     '<p class="personal-observation-name">' + escapeHtml(entry.displayName || entry.symbol) + "</p>",
     '<p class="personal-observation-detail">' + escapeHtml(entry.detail) + "</p>",
-    '<div class="personal-observation-foot"><time datetime="' + escapeHtml(entry.capturedAt) + '">' + escapeHtml(formatMarketDate(entry.marketDate)) + " · " + escapeHtml(timeText) + '</time><button type="button" class="btn btn-ghost" data-analyze-symbol="' + escapeHtml(entry.symbol) + '">查看分析</button></div>',
+    '<div class="personal-observation-foot"><time datetime="' + escapeHtml(entry.capturedAt) + '">' + escapeHtml(formatMarketDate(entry.marketDate)) + " · " + escapeHtml(timeText) + '</time><span class="personal-observation-actions"><button type="button" class="btn btn-ghost" data-draft-decision="' + escapeHtml(entry.symbol) + '" data-draft-name="' + escapeHtml(entry.displayName || entry.symbol) + '" data-draft-observation="' + escapeHtml(entry.id) + '" data-draft-market-date="' + escapeHtml(entry.marketDate) + '">记录决策</button><button type="button" class="btn btn-ghost" data-analyze-symbol="' + escapeHtml(entry.symbol) + '">查看分析</button></span></div>',
     "</article>"
   ].join("");
 }
 
+const DECISION_ACTION_LABELS = {
+  bought: "买入",
+  added: "加仓",
+  trimmed: "减仓",
+  sold: "清仓",
+  hold: "继续持有",
+  watch: "观望",
+  skip: "放弃"
+};
+
+const DECISION_ACTION_TONE = {
+  bought: "positive",
+  added: "positive",
+  hold: "neutral",
+  watch: "neutral",
+  trimmed: "negative",
+  sold: "negative",
+  skip: "negative"
+};
+
+const DECISION_OUTCOME_LABELS = {
+  pending: "待复盘",
+  worked: "结果符合",
+  mixed: "喜忧参半",
+  wrong: "判断有误"
+};
+
+function renderDecisionLog() {
+  if (!els.decisionLogBody || !els.decisionLogHint) return;
+
+  const logs = state.decisionLogs.slice(0, 12);
+  els.decisionLogHint.textContent = logs.length
+    ? "只保存你已经做过的决定与理由，随账号云同步；系统不生成任何买卖建议。"
+    : "在上方表单或某条观察记录上记录你的实际决定与理由，之后可补录结果复盘。";
+
+  if (!logs.length) {
+    els.decisionLogBody.innerHTML = [
+      '<article class="decision-log-empty">',
+      '<strong>还没有决策记录</strong>',
+      '<p class="muted">选择标的与动作、写下理由后提交；也可以从“自动观察记录”卡片一键起草。</p>',
+      "</article>"
+    ].join("");
+    return;
+  }
+
+  els.decisionLogBody.innerHTML = logs.map(renderDecisionLogCard).join("");
+}
+
+function renderDecisionLogCard(entry) {
+  const actionLabel = DECISION_ACTION_LABELS[entry.action] || entry.action;
+  const tone = DECISION_ACTION_TONE[entry.action] || "neutral";
+  const updatedAt = new Date(entry.updatedAt);
+  const timeText = Number.isFinite(updatedAt.getTime()) ? formatDualMarketTime(entry.updatedAt) : "时间未知";
+  const rationale = entry.rationale
+    ? '<p class="decision-log-detail">' + escapeHtml(entry.rationale) + "</p>"
+    : '<p class="decision-log-detail muted">（未填写理由）</p>';
+  const linked = entry.linkedObservationId
+    ? '<p class="decision-log-linked muted">关联观察：' + escapeHtml(entry.linkedObservationId) + "</p>"
+    : "";
+  const outcomeLabel = DECISION_OUTCOME_LABELS[entry.outcome] || DECISION_OUTCOME_LABELS.pending;
+  const outcomeNote = entry.outcomeNote
+    ? '<p class="decision-log-outcome-note">' + escapeHtml(entry.outcomeNote) + "</p>"
+    : "";
+
+  return [
+    '<article class="decision-log-card ' + tone + '" data-decision-id="' + escapeHtml(entry.id) + '">',
+    '<div class="decision-log-head"><span>' + escapeHtml(actionLabel) + '</span><strong>' + escapeHtml(entry.symbol) + "</strong></div>",
+    '<p class="decision-log-name">' + escapeHtml(entry.displayName || entry.symbol) + "</p>",
+    rationale,
+    linked,
+    '<div class="decision-log-outcome outcome-' + escapeHtml(entry.outcome) + '"><span>结果：' + escapeHtml(outcomeLabel) + "</span></div>",
+    outcomeNote,
+    '<div class="decision-log-foot"><time datetime="' + escapeHtml(entry.updatedAt) + '">' + escapeHtml(formatMarketDate(entry.marketDate)) + " · " + escapeHtml(timeText) + '</time><span class="decision-log-actions"><button type="button" class="btn btn-ghost" data-decision-outcome="' + escapeHtml(entry.id) + '">补录结果</button><button type="button" class="btn btn-ghost" data-analyze-symbol="' + escapeHtml(entry.symbol) + '">查看分析</button><button type="button" class="btn btn-ghost" data-decision-delete="' + escapeHtml(entry.id) + '">删除</button></span></div>',
+    "</article>"
+  ].join("");
+}
+
+function findDisplayName(symbol) {
+  const item = (state.items || []).find(function (entry) { return entry.symbol === symbol; });
+  if (item) return item.displayName || symbol;
+  const quote = state.quotes[symbol];
+  return (quote && quote.name) || symbol;
+}
+
+function draftDecisionFromObservation(button) {
+  if (!els.decisionLogForm) return;
+  const symbol = String(button.getAttribute("data-draft-decision") || "").trim().toUpperCase();
+  if (!symbol) return;
+  if (els.decisionSymbolInput) els.decisionSymbolInput.value = symbol;
+  if (els.decisionLinkedInput) els.decisionLinkedInput.value = String(button.getAttribute("data-draft-observation") || "");
+  if (els.decisionActionInput && !els.decisionActionInput.value) els.decisionActionInput.value = "watch";
+  revealPanel(els.decisionLogForm, els.decisionRationaleInput);
+}
+
+function handleDecisionLogSubmit(event) {
+  event.preventDefault();
+  const symbol = String(els.decisionSymbolInput?.value || "").trim().toUpperCase();
+  const action = String(els.decisionActionInput?.value || "").trim();
+  if (!symbol || !DECISION_LOG_ACTIONS.has(action)) {
+    setDecisionLogHint("请先选择标的与动作再提交。");
+    return;
+  }
+
+  const now = new Date();
+  const entry = createDecisionLog({
+    marketDate: getNewYorkDate(now),
+    symbol,
+    displayName: findDisplayName(symbol),
+    action,
+    rationale: els.decisionRationaleInput?.value || "",
+    linkedObservationId: els.decisionLinkedInput?.value || "",
+    createdAt: now.toISOString(),
+    updatedAt: now.toISOString()
+  });
+  if (!entry) {
+    setDecisionLogHint("提交内容无法保存，请检查标的与动作。");
+    return;
+  }
+
+  state.decisionLogs = mergeDecisionLogs(state.decisionLogs, [entry]);
+  persist();
+  renderDecisionLog();
+  els.decisionLogForm.reset();
+  if (els.decisionLinkedInput) els.decisionLinkedInput.value = "";
+}
+
+function setDecisionLogHint(message) {
+  if (els.decisionLogHint) els.decisionLogHint.textContent = message;
+}
+
+function removeDecisionLog(id) {
+  const key = String(id || "");
+  if (!key) return;
+  const next = state.decisionLogs.filter(function (entry) { return entry.id !== key; });
+  if (next.length === state.decisionLogs.length) return;
+  if (typeof window !== "undefined" && typeof window.confirm === "function" && !window.confirm("删除这条决策记录？")) return;
+  state.decisionLogs = normalizeDecisionLogs(next);
+  persist();
+  renderDecisionLog();
+}
+
+function recordDecisionOutcome(id) {
+  const key = String(id || "");
+  const entry = state.decisionLogs.find(function (item) { return item.id === key; });
+  if (!entry) return;
+
+  const outcomeText = typeof window !== "undefined" && typeof window.prompt === "function"
+    ? window.prompt("结果如何？输入 worked / mixed / wrong / pending（符合 / 喜忧参半 / 有误 / 待复盘）", entry.outcome || "pending")
+    : null;
+  if (outcomeText === null) return;
+  const outcome = String(outcomeText || "").trim().toLowerCase();
+  if (!DECISION_LOG_OUTCOMES.has(outcome)) {
+    setDecisionLogHint("结果只能是 worked / mixed / wrong / pending。");
+    return;
+  }
+
+  let outcomeNote = entry.outcomeNote || "";
+  if (outcome !== "pending" && typeof window !== "undefined" && typeof window.prompt === "function") {
+    const noteText = window.prompt("补充一句复盘（可留空）", entry.outcomeNote || "");
+    if (noteText !== null) outcomeNote = noteText;
+  }
+
+  const updated = applyOutcome(entry, { outcome, outcomeNote, now: new Date().toISOString() });
+  if (!updated) return;
+  state.decisionLogs = mergeDecisionLogs(state.decisionLogs, [updated]);
+  persist();
+  renderDecisionLog();
+}
+
 function renderMarketEvents() {
   if (!els.marketEventsBody || !els.marketEventsHint) return;
-
   if (state.marketEventsLoading) {
     els.marketEventsHint.textContent = "正在抓取当日行情与公开资讯，不会阻塞看板刷新。";
   } else if (state.marketEventsError) {
@@ -4263,7 +4471,8 @@ function persist(options) {
     preferences: state.preferences,
     usPeaks: state.usPeaks,
     marketEvents: state.marketEvents,
-    observations: state.observations
+    observations: state.observations,
+    decisionLogs: state.decisionLogs
   });
 
   if (!options?.skipCloudSync) {
