@@ -54,6 +54,7 @@
 - 持仓成本、股数、持仓类型、目标价和回撤纪律
 - 相对 `QQQ` 强弱与行动队列
 - 自动个人观察记录：触发回撤纪律、目标价、相对 `QQQ` 弱势或单日显著跌幅时保留价格事实与阈值，最多 90 天并随个人账号同步
+- 个人决策日志：可从观察记录一键起草，记录已做决定、理由和事后结果；跨设备 last-write-wins，不生成买卖建议
 - 当日公开资讯和涨跌关联线索
 - 最近事件快照及 `market_event_history` 长期归档入口
 - Vercel Functions 和收盘后 Cron 骨架
@@ -64,8 +65,12 @@
 - 未登录可用的本地 14 天日度脉络
 - 公共 `nasdaq_market_event_history` 与无登录历史 API
 - 收盘 Cron 在无用户数据时仍能归档核心市场事件
+- 动态日历、单日详情、NDX 成分快照与财报日历
+- QQQ 五年日线、前瞻标签、日度特征、相似日和冻结 walk-forward 评估
+- 研究快照、日报/周报、任务账本、确定性 Attribution / Labeler 和受控模型摘要执行器
+- 生产已配置 `SEC_USER_AGENT` 与 `FRED_API_KEY`；本机已验证 filings 与宏观观测写入
 
-当前首页已经切换为“公共 Nasdaq 雷达优先，个人持仓辅助”，但长期数据仍需迁移到独立的市场日、价格、事件、来源、日报、预测和评估表，不能依赖 `watchlist_states` JSON。
+公共市场数据已经落到独立的市场日、价格、事件、来源、日报和评估表；`watchlist_states` 只继续保存个人自选、持仓、观察记录和决策日志。
 
 ## 4. 目标页面
 
@@ -229,37 +234,35 @@
 
 ### 当前表
 
-- `watchlist_states`：用户自选、偏好、持仓和短期事件 JSON
+- `watchlist_states`：用户自选、偏好、持仓、短期事件、观察记录和决策日志 JSON
 - `market_event_history`：用户/交易日/股票归档快照
+- `nasdaq_market_event_history`：不绑定账号的公共收盘快照
+- `market_capture_runs`：采集运行日志
+- `instruments` / `market_days` / `price_bars_daily` / `market_forward_labels`
+- `daily_market_features` / `similar_day_matches`
+- `ndx_constituent_snapshots` / `ndx_constituent_members` / `ndx_constituent_changes`
+- `sources` / `events` / `event_sources` / `event_entities`
+- `event_review_decisions` / `market_event_attributions` / `event_rule_labels`
+- `earnings_events`
+- `research_packet_snapshots` / `research_narrative_audits` / `research_outcome_evaluations`
+- `daily_research_reports` / 冻结周报
+- `research_task_runs` / `model_gateway_compatibility_audits`
 
-### 市场基础表
+### 市场基础表（目标补齐）
 
-- `instruments`
-- `market_days`
-- `price_bars_daily`
-- `ndx_constituent_snapshots`
 - `macro_series`
 - `macro_observations`
 
-### 事件与来源表
+### 事件与来源表（目标补齐）
 
-- `sources`
-- `events`
-- `event_sources`
-- `event_entities`
-- `earnings_events`
-- `filings`
+- `filings`（当前 filings 写入统一 `events` / `sources`，尚未拆独立表）
 
-### 研究与评估表
+### 研究与评估表（目标补齐）
 
-- `daily_market_reports`
-- `daily_features`
-- `similar_day_matches`
 - `scenario_forecasts`
 - `forecast_factors`
 - `forecast_evaluations`
 - `model_runs`
-- `decision_logs`
 
 ### 数据库约束
 
@@ -347,7 +350,14 @@ SUPABASE_SECRET_KEY
 CRON_SECRET
 ```
 
-浏览器使用 Supabase Project URL 和 Publishable Key。后续按需增加 `OPENAI_API_KEY`、`FRED_API_KEY`、`MARKET_DATA_API_KEY`、`NEWS_API_KEY`、`SENTRY_DSN`。真实值永远不进入 Git。
+生产已配置、收盘任务按需使用：
+
+```text
+SEC_USER_AGENT
+FRED_API_KEY
+```
+
+模型执行器已接入但默认关闭：`DEEPSEEK_RESEARCH_ENABLED`、`DEEPSEEK_RESEARCH_DATA_APPROVED`、`DEEPSEEK_API_KEY`、可选 `DEEPSEEK_API_URL` / `DEEPSEEK_MODEL`，以及一次性网关探针开关。浏览器使用 Supabase Project URL 和 Publishable Key。后续按需增加 `MARKET_DATA_API_KEY`、`NEWS_API_KEY`、`SENTRY_DSN`。真实值永远不进入 Git。
 
 ## 15. 可观测性与运维
 
@@ -393,7 +403,7 @@ CRON_SECRET
 - [x] Vercel Production 环境变量
 - [x] 生产部署
 - [x] 验证 Cron 鉴权和任务执行
-- [ ] 验证 Cron 写入
+- [x] 验证 Cron 写入
 - [x] 运行日志、失败诊断和手动重跑方式
 - [x] 公共 Nasdaq 核心雷达不依赖 `watchlist_states`
 - [x] 动态新闻去重与结构化相关性过滤
@@ -419,15 +429,15 @@ CRON_SECRET
 
 ### Phase 2：官方事件骨架
 
-- [ ] 接入 SEC EDGAR 与 FRED 的生产采集（collector、离线验证均已完成，待配置合规生产凭据并验证写入）
+- [x] 接入 SEC EDGAR 与 FRED 的生产采集：collector、离线验证、Windows 本机写入和生产环境变量均已完成
 - [x] 财报日历基础层：数据契约、受控 IR 候选导入、只读查询、动态日历和首页未来 30 天展示已完成；首条 NVIDIA FY2027 Q2 官方候选已归档，下一步扩展核心公司覆盖
 - [x] 实现 SEC EDGAR filings collector、官方来源关系和接受时间字段
 - [x] 实现 FRED 宏观观测 collector、稳定去重和保守可知时间处理
-- [ ] 维护 Nasdaq-100 当前成分
+- [ ] 维护 Nasdaq-100 当前成分（现有一份 `2026-05-01` 官方快照；覆盖面板只提示新鲜度，不自动替换）
 - [x] 建立确定性事件分类、来源去重和追加式人工复核队列
 - [x] 区分发布时间、可知时间和采集时间；未知精确发布时间不得伪造
 
-当前状态：SEC 和 FRED collector 均已完成代码、稳定去重与离线验证；但 Vercel 目前既没有合规 `SEC_USER_AGENT`，也没有 `FRED_API_KEY`，因此生产任务尚未请求两者。FRED 只记录实际采集时已知的观测，不把日期字段伪装成精确发布时间。统一事件已新增确定性待复核分类和追加式人工审核记录，原始事件不会被审核覆盖。财报日历已通过人工核对的公司 IR 候选进入生产库并在动态日历展示，当前有 NVIDIA FY2027 Q2 一条预定事项；它不等同于实际业绩结果或涨跌归因。验收：CPI/FOMC/核心 filings/主要财报自动形成结构化事件。
+当前状态：生产已配置合规 `SEC_USER_AGENT` 与 `FRED_API_KEY` 并重新部署；Windows 本机验证写入 3 条 filings 和 12 条 FRED 观测。下一次完整收盘 Cron 应自动请求两者，仍需在生产运行日志中复核首次自动写入。FRED 只记录实际采集时已知的观测，不把日期字段伪装成精确发布时间。统一事件已新增确定性待复核分类和追加式人工审核记录，原始事件不会被审核覆盖。财报日历已通过人工核对的公司 IR 候选进入生产库并在动态日历展示，当前有 NVIDIA FY2027 Q2 一条预定事项；它不等同于实际业绩结果或涨跌归因。验收：CPI/FOMC/核心 filings/主要财报在收盘任务中稳定形成结构化事件，且 NDX 成分快照保持在 45 天新鲜窗口内。
 
 ### Phase 3：历史成分与相似日
 
@@ -495,7 +505,7 @@ CRON_SECRET
 ### Phase 6：个人研究与高级能力
 
 - [x] 自动个人观察记录：由行情刷新确定性生成，按美东日期、标的、触发类型和阈值去重；只保存事实与个人规则，不自动交易
-- [ ] 一键决策日志和历史决策点：在自动观察记录上补充你的实际决定、理由与后续结果
+- [x] 一键决策日志和历史决策点：在自动观察记录上补充你的实际决定、理由与后续结果；只记录用户已做动作，不生成买卖建议
 - [ ] 个性化纪律和个人复盘统计
 - [ ] PWA 安装和通知
 - [ ] 邮件/飞书/Slack 报告（按需）
@@ -507,11 +517,11 @@ CRON_SECRET
 
 严格按顺序：
 
-1. 配置真实 `SEC_USER_AGENT` 与 `FRED_API_KEY`，用手动命令验证生产写入；扩展已上线的公司 IR 财报日历覆盖，并将 Labeler 拆为独立的版本化任务，为日度特征和相似日补齐官方宏观/公司事件维度。
+1. 复核下一次完整收盘 Cron 是否实际写入 SEC filings 与 FRED 观测；扩展已上线的公司 IR 财报日历覆盖，并为日度特征和相似日补齐官方宏观/公司事件维度。独立 Labeler 已落地，不再作为本批次前置。
 2. 先用不含项目数据的最小请求确认网关完整结束状态与 JSON 兼容性。只有重新明确批准一份新的历史研究快照后，才重新设置受限环境变量并由维护者通过 `CRON_SECRET` 调用固定快照验证入口一次；复核审计并关闭临时出站开关后，再把已接受模型输出接入完整 Agent 流程回放。
 3. 扩充官方宏观/公司事件特征后再重跑固定评估，并重新冻结事后阶段诊断工件；当前 Logistic 已按固定门槛判定为不能晋升。
 
-公共市场表和 Cron 实际写入验证完成前不开始 AI 预测；价格、事件和时间戳质量稳定前不开始复杂机器学习。
+价格、事件和时间戳质量稳定前不开始更复杂的机器学习；模型出站必须保持显式批准，不得由网页触发。
 
 ## 20. 完成定义
 

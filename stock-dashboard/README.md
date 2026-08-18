@@ -13,6 +13,7 @@
 - 持仓上下文：成本价、股数、持仓类型
 - 今日需要处理：按回撤纪律、目标价、相对 `QQQ`、当日跌幅生成行动队列
 - 自动观察记录：行情刷新时把个人回撤纪律、目标价、相对 `QQQ` 弱势和单日显著跌幅保留为可复核事实，按账号同步最近 90 天；不自动下单，也不构成交易建议
+- 个人决策日志：在观察记录上一键起草，记录已做的买入/加仓/减仓/清仓/继续持有/观望/放弃、理由和事后结果；按账号同步，不生成买卖建议
 - 当日涨跌线索：自动抓取核心雷达、`QQQ` 对照与公司公开资讯，保存最近 14 天的本地可复核快照
 - 涨跌历史看板：按交易日查看每只股票的收盘涨跌、`QQQ` 对照、归因类别和原文证据
 - 决策优先表格：聚焦最新价、涨跌幅、相对 `QQQ`、峰值回撤与建议动作
@@ -44,6 +45,7 @@
 - 决策工作区：把持仓盈亏、回撤纪律、目标价距离整理成摘要
 - 决策优先 UI：顶部行动队列 + 收敛后的自选表格
 - 个人观察记录：首次触发时保留价格、阈值与时间，按“美东日期 + 标的 + 触发类型”去重，最近 90 天可跨设备复核
+- 个人决策日志：`decision-logs.mjs` 校验/归一/last-write-wins 合并与补录结果；`watchlist_states.decision_logs` 加性列继承 RLS；看板可从观察记录一键起草，只记录用户已做决定
 - 当日市场线索：区分市场同向、个股资讯、混合因素与证据不足；新闻原文链接保留供复核
 - 历史归档基础：独立 `market_event_history` 表、30/90/180 天时间轴、收盘后自动补抓入口
 - 公共 Nasdaq 历史：独立 `nasdaq_market_event_history` 表，不绑定用户账号；页面经服务端 API 读取
@@ -91,8 +93,8 @@
 - 研究运行健康：`GET /api/nasdaq/research-health` 以 Supabase 精确计数显示脱敏的最新运行状态、快照/成熟结果数量、模型启用状态与确定性告警代码；不会暴露 Cron 错误正文
 - 模型晋升治理：固定 `qqq-model-promotion-policy-v1` 对候选执行样本、冻结切分、相对 Brier/平衡准确率及校准门槛检查；当前 Logistic 的失败标签可由 `GET /api/nasdaq/evaluation-logistic-review` 复核，永不自动部署
 - 看板模型复核：可切换 Logistic 与浅层树候选，直接呈现冻结候选的门槛通过情况、指标差距、失败标签和事后市场阶段筛选；阶段标签来自每个已完成验证区间的 QQQ 收益/回撤/实现波动，不参与训练、晋升或实时输出
-- SEC EDGAR filings 骨架：可将核心标的的 `10-K / 10-Q / 8-K / 20-F / 40-F / 6-K` 以官方归档链接、接受时间和 CIK 写入统一事件层；配置合规 `SEC_USER_AGENT` 后启用
-- FRED 宏观观测骨架：可把 `CPIAUCSL / UNRATE / FEDFUNDS / GDPC1` 的官方 FRED 观测写入统一事件层；配置服务端 `FRED_API_KEY` 后启用，未配置时保持禁用
+- SEC EDGAR filings 采集：可将核心标的的 `10-K / 10-Q / 8-K / 20-F / 40-F / 6-K` 以官方归档链接、接受时间和 CIK 写入统一事件层；生产已配置合规 `SEC_USER_AGENT`，本机验证写入 3 条 filings；配置错误不会丢弃已完成的行情快照
+- FRED 宏观观测采集：可把 `CPIAUCSL / UNRATE / FEDFUNDS / GDPC1` 的官方 FRED 观测写入统一事件层；生产已配置 `FRED_API_KEY`，本机验证写入 12 条观测；不伪造精确发布时间，稳定事件键去重
 - 日度研究输入包：`GET /api/nasdaq/research-packet?date=YYYY-MM-DD` 固定后续 AI/日报可读取的泄漏安全事实边界，并按“上一交易日收盘到目标日收盘”筛选可知事件；人工 `rejected` 事件不会进入模型证据集合
 - 研究输入回放：收盘任务会追加保存字段顺序无关稳定指纹的研究包快照；看板“研究回放”以摘要列表加按需详情方式复原当时事实输入，`GET /api/nasdaq/research-packet-snapshots` 默认只返回摘要，显式 `includePacket=true` 才返回完整历史输入
 - 快照级流程回放：`GET /api/nasdaq/research-flow?snapshotId=<uuid>` 对新快照还会精确关联同一次收盘运行的安全阶段摘要，再串联输入归档、确定性日报、已验证模型摘要状态和 20 日结果审计；历史未关联快照明确标记，不会按日期猜测 Agent 运行结果
@@ -123,9 +125,9 @@
 
 ### 下一阶段
 
-1. 配置并验证 SEC EDGAR 与 FRED 的生产采集，再接入公司 IR、财报日历
-2. 为相似日增加宏观、行业和官方公司事件特征，扩大可复核样本；首页历史情景只继续显示已物化、可审计的经验分布
-3. 基于已冻结的时间切分开始情景概率基线与校准评估
+1. 确认下一次完整收盘 Cron 实际写入 SEC filings 与 FRED 观测；扩展公司 IR 财报日历覆盖，并为日度特征 / 相似日补齐官方宏观和公司事件维度
+2. 先跑一次无项目数据的网关兼容性探针；只有重新批准一份新的历史研究快照后，才做下一次受控模型验证，再把已接受摘要接入完整 Agent 流程回放
+3. 特征扩充后再重跑冻结评估，并重新冻结事后阶段诊断工件；当前 Logistic / 浅层树均未晋升
 
 ## 技术结构
 
@@ -144,12 +146,16 @@
 - `storage.js`: 本地数据、默认股票、偏好设置
 - `quotes.js`: 行情拉取
 - `cloud.js`: Supabase 云同步
+- `personal-observations.mjs`: 自动观察记录纯函数
+- `decision-logs.mjs`: 个人决策日志纯函数
 - `api/a-share/detail.js`: A 股分析接口
 - `api/global-stock/detail.js`: 美股分析接口
 - `api/global-stock/daily-events.js`: 当日行情事件接口
 - `api/nasdaq/[resource].js`: 统一 Nasdaq 只读入口；保留 `/api/nasdaq/history`、`/prices`、`/labels`、`/events`、`/constituents`、`/calendar`、`/features`、`/similar-days`、`/current-scenario` 等资源 URL
 - `api/cron/capture-market-history.js`: 收盘后自动归档入口
 - `api/cron/market-history-runs.js`: 最近采集运行记录接口
+- `api/cron/validate-approved-research-snapshot.js`: 受 `CRON_SECRET` 保护的一次性研究快照验证入口
+- `api/cron/check-model-gateway-compatibility.js`: 无项目数据的网关兼容性探针
 - `lib/a-share-data.js`: A 股分析数据层
 - `lib/global-stock-data.js`: 美股分析数据层
 - `lib/daily-market-events.js`: 当日涨跌线索、`QQQ` 对照与新闻关联规则
@@ -185,7 +191,12 @@
 - `scripts/capture-research-packet-snapshot.js`: 手动生成某个市场日研究输入快照的受控入口
 - `lib/research-narrative-contract.js`: 未来 LLM 市场复盘的引用约束、禁止语义与输出验证
 - `lib/research-narrative-audit.js`: 服务端审计写入；记录版本、指纹、验证结果与原始模型 JSON
+- `lib/deepseek-research-narrative.js`: 受控模型摘要执行器；只读取归档输入，校验引用后写审计
+- `lib/earnings-calendar.js`: 官方 IR 财报候选校验、显式导入和只读查询
+- `lib/market-attribution-agent.js`: 确定性涨跌归因 Agent
+- `lib/event-labeler-agent.js`: 确定性事件风险标签 Agent
 - `data/ndx/`: 经校验且保留官方来源日期的 NDX 结构化快照
+- `data/earnings/candidates/`: 待人工审核的公司 IR 财报候选
 - `lib/cron-auth.js`: Cron/运维接口统一鉴权与 JSON 响应
 - `vercel.json`: 每个工作日一次的收盘后 Cron 配置
 - `SUPABASE_SETUP.md`: 云同步建表与配置说明
@@ -365,21 +376,17 @@ vercel
    - 回撤曲线与峰值变化
 
 2. 决策日志层
-   - 在已自动生成的观察记录上补充买入 / 卖出 / 继续持有的人工记录
-   - 当时价格、仓位、理由、后续结果
-   - 后续可用于训练个人纪律复盘
+   - 已完成：在观察记录上一键起草，记录动作、理由和事后结果，并按账号同步
+   - 后续：个人纪律复盘统计、按决策结果回看当时价格与仓位
 
 3. 事件上下文
-   - 财报日期
-   - 分析师目标价变化
-   - 重大公告 / 新闻标签
+   - 已完成：官方 IR 财报日历基础层，以及 SEC filings / FRED 宏观采集
+   - 后续：扩大财报覆盖，把宏观和公司事件写进日度特征与相似日
 
 4. AI 决策层
-   - 接入你的个人持仓纪律
-   - 生成盘前 / 收盘复盘摘要
-   - 后续可接 DeepSeek 或其他模型做解释层
+   - 已完成：受控 DeepSeek / 兼容网关执行器、输出契约、一次性验证入口和拒绝回放
+   - 后续：在维护者重新批准后接入完整 Agent 流程回放；不自动生成交易指令
 
 5. 正式环境变量管理
-   - `.env.example`
-   - `vercel env pull`
-   - 模型密钥 / 数据供应商密钥统一管理
+   - 已完成：`.env.example`、服务端密钥与模型出站开关分离
+   - 后续：新设备继续用 `vercel env pull`，密钥不进 Git 或聊天

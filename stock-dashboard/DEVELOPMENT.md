@@ -2,7 +2,7 @@
 
 本文档面向本地开发、Supabase 初始化、Vercel 部署和每日行情历史任务维护。产品功能与进度概览见 [README.md](README.md)，完整产品路线图见 [ROADMAP.md](ROADMAP.md)，数据库完整 SQL 见 [SUPABASE_SETUP.md](SUPABASE_SETUP.md)。
 
-## 当前环境状态（2026-08-17）
+## 当前环境状态（2026-08-18）
 
 当前 Windows 开发机已经完成：
 
@@ -27,7 +27,7 @@
 - Supabase CLI 已升级到 `2.113.0` 并关联项目 `ougpvpolmzsmaljscruo`
 - Docker Desktop `29.2.1` 已启动
 - 正式 migration 已创建，远程表、约束、Data API 权限和 RLS 已通过 Management API 应用并验证
-- Vercel Production 已配置 `SUPABASE_URL`、`SUPABASE_SECRET_KEY` 和 `CRON_SECRET`
+- Vercel Production 已配置 `SUPABASE_URL`、`SUPABASE_SECRET_KEY`、`CRON_SECRET`、`SEC_USER_AGENT` 和 `FRED_API_KEY`
 - 本机 `.env.local` 已配置为仅当前用户可读，并被 Git 忽略
 - 生产部署和 Cron 鉴权已验证，固定地址为 `https://stock-dashboard-psi-henna.vercel.app`
 
@@ -38,12 +38,12 @@
 - [x] `daily_market_features` 已通过 Management API 应用并完成 1,254 行 QQQ 回填
 - [x] `similar_day_matches` 已通过 Management API 应用并完成 5,848 条 QQQ 相似日回填
 - [x] `ndx_constituent_changes` 已通过 Management API 应用；首份快照没有前序版本，因此当前尚无变更行
-- [x] SEC EDGAR filings 采集器、统一事件写入和离线测试已实现；当前未配置真实 `SEC_USER_AGENT`，生产采集保持禁用
-- [x] FRED 宏观观测采集器、稳定去重和离线测试已实现；当前未配置 `FRED_API_KEY`，生产采集保持禁用
+- [x] SEC EDGAR filings 采集器、统一事件写入和离线测试已实现；生产已配置合规 `SEC_USER_AGENT`，Windows 本机验证写入 3 条 filings
+- [x] FRED 宏观观测采集器、稳定去重和离线测试已实现；生产已配置 `FRED_API_KEY`，Windows 本机验证写入 12 条宏观观测
 - [x] `event_review_decisions` 已在远程创建；确定性分类、只读队列和追加式人工审核 CLI 已实现
 - [x] `research_packet_snapshots` 已在远程创建；首份 `2026-08-11` 输入快照已验证可幂等重跑
 - [x] 看板“研究回放”已接入快照摘要与按需详情读取；只展示归档事实、来源聚合和审核状态，不调用模型也不展示投资指令
-- [x] `research_narrative_audits` 已在远程创建；等待未来首条模型研究输出写入审计记录
+- [x] `research_narrative_audits` 已在远程创建；`2026-08-15` 有一次受控验证审计被拒绝且未发布摘要，Production 模型出站保持 `disabled`
 - [x] `research_task_runs` 已通过 Management API 扩展为 `research-task-run-v2`：新增安全的每次尝试、排队与运行耗时列及受限失败码约束
 - [x] Cron 运行日志、失败诊断、手动重跑和最近运行记录接口
 - [x] Cron 诊断接口脱敏：只返回状态、计数和公共观察宇宙失败摘要，不返回用户 ID、个人标的、原始异常或内部运行详情
@@ -323,19 +323,23 @@ supabase projects list --agent no --output-format text
 - `ndx_constituent_members`
 - `ndx_constituent_changes`
 - `earnings_events`
+- `research_packet_snapshots`
+- `research_narrative_audits`
+- `research_task_runs`
+- `research_outcome_evaluations`
+- `daily_research_reports`
+- `market_event_attributions`
+- `event_rule_labels`
+- `event_review_decisions`
+- `model_gateway_compatibility_audits`
 - 对应索引、唯一约束和 RLS Policies
 
-当前市场数据 migrations：
+当前市场数据 migrations 的完整列表见 `supabase/migrations/`。近期加性变更包括：
 
 ```text
-supabase/migrations/20260812190000_add_market_price_data.sql
-supabase/migrations/20260812200000_add_market_forward_labels.sql
-supabase/migrations/20260812210000_add_unified_market_events.sql
-supabase/migrations/20260812220000_add_ndx_constituent_snapshots.sql
-supabase/migrations/20260812230000_add_daily_market_features.sql
-supabase/migrations/20260812240000_add_similar_day_matches.sql
-supabase/migrations/20260812250000_add_ndx_constituent_changes.sql
 supabase/migrations/20260815110000_add_earnings_calendar.sql
+supabase/migrations/20260815130000_add_personal_observations_to_watchlist_states.sql
+supabase/migrations/20260817120000_add_decision_logs_to_watchlist_states.sql
 ```
 
 ### 5.3 配置登录回调
@@ -986,7 +990,7 @@ GET /api/nasdaq/daily-reports?limit=7
 
 从 `research-task-run-v2` 起，账本还安全保存每次尝试的 `attempt`、入队/开始/结束时间、排队耗时和运行耗时。公共行情 Collector、研究输入、每日事实报告、冻结周报和到期结果审计在确定性网络瞬断（例如超时、`429`、部分 `5xx`）时最多自动再试一次：首次失败和后续尝试会作为两条追加式记录保存，失败码仅为 `retryable_task_failure` 或 `task_failed`，不保存原始错误。非瞬断错误不会盲目重试；模型摘要仍不自动重试，以免增加第三方调用或费用。
 
-`market_collection` 仅追加 `publicRowsWritten`、`unifiedEventsWritten`、`unifiedSourcesWritten` 和 `failedSymbolCount`。只要公共市场快照可用但有个别标的失败，就标记为 `partial`，不把部分成功伪装为完全成功，也不公开失败标的名称。它不表示 SEC、FRED、Attribution 或其他尚未配置的 Agent 已运行。
+`market_collection` 仅追加 `publicRowsWritten`、`unifiedEventsWritten`、`unifiedSourcesWritten` 和 `failedSymbolCount`。只要公共市场快照可用但有个别标的失败，就标记为 `partial`，不把部分成功伪装为完全成功，也不公开失败标的名称。它不表示 SEC、FRED 或其他可选数据源在本次运行中一定成功写入。
 
 唯一键 `(capture_run_id, task_kind, attempt)` 与 `resolution=ignore-duplicates` 保证同一次采集、同一阶段、同一尝试不会重复写入。任务账本失败本身不会阻断行情归档；运行详情仅保留脱敏的 `researchTaskRunStatus` 与实际新增记录数。
 
@@ -1002,7 +1006,7 @@ GET /api/nasdaq/research-tasks?limit=20
 
 页面“研究覆盖”只展示这些聚合计数与限制说明。它不会调用模型、不会写入 Supabase、不会公开任务原始错误、审核人、审核备注或完整研究输入，也不会把“有多少材料”表述为数据已完整、归因已正确、预测成立或可以执行交易。
 
-当前生产环境没有 `SEC_USER_AGENT` 或 `FRED_API_KEY`；因此 SEC 公司披露和宏观观测仍是待配置能力。模型网关参数已配置，但 `DEEPSEEK_RESEARCH_ENABLED` 与 `DEEPSEEK_RESEARCH_DATA_APPROVED` 保持 `false`，模型摘要同样不会运行。下一次完整收盘采集会开始填充新的阶段账本，历史运行不做推测性回填。
+当前生产环境已配置 `SEC_USER_AGENT` 与 `FRED_API_KEY`，Windows 本机已验证手动采集写入。下一次完整收盘 Cron 应自动请求两者，首次自动写入仍需在运行日志中复核。模型网关参数已配置，但 `DEEPSEEK_RESEARCH_ENABLED` 与 `DEEPSEEK_RESEARCH_DATA_APPROVED` 保持 `false`，模型摘要同样不会运行。历史运行不做推测性回填。
 
 覆盖面板中的“研究集成准备度”会把内置市场采集固定标为 `ready`，并按当前服务端环境分别显示 SEC、FRED、模型摘要和无项目数据网关探针状态。模型摘要会精确区分 `needs_configuration`（缺少网关参数）、`disabled`（已配置但功能开关关闭）、`data_approval_required`（功能已打开但尚未批准把研究快照发送给第三方）和 `ready`。网关探针只显示 `needs_configuration / disabled / ready`，它不表示研究数据获准出站。这是为多端协作准备的安全检查，不会返回 `SEC_USER_AGENT`、`FRED_API_KEY`、`DEEPSEEK_API_KEY`、联系人、环境变量值或具体配置失败原因；状态为待配置时，按第 6 节和第 13 节在本机 `.env.local` 与 Vercel Production 分别补齐变量后重新部署即可。
 
@@ -1303,7 +1307,7 @@ npx vercel --global-config $vercelConfigDir --prod
 部署后检查：
 
 1. 生产首页正常访问。
-2. Vercel → Project → `Settings → Environment Variables` 中三个变量都属于 Production。
+2. Vercel → Project → `Settings → Environment Variables` 中 `SUPABASE_URL`、`SUPABASE_SECRET_KEY`、`CRON_SECRET`、`SEC_USER_AGENT` 和 `FRED_API_KEY` 都属于 Production。
 3. Vercel → Project → `Settings → Cron Jobs` 中存在 `/api/cron/capture-market-history`。
 4. Cron 执行后，Vercel Function Logs 无 `401` 或缺少环境变量错误。
 5. Supabase `market_event_history` 出现当日记录，且同一用户、日期和股票没有重复行。
