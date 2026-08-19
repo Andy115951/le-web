@@ -198,6 +198,8 @@ Vercel Cron
   → 校验 Authorization: Bearer <CRON_SECRET>
   → 抓取默认 Nasdaq 核心观察宇宙
   → 按 market_date + symbol 写入 nasdaq_market_event_history
+  → backfillDailyPrices("QQQ", "1y") — 更新 price_bars_daily 与 market_days
+    （日历读取此表；失败只记录 priceHistoryStatus，不中断主流程）
   → 可选读取 watchlist_states，兼容写入个人 market_event_history
 ```
 
@@ -473,9 +475,11 @@ node scripts/backfill-market-prices.js QQQ 5y
 脚本按 `(instrument_id, market_date)` upsert，可安全重跑，不会累积重复交易日。当前已验证基线为：
 
 - `QQQ`
-- 1,254 个唯一交易日
-- `2021-08-12` 至 `2026-08-11`
+- 251 个唯一交易日（1y 区间）
+- `2025-08-19` 至 `2026-08-18`
 - 调整收盘价和成交量无缺失
+
+**注意**：`price_bars_daily` 与事件采集（`nasdaq_market_event_history`）是两条独立管线。收盘 Cron 现已同时更新两者（`backfillDailyPrices("QQQ", "1y")`），日历数据会随每次收盘自动保持新鲜；无需再手动执行本脚本补缺。
 
 启动 `vercel dev` 后可公开读取：
 
