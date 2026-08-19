@@ -3,6 +3,7 @@ const { getDailyMarketEvents, isAfterUsMarketClose, marketDate } = require("./da
 const { NASDAQ_FOCUS_INSTRUMENTS, NASDAQ_UNIVERSE_AS_OF } = require("./nasdaq-universe");
 const { getSupabaseConfig, requestSupabase } = require("./supabase-server");
 const { runMarketCollectionAgent, toPublicHistoryRow } = require("./market-collection-agent");
+const { backfillDailyPrices } = require("./price-history-store");
 const { runMarketAttributionAgent } = require("./market-attribution-agent");
 const { runEventLabelerAgent } = require("./event-labeler-agent");
 const { captureRecentSecFilings, isSecEdgarConfigured } = require("./sec-edgar");
@@ -93,6 +94,8 @@ function buildSafeCaptureDetails(details) {
     publicSavedEvents: normalizeCount(source.publicSavedEvents),
     unifiedSavedEvents: normalizeCount(source.unifiedSavedEvents),
     unifiedSavedSources: normalizeCount(source.unifiedSavedSources),
+    priceHistoryStatus: safeComponentStatus(source.priceHistoryStatus),
+    priceHistoryBarsWritten: normalizeCount(source.priceHistoryBarsWritten),
     secFilingStatus: safeComponentStatus(source.secFilingStatus),
     secFilingEvents: normalizeCount(source.secFilingEvents),
     secFilingSources: normalizeCount(source.secFilingSources),
@@ -153,6 +156,8 @@ function sanitizeCaptureResultForOps(result) {
     personalFailedSymbolCount: normalizeCount(source.personalFailedSymbolCount),
     marketCollectionStatus: safeComponentStatus(source.marketCollectionStatus),
     marketCollectorAttemptCount: Math.min(3, normalizeCount(source.marketCollectorAttemptCount)),
+    priceHistoryStatus: safeComponentStatus(source.priceHistoryStatus),
+    priceHistoryBarsWritten: normalizeCount(source.priceHistoryBarsWritten),
     secFilingStatus: safeComponentStatus(source.secFilingStatus),
     fredMacroStatus: safeComponentStatus(source.fredMacroStatus),
     researchPacketSnapshotStatus: safeComponentStatus(source.researchPacketSnapshotStatus),
@@ -318,6 +323,21 @@ async function captureMarketHistory(input) {
       eventsWritten: collectorResult.unifiedEventsWritten,
       sourcesWritten: collectorResult.unifiedSourcesWritten
     };
+    // The public daily calendar reads price_bars_daily, which the event collector never writes.
+    // Refresh QQQ OHLCV here so a completed close also keeps the calendar current, additively.
+    let priceHistoryResult = { status: "pending", barsWritten: 0, lastDate: null, error: null };
+    try {
+      const backfilled = await backfillDailyPrices("QQQ", "1y");
+      priceHistoryResult = {
+        status: "succeeded",
+        barsWritten: normalizeCount(backfilled.barsWritten),
+        lastDate: typeof backfilled.lastDate === "string" ? backfilled.lastDate : null,
+        error: null
+      };
+    } catch (error) {
+      // Daily price refresh is additive; a data-source outage must not discard the completed snapshot.
+      priceHistoryResult = { ...priceHistoryResult, status: "failed", error: errorMessage(error) };
+    }
     const personalFailedSymbolSet = new Set();
     const eventAttributionResult = await runResearchTaskWithRetry({
       queuedAt: startedAt,
@@ -518,6 +538,9 @@ async function captureMarketHistory(input) {
       publicSavedEvents,
       unifiedSavedEvents: unifiedResult.eventsWritten,
       unifiedSavedSources: unifiedResult.sourcesWritten,
+      priceHistoryStatus: priceHistoryResult.status,
+      priceHistoryBarsWritten: priceHistoryResult.barsWritten,
+      priceHistoryLastDate: priceHistoryResult.lastDate,
       secFilingStatus: secFilingResult.status,
       secFilingEvents: secFilingResult.eventsWritten,
       secFilingSources: secFilingResult.sourcesWritten,
@@ -563,6 +586,8 @@ async function captureMarketHistory(input) {
           publicSavedEvents,
           unifiedSavedEvents: result.unifiedSavedEvents,
           unifiedSavedSources: result.unifiedSavedSources,
+          priceHistoryStatus: priceHistoryResult.status,
+          priceHistoryBarsWritten: priceHistoryResult.barsWritten,
           secFilingStatus: secFilingResult.status,
           secFilingEvents: secFilingResult.eventsWritten,
           secFilingSources: secFilingResult.sourcesWritten,
