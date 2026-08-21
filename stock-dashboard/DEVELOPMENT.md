@@ -128,11 +128,11 @@ cmd //c "C:\\vcli\\vc.cmd link"    # 仅当缺少 .vercel/ 目录
 # 5. 需要联调 Supabase 接口时，再准备 .env.local（见 6.2）
 ```
 
-### 0.5 本机当前待办
+### 0.5 Windows 首次配置待办
 
-- [ ] Vercel token 已失效，需要重跑 `vc.cmd login`（浏览器 OAuth，需人工完成）。
-- [ ] `stock-dashboard/.env.local` 尚未创建；纯页面 / 测试不需要，联调 Supabase 接口前按第 6.2 节补齐 `SUPABASE_URL`、`SUPABASE_SECRET_KEY`、`CRON_SECRET`。
-- [ ] 本机 `.vercel/` 未生成，登录后执行 `vc.cmd link` 关联既有 `stock-dashboard`，不要新建同名项目。
+- [ ] 如 Vercel token 已失效，重跑 `vc.cmd login`（浏览器 OAuth，需人工完成）。
+- [ ] 如该 Windows 设备还没有 `stock-dashboard/.env.local`，纯页面 / 测试不需要；联调 Supabase 接口前按第 6.2 节补齐 `SUPABASE_URL`、`SUPABASE_SECRET_KEY`、`CRON_SECRET`。
+- [ ] 如该 Windows 设备还没有 `.vercel/`，登录后执行 `vc.cmd link` 关联既有 `stock-dashboard`，不要新建同名项目。
 
 ## 1. 当前系统边界
 
