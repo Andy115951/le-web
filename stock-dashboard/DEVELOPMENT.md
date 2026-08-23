@@ -1,6 +1,6 @@
 # Stock Dashboard 开发手册
 
-本文档面向本地开发、Supabase 初始化、Vercel 部署和每日行情历史任务维护。产品功能与进度概览见 [README.md](README.md)，完整产品路线图见 [ROADMAP.md](ROADMAP.md)，数据库完整 SQL 见 [SUPABASE_SETUP.md](SUPABASE_SETUP.md)。
+本文档面向本地开发、Supabase 初始化、Vercel 部署和每日行情历史任务维护。产品功能与进度概览见 [README.md](README.md)，完整产品路线图见 [ROADMAP.md](ROADMAP.md)，数据库完整 SQL 见 [SUPABASE_SETUP.md](SUPABASE_SETUP.md)，新人关联解读（手动触发、不走模型出站）规格见 [docs/beginner-reading.md](docs/beginner-reading.md)。该解读不是采集或 Cron 的一部分：页面加载和行情刷新都不得自动生成正文。
 
 ## 当前环境状态（2026-08-18）
 
@@ -52,6 +52,7 @@
 - [x] NDX 成分变更只读查询已接入动态日历：`GET /api/nasdaq/constituent-changes` 与单日详情只读取审核后快照及追加式变更行；首份快照不会被误写为“无变更”
 - [x] 财报日历基础层：`earnings_events` migration、官方 IR 候选校验/显式导入、`GET /api/nasdaq/earnings` 和动态日历展示已实现；首条 NVIDIA FY2027 Q2 官方候选已归档，预定事项不进入涨跌归因
 - [x] 决策日志：`decision-logs.mjs` 纯函数模块（校验/归一/last-write-wins 合并/补录结果）、`watchlist_states.decision_logs` 加性列与 RLS 继承、`storage.js`/`cloud.js`/`app.js` 三层接线（含旧库列缺失降级）、看板面板与观察记录一键起草已实现；只记录用户已做的决定与理由，不生成买卖建议
+- [x] 新人关联解读第一期：`lib/beginner-reading.mjs` 确定性模板 + 首页/日历手动「读一下」按钮；打开页面和行情刷新都不生成正文，不写云、不调用模型；规格见 [docs/beginner-reading.md](docs/beginner-reading.md)
 
 页面、API、事件规则和数据库开发现在都可进行；当前未完成项不会阻塞下一批代码开发。
 
@@ -635,6 +636,8 @@ GET /api/nasdaq/research-packet?date=2026-08-11
 
 已实现 `research-narrative-v1` 输出校验器、`research_narrative_audits` 服务端审计表与默认关闭的 DeepSeek 执行器。Production 已配置受限网关参数，但 `DEEPSEEK_RESEARCH_ENABLED` 与 `DEEPSEEK_RESEARCH_DATA_APPROVED` 均保持 `false`，因此不会产生模型请求或费用。
 
+面向新人的「读一下今天」不是本小节的研究摘要。它是首页/单日详情上的手动讲解，第一期只拼确定性模板，按钮不调用 DeepSeek、不写 `research_narrative_audits`。两者不要接在同一个点击上。产品规格见 [docs/beginner-reading.md](docs/beginner-reading.md)。
+
 获取某市场日允许引用的证据与输出形状：
 
 ```text
@@ -1163,6 +1166,28 @@ GET /api/nasdaq/calendar?date=2026-08-11
 - `2026-08` 返回 31 个自然日
 - `2026-08-11` 能返回 `QQQ` 行情、统一事件证据关系和 `2026-05-01` NDX 快照
 - 非法日期（例如 `2026-02-31`）返回 `400`
+
+#### 8.4.1 新人关联解读（手动触发）
+
+产品规格见 [docs/beginner-reading.md](docs/beginner-reading.md)。这是页面讲解层，不是采集、Cron 或 DeepSeek 摘要。
+
+第一期已落地：
+
+- 模板：`lib/beginner-reading.mjs`（`beginner-reading-v1`）
+- 测试：`test/beginner-reading.test.mjs`
+- 首页卡片：`#beginnerReadingHome`，默认只有说明和「读一下今天」
+- 日历单日：`#calendarBeginnerReading`，默认「读一下这一天」；切日期会丢掉上一篇
+- 接线：`app.js` 只在 `data-beginner-reading-action="generate|collapse"` 的 click 里调用 `buildBeginnerReading`；`init`、`refreshQuotes`、自动刷新计时器都不得生成正文
+
+点击时只用当时已经在内存里的数据：行情、当日事件、`current-scenario`、已加载的 earnings、个人观察；日历侧在详情尚未返回时先加载该日详情再生成，仍算一次手动触发。正文不写入 `localStorage`、云同步或研究快照。预定财报只能写成日历事项，不能解释当天涨跌。按钮不调用 DeepSeek，也不写 `research_narrative_audits`。
+
+验证：
+
+```bash
+node --test test/beginner-reading.test.mjs
+```
+
+打开本地页面后确认：未点击时没有五段正文；点击后出现五段；再刷新行情，正文不变，必须点「按当前页面再读一次」才会重算。
 
 ### 8.5 日度相似日输入特征
 

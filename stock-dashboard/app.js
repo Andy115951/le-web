@@ -4,6 +4,11 @@ import { renderSparkline, renderTrendChart } from "./chart.js";
 import { buildPersonalObservations, mergePersonalObservations } from "./personal-observations.mjs";
 import { createDecisionLog, mergeDecisionLogs, normalizeDecisionLogs, applyOutcome, DECISION_LOG_ACTIONS, DECISION_LOG_OUTCOMES } from "./decision-logs.mjs";
 import {
+  buildBeginnerReading,
+  getBeginnerReadingView,
+  renderBeginnerReadingMarkup
+} from "./lib/beginner-reading.mjs";
+import {
   loadCloudConfig,
   saveCloudConfig,
   createCloudClient,
@@ -84,7 +89,9 @@ const els = {
   calendarMonthLabel: document.getElementById("calendarMonthLabel"),
   calendarHint: document.getElementById("calendarHint"),
   calendarGrid: document.getElementById("calendarGrid"),
+  calendarBeginnerReading: document.getElementById("calendarBeginnerReading"),
   calendarDetail: document.getElementById("calendarDetail"),
+  beginnerReadingHome: document.getElementById("beginnerReadingHome"),
   refreshResearchReplayBtn: document.getElementById("refreshResearchReplayBtn"),
   researchReplayHint: document.getElementById("researchReplayHint"),
   researchReplayList: document.getElementById("researchReplayList"),
@@ -222,6 +229,11 @@ const state = {
   researchHealth: { value: null, loading: false, error: "" },
   researchQuality: { value: null, loading: false, error: "" },
   currentScenario: { value: null, loading: false, error: "" },
+  beginnerReading: {
+    home: null,
+    calendar: null,
+    calendarDate: ""
+  },
   researchTasks: { runs: [], loading: false, error: "" },
   eventReview: { queue: null, filter: "needs_attention", loading: false, error: "" },
   dailyReports: { reports: [], loading: false, error: "" },
@@ -264,6 +276,8 @@ async function init() {
   state.observations = saved.observations || [];
   state.decisionLogs = saved.decisionLogs || [];
   bindEvents();
+  renderHomeBeginnerReading();
+  renderCalendarBeginnerReading();
   syncCloudConfigInputs(cloudConfig);
   syncControls();
   renderGroupFilter();
@@ -375,7 +389,7 @@ function bindEvents() {
   if (els.calendarTodayBtn) {
     els.calendarTodayBtn.addEventListener("click", function () {
       state.marketCalendar.month = getNewYorkMonth();
-      state.marketCalendar.selectedDate = "";
+      setCalendarSelectedDate("");
       void refreshMarketCalendar();
     });
   }
@@ -390,7 +404,7 @@ function bindEvents() {
       const button = event.target.closest("[data-calendar-date]");
       if (!button) return;
       const date = button.getAttribute("data-calendar-date");
-      state.marketCalendar.selectedDate = date;
+      setCalendarSelectedDate(date);
       syncCalendarDateInput();
       renderMarketCalendar();
       void refreshMarketDayDetail(date);
@@ -406,6 +420,16 @@ function bindEvents() {
   if (els.refreshResearchHealthBtn) els.refreshResearchHealthBtn.addEventListener("click", function () { void refreshResearchHealth(); });
   if (els.refreshResearchQualityBtn) els.refreshResearchQualityBtn.addEventListener("click", function () { void refreshResearchQuality(); });
   if (els.refreshCurrentScenarioBtn) els.refreshCurrentScenarioBtn.addEventListener("click", function () { void refreshCurrentMarketScenario(); });
+  if (els.beginnerReadingHome) {
+    els.beginnerReadingHome.addEventListener("click", function (event) {
+      handleBeginnerReadingAction(event, "home");
+    });
+  }
+  if (els.calendarBeginnerReading) {
+    els.calendarBeginnerReading.addEventListener("click", function (event) {
+      handleBeginnerReadingAction(event, "day");
+    });
+  }
   if (els.refreshResearchTasksBtn) els.refreshResearchTasksBtn.addEventListener("click", function () { void refreshResearchTasks(); });
   if (els.refreshEventReviewBtn) els.refreshEventReviewBtn.addEventListener("click", function () { void refreshEventReview(); });
   document.querySelectorAll("[data-event-review-filter]").forEach(function (button) {
@@ -1221,14 +1245,14 @@ async function jumpToCalendarDate(value) {
     return;
   }
   state.marketCalendar.month = date.slice(0, 7);
-  state.marketCalendar.selectedDate = date;
+  setCalendarSelectedDate(date);
   syncCalendarDateInput();
   await refreshMarketCalendar();
 }
 
 async function changeCalendarMonth(offset) {
   state.marketCalendar.month = shiftCalendarMonth(state.marketCalendar.month, offset);
-  state.marketCalendar.selectedDate = "";
+  setCalendarSelectedDate("");
   await refreshMarketCalendar();
 }
 
@@ -1251,7 +1275,7 @@ async function refreshMarketCalendar() {
       const candidates = calendar.days.filter(function (day) {
         return day.status === "trading" && (!calendar.today || day.date <= calendar.today);
       });
-      calendar.selectedDate = candidates.at(-1)?.date || calendar.days[0]?.date || "";
+      setCalendarSelectedDate(candidates.at(-1)?.date || calendar.days[0]?.date || "");
     }
     syncCalendarDateInput();
     calendar.loading = false;
@@ -2870,6 +2894,217 @@ function getMag7Members() {
       quote
     };
   });
+}
+
+function setCalendarSelectedDate(date) {
+  const next = String(date || "");
+  if (state.marketCalendar.selectedDate !== next) {
+    state.beginnerReading.calendar = null;
+    state.beginnerReading.calendarDate = next;
+    renderCalendarBeginnerReading();
+  }
+  state.marketCalendar.selectedDate = next;
+}
+
+function beginnerReadingModeForDate(date) {
+  const today = getNewYorkDate();
+  if (date && date < today) return "close";
+  if (date && date > today) return "intraday";
+  const hourText = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "2-digit",
+    hourCycle: "h23"
+  }).format(new Date());
+  const hour = Number(String(hourText).replace(/[^\d]/g, "").slice(0, 2));
+  return Number.isFinite(hour) && hour >= 16 ? "close" : "intraday";
+}
+
+function uniqueNewsItems(items) {
+  const seen = new Map();
+  (Array.isArray(items) ? items : []).forEach(function (item) {
+    const title = String(item?.title || "").trim();
+    const url = String(item?.url || "").trim();
+    if (!title || !url) return;
+    const key = title.toLowerCase().replace(/\s+/g, " ");
+    if (!seen.has(key)) seen.set(key, { title, url, driverType: item.driverType || item.classification || "unclear" });
+  });
+  return Array.from(seen.values());
+}
+
+function newsFromMarketEvents(events, marketDate) {
+  const items = [];
+  (Array.isArray(events) ? events : []).forEach(function (event) {
+    if (marketDate && event?.date && event.date !== marketDate) return;
+    (Array.isArray(event?.news) ? event.news : []).forEach(function (news) {
+      items.push({
+        title: news?.title,
+        url: news?.url,
+        driverType: event?.driverType || "unclear"
+      });
+    });
+  });
+  return uniqueNewsItems(items);
+}
+
+function newsFromUnifiedEvents(events) {
+  const items = [];
+  (Array.isArray(events) ? events : []).forEach(function (event) {
+    if (String(event?.event_type || "") === "market_move_attribution") return;
+    const sources = Array.isArray(event?.sources) ? event.sources : [];
+    const source = sources.find(function (item) { return item?.canonical_url || item?.url; }) || sources[0];
+    const url = source?.canonical_url || source?.url;
+    const title = event?.title || source?.title;
+    if (!title || !url) return;
+    items.push({
+      title,
+      url,
+      driverType: event?.driverType || "unclear"
+    });
+  });
+  return uniqueNewsItems(items);
+}
+
+function mapSimilarDaysToScenario(payload) {
+  const summary = payload?.summary || {};
+  const candidateCount = Number(summary.candidateCount || 0);
+  if (!payload?.target) {
+    return { status: candidateCount > 0 ? "ready" : "awaiting_target" };
+  }
+  if (candidateCount <= 0) return { status: "insufficient_samples" };
+  return {
+    status: "ready",
+    sample: {
+      candidateCount,
+      maximumCandidateCount: 5,
+      isSmallSample: candidateCount < 5
+    },
+    outcomes: {
+      return5d: summary.return5d || {},
+      return20d: summary.return20d || {},
+      maxDrawdown20d: summary.maxDrawdown20d || {}
+    }
+  };
+}
+
+function observationsForReading(marketDate) {
+  return (Array.isArray(state.observations) ? state.observations : []).filter(function (item) {
+    return item?.marketDate === marketDate;
+  }).map(function (item) {
+    const quote = state.quotes[item.symbol] || null;
+    return {
+      symbol: item.symbol,
+      kind: item.kind,
+      priority: item.priority,
+      changePercent: quote && typeof quote.changePercent === "number" ? quote.changePercent : null
+    };
+  });
+}
+
+function assembleHomeBeginnerReadingInput() {
+  const marketDate = getNewYorkDate();
+  const qqq = state.quotes[NASDAQ_BENCHMARK_SYMBOL];
+  const mags = state.quotes[MAG7_ETF_SYMBOL];
+  const driverBySymbol = {};
+  (state.marketEvents || []).forEach(function (event) {
+    if (event?.date === marketDate && event?.symbol) driverBySymbol[event.symbol] = event.driverType || "unclear";
+  });
+  return {
+    marketDate,
+    mode: beginnerReadingModeForDate(marketDate),
+    qqqChangePercent: qqq && typeof qqq.changePercent === "number" ? qqq.changePercent : null,
+    magsChangePercent: mags && typeof mags.changePercent === "number" ? mags.changePercent : null,
+    volatilityLevel: null,
+    components: getMag7RelativeRanking().map(function (entry) {
+      return {
+        symbol: entry.symbol,
+        changePercent: entry.changePercent,
+        relativeToQqq: entry.relative,
+        driverType: driverBySymbol[entry.symbol] || "unclear"
+      };
+    }),
+    news: newsFromMarketEvents(state.marketEvents, marketDate),
+    earnings: (state.upcomingEarnings.events || []).map(function (event) {
+      return {
+        symbol: event.symbol,
+        marketDate: event.marketDate,
+        status: event.status,
+        fiscalPeriod: event.fiscalPeriod
+      };
+    }),
+    scenario: state.currentScenario.value || { status: "awaiting_target" },
+    observations: observationsForReading(marketDate)
+  };
+}
+
+function assembleCalendarBeginnerReadingInput() {
+  const date = state.marketCalendar.selectedDate;
+  const detail = state.marketCalendar.detail;
+  const day = detail?.day;
+  const qqq = day?.qqq;
+  return {
+    marketDate: date || getNewYorkDate(),
+    mode: beginnerReadingModeForDate(date),
+    qqqChangePercent: qqq && typeof qqq.changePercent === "number" ? qqq.changePercent : null,
+    magsChangePercent: null,
+    volatilityLevel: qqq?.volatilityLevel || null,
+    components: [],
+    news: newsFromUnifiedEvents(detail?.events),
+    earnings: (Array.isArray(detail?.earningsEvents) ? detail.earningsEvents : []).map(function (event) {
+      return {
+        symbol: event.symbol,
+        marketDate: event.marketDate,
+        status: event.status,
+        fiscalPeriod: event.fiscalPeriod
+      };
+    }),
+    scenario: mapSimilarDaysToScenario(state.marketCalendar.similarity),
+    observations: observationsForReading(date)
+  };
+}
+
+function renderHomeBeginnerReading() {
+  if (!els.beginnerReadingHome) return;
+  els.beginnerReadingHome.innerHTML = renderBeginnerReadingMarkup(getBeginnerReadingView(state.beginnerReading.home, "home"));
+}
+
+function renderCalendarBeginnerReading() {
+  if (!els.calendarBeginnerReading) return;
+  els.calendarBeginnerReading.innerHTML = renderBeginnerReadingMarkup(getBeginnerReadingView(state.beginnerReading.calendar, "day"));
+}
+
+function generateHomeBeginnerReading() {
+  state.beginnerReading.home = buildBeginnerReading(assembleHomeBeginnerReadingInput(), { now: new Date() });
+  renderHomeBeginnerReading();
+}
+
+async function generateCalendarBeginnerReading() {
+  const date = state.marketCalendar.selectedDate;
+  if (date && (!state.marketCalendar.detail || state.marketCalendar.detail.day?.date !== date)) {
+    await refreshMarketDayDetail(date);
+  }
+  if (date && !state.marketCalendar.similarity && !state.marketCalendar.similarityError) {
+    await refreshSimilarDays(date);
+  }
+  state.beginnerReading.calendar = buildBeginnerReading(assembleCalendarBeginnerReadingInput(), { now: new Date() });
+  state.beginnerReading.calendarDate = date || "";
+  renderCalendarBeginnerReading();
+}
+
+function handleBeginnerReadingAction(event, variant) {
+  const action = event.target.closest("[data-beginner-reading-action]")?.getAttribute("data-beginner-reading-action");
+  if (action === "collapse") {
+    if (variant === "day") {
+      state.beginnerReading.calendar = null;
+      renderCalendarBeginnerReading();
+    } else {
+      state.beginnerReading.home = null;
+      renderHomeBeginnerReading();
+    }
+    return;
+  }
+  if (action !== "generate") return;
+  if (variant === "day") void generateCalendarBeginnerReading();
+  else generateHomeBeginnerReading();
 }
 
 function getMag7RelativeRanking() {

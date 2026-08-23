@@ -30,7 +30,8 @@
 
     <nav class="command-bar" aria-label="看板导航">
       <div class="command-links">
-        <button type="button" class="command-link is-active" data-scroll-target="marketOverview">Nasdaq 100</button>
+        <button type="button" class="command-link is-active" data-scroll-target="beginnerReadingHome">今日怎么读</button>
+        <button type="button" class="command-link" data-scroll-target="marketOverview">Nasdaq 100</button>
         <button type="button" class="command-link" data-scroll-target="marketEvents">动态新闻</button>
         <button type="button" class="command-link" data-scroll-target="personalObservations">观察记录</button>
         <button type="button" class="command-link" data-scroll-target="decisionLog">决策日志</button>
@@ -328,7 +329,10 @@
           </div>
           <div class="calendar-grid" id="calendarGrid"></div>
         </div>
-        <aside class="calendar-detail card" id="calendarDetail" aria-live="polite"></aside>
+        <aside class="calendar-detail card">
+          <div class="beginner-reading-embed" id="calendarBeginnerReading" aria-live="polite"></div>
+          <div id="calendarDetail" aria-live="polite"></div>
+        </aside>
       </div>
     </section>
 
@@ -419,6 +423,7 @@
     </section>
 
     <section class="overview-grid" id="marketOverview">
+      <article class="card overview-card beginner-reading-card" id="beginnerReadingHome" aria-live="polite"></article>
       <article class="card overview-card">
         <div class="overview-head">
           <div>

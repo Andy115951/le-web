@@ -1280,6 +1280,7 @@ body {
 .command-bar .btn { min-height: 38px; border-radius: 10px; padding: 0 13px; font-size: 0.88rem; }
 
 .overview-grid { order: 2; grid-template-columns: 1.2fr 1fr 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+.beginner-reading-card { grid-column: 1 / -1; }
 .market-events { order: 3; margin-bottom: 18px; }
 .upcoming-earnings { order: 4; margin-bottom: 18px; }
 .stats-grid { order: 5; gap: 14px; margin-bottom: 18px; }
@@ -2085,7 +2086,7 @@ body {
   top: 82px;
   min-height: 510px;
   padding: 18px;
-  overflow: hidden;
+  overflow: auto;
   border: 0;
   color: #eef4ff;
   background:
@@ -2401,6 +2402,25 @@ body {
 .overview-head h2,
 .controls-head h2,
 .list-head h2 { color: #1d2a42; letter-spacing: -0.025em; }
+
+.beginner-reading-card { background: linear-gradient(145deg, #fbfcff, #f4f8ff); }
+.beginner-reading-hint { margin: 0 0 12px; line-height: 1.55; }
+.beginner-reading-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.beginner-reading-generated { margin: 10px 0 0; color: #6a7890; font-size: 0.68rem; font-weight: 700; }
+.beginner-reading-sections { display: grid; gap: 10px; margin-top: 14px; }
+.beginner-reading-section { padding: 12px 13px; border: 1px solid #dce6f5; border-radius: 12px; background: rgba(255, 255, 255, 0.84); }
+.beginner-reading-section h3 { margin: 0 0 6px; color: #1d2a42; font-size: 0.86rem; }
+.beginner-reading-section p { margin: 0 0 6px; color: #3d4c66; font-size: 0.82rem; line-height: 1.55; }
+.beginner-reading-section p:last-child { margin-bottom: 0; }
+.beginner-reading-embed { margin-bottom: 14px; padding: 14px; border: 1px solid rgba(184, 204, 238, 0.18); border-radius: 14px; background: rgba(255, 255, 255, 0.07); }
+.beginner-reading-embed .eyebrow { color: #9bb6ea; }
+.beginner-reading-embed h2 { color: #fff; font-size: 1.05rem; }
+.beginner-reading-embed .beginner-reading-hint { color: #c2d0e8; }
+.beginner-reading-embed .beginner-reading-generated { color: #9aadc8; }
+.beginner-reading-embed .beginner-reading-section { border-color: rgba(184, 204, 238, 0.16); background: rgba(8, 16, 32, 0.28); }
+.beginner-reading-embed .beginner-reading-section h3 { color: #edf3ff; }
+.beginner-reading-embed .beginner-reading-section p { color: #d5e0f2; }
+.beginner-reading-embed .btn-ghost { border-color: rgba(184, 204, 238, 0.28); color: #d5e4ff; background: transparent; }
 
 .current-scenario-card { background: linear-gradient(145deg, #fbfcff, #f0f6ff); }
 .overview-head-with-action { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
