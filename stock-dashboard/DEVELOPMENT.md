@@ -40,6 +40,7 @@
 - [x] `daily_market_features` 已通过 Management API 应用并完成 1,254 行 QQQ 回填
 - [x] `similar_day_matches` 已通过 Management API 应用并完成 5,848 条 QQQ 相似日回填
 - [x] `ndx_constituent_changes` 已通过 Management API 应用；首份快照没有前序版本，因此当前尚无变更行
+- [ ] NDX 全量官方快照仍是 `2026-05-01`（来源 `https://www.nasdaq.com/docs/2026/05/04/NDX.pdf`）。`2026-08-24` 探测 `nasdaq.com/docs/2026/06–08/*/NDX.pdf` 与 `business.nasdaq.com/Docs/NDX.pdf` 均重定向到同一份 5 月 PDF；公开 Fact Sheet `FS_NDX.pdf` 日期为 `2026-06-30` 但只有权重前 10，不足 100–110 只，不能当候选导入。完整名单仍需 Nasdaq 官方全量权重 PDF 或登录后的 Weighting 表
 - [x] SEC EDGAR filings 采集器、统一事件写入和离线测试已实现；生产已配置合规 `SEC_USER_AGENT`，Windows 本机验证写入 3 条 filings
 - [x] FRED 宏观观测采集器、稳定去重和离线测试已实现；生产已配置 `FRED_API_KEY`，Windows 本机验证写入 12 条宏观观测
 - [x] `event_review_decisions` 已在远程创建；确定性分类、只读队列和追加式人工审核 CLI 已实现
