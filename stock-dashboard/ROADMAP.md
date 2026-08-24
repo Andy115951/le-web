@@ -528,7 +528,7 @@ FRED_API_KEY
 
 产品层可与第 1 项并行，不替代上面的顺序：
 
-- 新人关联解读已落地（[docs/beginner-reading.md](docs/beginner-reading.md)）：「读一下」只跑模板；「生成 AI 解读」需二次确认，结果出现在下面单独区域。`2026-08-24` 生产已打开 `DEEPSEEK_BEGINNER_READING_ENABLED`，不打开收盘研究复盘。
+- 新人关联解读已落地（[docs/beginner-reading.md](docs/beginner-reading.md)）：「读一下」只跑模板；「生成 AI 解读」在卡片内小框确认，结果出现在下面单独区域。`2026-08-24` 生产已打开 `DEEPSEEK_BEGINNER_READING_ENABLED`，不打开收盘研究复盘。
 
 价格、事件和时间戳质量稳定前不开始更复杂的机器学习；收盘研究复盘出站必须保持显式批准，不得由网页触发。「读一下」只跑本地模板；「生成 AI 解读」是单独确认的第二动作，由独立开关控制。
 

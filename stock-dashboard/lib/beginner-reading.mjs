@@ -323,12 +323,22 @@ function escapeHtml(value) {
 
 function renderBeginnerReadingAiMarkup(source) {
   const paragraphs = Array.isArray(source.interpretation?.paragraphs) ? source.interpretation.paragraphs : [];
+  const confirming = source.interpretState === "confirm";
   const loading = source.interpretState === "loading";
   const applied = source.interpretState === "applied" && paragraphs.length > 0;
   const failed = Boolean(source.interpretError);
-  if (!loading && !applied && !failed) return "";
+  if (!confirming && !loading && !applied && !failed) return "";
+  let hint = "这是对上面五段事实的讲解，不是新数据，也不是买卖建议。";
   let inner = "";
-  if (loading) {
+  if (confirming) {
+    hint = "会把上面五段事实发给模型做讲解，不含持仓数量和成本。";
+    inner = [
+      '<div class="beginner-reading-ai-confirm">',
+      '<button type="button" class="btn btn-ghost" data-beginner-reading-action="interpret-cancel">取消</button>',
+      '<button type="button" class="btn btn-primary" data-beginner-reading-action="interpret-confirm">开始生成</button>',
+      "</div>"
+    ].join("");
+  } else if (loading) {
     inner = '<p class="beginner-reading-ai-status">正在生成 AI 解读…</p>';
   } else if (applied) {
     inner = paragraphs.map(function (paragraph) {
@@ -338,9 +348,11 @@ function renderBeginnerReadingAiMarkup(source) {
     inner = '<p class="beginner-reading-ai-status">' + escapeHtml(source.interpretError) + "</p>";
   }
   return [
-    '<aside class="beginner-reading-ai" data-beginner-reading-ai>',
+    '<aside class="beginner-reading-ai" data-beginner-reading-ai data-beginner-reading-ai-state="'
+      + escapeHtml(confirming ? "confirm" : (loading ? "loading" : (applied ? "applied" : "failed")))
+      + '">',
     '<div class="beginner-reading-ai-head"><p class="eyebrow">AI READING</p><h3>AI 解读</h3></div>',
-    '<p class="muted beginner-reading-ai-hint">这是对上面五段事实的讲解，不是新数据，也不是买卖建议。</p>',
+    '<p class="muted beginner-reading-ai-hint">' + escapeHtml(hint) + "</p>",
     '<div class="beginner-reading-ai-body">' + inner + "</div>",
     "</aside>"
   ].join("");
@@ -353,9 +365,10 @@ export function renderBeginnerReadingMarkup(view) {
   ];
   if (source.interpretLabel) {
     const interpretBusy = source.interpretState === "loading";
+    const interpretOpen = source.interpretState === "confirm" || interpretBusy;
     actions.push(
       '<button type="button" class="btn btn-ghost" data-beginner-reading-action="interpret"'
-      + (interpretBusy ? " disabled" : "")
+      + (interpretOpen ? " disabled" : "")
       + ">"
       + escapeHtml(interpretBusy ? "正在生成 AI 解读…" : source.interpretLabel)
       + "</button>"

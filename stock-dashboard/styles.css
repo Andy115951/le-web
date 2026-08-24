@@ -2419,6 +2419,8 @@ body {
 .beginner-reading-ai-body { display: grid; gap: 8px; }
 .beginner-reading-ai-body p { margin: 0; color: #24344f; font-size: 0.86rem; line-height: 1.65; }
 .beginner-reading-ai-status { color: #5b6d89; font-weight: 700; }
+.beginner-reading-ai-confirm { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.beginner-reading-ai-confirm .btn { min-height: 34px; padding: 0 12px; border-radius: 9px; font-size: 0.78rem; }
 .beginner-reading-embed { margin-bottom: 14px; padding: 14px; border: 1px solid rgba(184, 204, 238, 0.18); border-radius: 14px; background: rgba(255, 255, 255, 0.07); }
 .beginner-reading-embed .eyebrow { color: #9bb6ea; }
 .beginner-reading-embed h2 { color: #fff; font-size: 1.05rem; }

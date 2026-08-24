@@ -3119,6 +3119,14 @@ function handleBeginnerReadingAction(event, variant) {
     return;
   }
   if (action === "interpret" || action === "polish") {
+    openBeginnerReadingInterpretConfirm(variant);
+    return;
+  }
+  if (action === "interpret-cancel") {
+    cancelBeginnerReadingInterpret(variant);
+    return;
+  }
+  if (action === "interpret-confirm") {
     void interpretBeginnerReading(variant);
     return;
   }
@@ -3134,12 +3142,37 @@ function interpretErrorMessage(result) {
   return "AI 解读未通过校验，上面的五段事实仍在。";
 }
 
+function currentBeginnerReading(variant) {
+  return variant === "day" ? state.beginnerReading.calendar : state.beginnerReading.home;
+}
+
+function renderBeginnerReading(variant) {
+  if (variant === "day") renderCalendarBeginnerReading();
+  else renderHomeBeginnerReading();
+}
+
+function openBeginnerReadingInterpretConfirm(variant) {
+  const current = currentBeginnerReading(variant);
+  if (!current || current.interpretState === "loading") return;
+  current.interpretState = "confirm";
+  current.interpretError = null;
+  renderBeginnerReading(variant);
+}
+
+function cancelBeginnerReadingInterpret(variant) {
+  const current = currentBeginnerReading(variant);
+  if (!current || current.interpretState === "loading") return;
+  const hasInterpretation = current.interpretation && Array.isArray(current.interpretation.paragraphs) && current.interpretation.paragraphs.length;
+  current.interpretState = hasInterpretation ? "applied" : null;
+  current.interpretError = null;
+  renderBeginnerReading(variant);
+}
+
 async function interpretBeginnerReading(variant) {
   const isDay = variant === "day";
   const current = isDay ? state.beginnerReading.calendar : state.beginnerReading.home;
   const input = isDay ? state.beginnerReading.calendarInput : state.beginnerReading.homeInput;
-  if (!current || !input) return;
-  if (!window.confirm("会把当前五段事实发给模型做讲解，不含持仓数量和成本。结果会出现在下面单独的 AI 解读区。是否继续？")) return;
+  if (!current || !input || current.interpretState === "loading") return;
   current.interpretState = "loading";
   current.interpretError = null;
   current.interpretation = null;

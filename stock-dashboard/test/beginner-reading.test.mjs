@@ -171,4 +171,12 @@ test("idle view and markup have no five-section body until the user generates on
   assert.equal(interpretedHtml.includes("AI 解读"), true);
   assert.equal(interpretedHtml.includes("QQQ 这是讲解，不是新数据。"), true);
   assert.equal(interpretedHtml.includes("data-beginner-reading-section=\"market\""), true);
+
+  const confirming = getBeginnerReadingView({ ...reading, interpretState: "confirm" }, "home");
+  const confirmHtml = renderBeginnerReadingMarkup(confirming);
+  assert.equal(confirmHtml.includes('data-beginner-reading-ai-state="confirm"'), true);
+  assert.equal(confirmHtml.includes("data-beginner-reading-action=\"interpret-confirm\""), true);
+  assert.equal(confirmHtml.includes("开始生成"), true);
+  assert.equal(confirmHtml.includes("不含持仓数量和成本"), true);
+  assert.equal(confirmHtml.includes("window.confirm"), false);
 });
