@@ -211,7 +211,7 @@ NVIDIA FY2027 Q2（`2026-08-26`）在该日收盘前必须写成预定事项，�
 - 只有 `accepted` 才允许替换模板正文；否则保持第一期文案。
 - 现有 `research-narrative-v1` 可复用审计表，或出 `beginner-reading-v1` 的平行契约。不得把未校验的 `recap` 直接贴到首页。
 
-第二期入口已落地：`lib/beginner-reading-polish.mjs` + `POST /api/beginner-reading/polish`。生产需显式设置 `DEEPSEEK_BEGINNER_READING_ENABLED=true` 后按钮才会真正出站。
+第二期入口已落地：`lib/beginner-reading-polish.mjs` + `POST /api/beginner-reading/polish`。`2026-08-24` 生产已设置 `DEEPSEEK_BEGINNER_READING_ENABLED=true`；收盘研究复盘两闸仍关。关掉该开关后按钮会失败并保留模板。
 
 ## 8. 验收
 

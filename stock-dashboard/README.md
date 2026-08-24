@@ -128,12 +128,12 @@
 
 产品层（不插入研究批次的顺序，规格见 [docs/beginner-reading.md](docs/beginner-reading.md)）：
 
-- 新人关联解读已落地模板 + 单独确认的「用 AI 润色这一篇」。生产需打开 `DEEPSEEK_BEGINNER_READING_ENABLED` 才会出站；「读一下」永不调模型
+- 新人关联解读已落地模板 + 单独确认的「用 AI 润色这一篇」。`2026-08-24` 生产已打开 `DEEPSEEK_BEGINNER_READING_ENABLED`；收盘研究复盘两闸仍关。「读一下」永不调模型
 
 研究层仍严格按顺序：
 
 1. 确认下一次完整收盘 Cron 实际写入 SEC filings 与 FRED 观测；扩展公司 IR 财报日历覆盖，并为日度特征 / 相似日补齐官方宏观和公司事件维度
-2. `deepseek-v3.2` 与 `deepseek-v4-flash` 无项目数据探针均已通过。`2026-08-24` 已对 `2026-08-21` 研究快照用 `deepseek-v4-flash` 完成一次受控验证（`accepted`）。新人解读 AI 润色走单独按钮「用 AI 润色这一篇」，由 `DEEPSEEK_BEGINNER_READING_ENABLED` 控制，不打开收盘研究复盘
+2. `deepseek-v3.2` 与 `deepseek-v4-flash` 无项目数据探针均已通过。`2026-08-24` 已对 `2026-08-21` 研究快照用 `deepseek-v4-flash` 完成一次受控验证（`accepted`）。新人解读 AI 润色走单独按钮「用 AI 润色这一篇」；生产已打开 `DEEPSEEK_BEGINNER_READING_ENABLED`，不打开收盘研究复盘
 3. 特征扩充后再重跑冻结评估，并重新冻结事后阶段诊断工件；当前 Logistic / 浅层树均未晋升
 
 ## 技术结构
