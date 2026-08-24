@@ -72,6 +72,42 @@ test("interpretation validation accepts teaching paragraphs and rejects invented
   assert.equal(invalid.errors.includes("prohibited_language"), true);
 });
 
+test("interpretation cannot tour the five boxes or name tickers missing from the template", function () {
+  const emptyTape = buildBeginnerReading({
+    marketDate: "2026-08-24",
+    mode: "intraday",
+    qqqChangePercent: null,
+    components: [{ symbol: "META", changePercent: -1, relativeToQqq: -1, driverType: "unclear" }],
+    news: [],
+    earnings: [],
+    scenario: { status: "awaiting_target" },
+    observations: []
+  }, { now: generatedAt });
+  const facts = sanitizeBeginnerReadingFacts({
+    marketDate: "2026-08-24",
+    components: [{ symbol: "META", changePercent: -1, relativeToQqq: -1, driverType: "unclear" }],
+    observations: [{ symbol: "TSLA", kind: "drawdown_rule" }]
+  });
+  const layout = validateBeginnerReadingInterpretation(emptyTape, {
+    paragraphs: [
+      "这份阅读把市场拆成五个小格子。第一格看大盘，第二格看像 META、TSLA 这些权重股。",
+      "第五格提到回撤纪律，但当天无法对照 QQQ。"
+    ]
+  }, facts);
+  assert.equal(layout.valid, false);
+  assert.equal(layout.errors.includes("layout_tour"), true);
+  assert.equal(layout.errors.includes("unknown_ticker"), true);
+  assert.equal(layout.errors.includes("invented_discipline"), true);
+
+  const grounded = validateBeginnerReadingInterpretation(emptyTape, {
+    paragraphs: [
+      "今天没有纳指基准，所以没法判断大盘，也没法对照权重股相对 QQQ 的偏离。",
+      "公开资讯、历史样本和个人纪律都还连不上，不能把空状态补成故事。"
+    ]
+  }, facts);
+  assert.equal(grounded.valid, true);
+});
+
 test("disabled polish does not call a model", async function () {
   let requested = false;
   const result = await runBeginnerReadingPolish(baseInput(), {
@@ -126,11 +162,28 @@ test("accepted interpretation is a separate panel and does not replace the templ
       return { choices: [{ finish_reason: "stop", message: { content: JSON.stringify({ paragraphs }) } }] };
     }
   });
-  assert.equal(BEGINNER_READING_INTERPRET_VERSION, "beginner-reading-interpret-v1");
+  assert.equal(BEGINNER_READING_INTERPRET_VERSION, "beginner-reading-interpret-v2");
   assert.equal(result.status, "accepted");
   assert.equal(result.interpreted, true);
   assert.equal(result.polished, false);
   assert.deepEqual(result.interpretation.paragraphs, paragraphs);
   assert.equal(result.reading.sections.length, 5);
   assert.equal(result.reading.sections[0].paragraphs[0], template.sections[0].paragraphs[0]);
+});
+
+test("interpretation request sends the template and not raw page facts", async function () {
+  let sent = null;
+  await runBeginnerReadingPolish(baseInput(), {
+    env: enabledEnv(),
+    skipDailyLimit: true,
+    now: new Date(generatedAt),
+    requestModel: async function (payload) {
+      sent = payload;
+      return { choices: [{ finish_reason: "stop", message: { content: JSON.stringify({ paragraphs: ["占位一。", "占位二。"] }) } }] };
+    }
+  });
+  const user = JSON.parse(sent.messages[1].content);
+  assert.equal(user.facts, undefined);
+  assert.equal(Array.isArray(user.sections), true);
+  assert.equal(JSON.stringify(user).includes("shares"), false);
 });

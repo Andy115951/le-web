@@ -205,11 +205,11 @@ NVIDIA FY2027 Q2（`2026-08-26`）在该日收盘前必须写成预定事项，�
 约束：
 
 - 输入必须是已归档研究包，或第一期产出的 `readingInput` 快照，不得把个人持仓明细发给第三方。个人段若要讲解，只发观察的 `kind` / 是否与 QQQ 同向，不发股数和成本。
-- 模板五段始终保留。模型输出是 2–5 段讲解，不是第二份五段标题拷贝，也不得改分类、改数字。
+- 模板五段始终保留。模型输出是 2–3 段讲解，讲今天能连上什么，不讲页面有几个格子；不得改分类、改数字，也不得点名模板正文里没有的标的。
 - 继续走引用校验、禁止句、追加审计、每日次数上限。
 - 「读一下」按钮只跑模板。AI 解读是单独的、带确认的第二动作。
 - 只有 `accepted` 才写入 AI 解读区；否则五段事实不动。
-- 现有 `research-narrative-v1` 可复用审计表，或出 `beginner-reading-interpret-v1` 的平行契约。不得把未校验的 `recap` 直接贴到首页。
+- 现有 `research-narrative-v1` 可复用审计表，或出 `beginner-reading-interpret-v2` 的平行契约。不得把未校验的 `recap` 直接贴到首页。
 
 第二期入口已落地：`lib/beginner-reading-polish.mjs` + `POST /api/beginner-reading/polish`。`2026-08-24` 生产已设置 `DEEPSEEK_BEGINNER_READING_ENABLED=true`；收盘研究复盘两闸仍关。关掉该开关后按钮会失败并保留模板。
 

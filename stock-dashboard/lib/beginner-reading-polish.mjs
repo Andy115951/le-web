@@ -17,11 +17,14 @@ const { fingerprint } = require("./research-narrative-contract.js");
 const { getSupabaseConfig, requestSupabase } = require("./supabase-server.js");
 const { marketDate } = require("./daily-market-events.js");
 
-export const BEGINNER_READING_POLISH_VERSION = "beginner-reading-interpret-v1";
+export const BEGINNER_READING_POLISH_VERSION = "beginner-reading-interpret-v2";
 export const BEGINNER_READING_INTERPRET_VERSION = BEGINNER_READING_POLISH_VERSION;
 const MIN_INTERPRET_PARAGRAPHS = 2;
-const MAX_INTERPRET_PARAGRAPHS = 5;
-const MAX_INTERPRET_PARAGRAPH_CHARS = 480;
+const MAX_INTERPRET_PARAGRAPHS = 3;
+const MAX_INTERPRET_PARAGRAPH_CHARS = 280;
+const META_LAYOUT_PATTERN = /第[一二三四五]格|五个小格子|五个格子|五个小格|把市场拆成/;
+const DISCIPLINE_LABELS = ["回撤纪律", "目标已到", "临近目标", "相对 QQQ 偏弱", "当日波动较大"];
+const TICKER_ALLOWLIST_EXTRA = new Set(["FY", "IR", "ETF"]);
 const POLISH_PROVIDER = "DeepSeek";
 const MAX_DAILY_REQUESTS_HARD_LIMIT = 3;
 const MAX_OUTPUT_TOKENS_HARD_LIMIT = 1400;
@@ -168,11 +171,26 @@ function collectPercents(text) {
   return values;
 }
 
-function allowedTickers(facts) {
-  const tickers = new Set(["QQQ", "MAGS", "NDX"]);
-  (facts.components || []).forEach(function (item) { tickers.add(item.symbol); });
-  (facts.earnings || []).forEach(function (item) { tickers.add(item.symbol); });
-  (facts.observations || []).forEach(function (item) { tickers.add(item.symbol); });
+function templatePlainText(template) {
+  const sections = Array.isArray(template?.sections) ? template.sections : [];
+  return sections.map(function (section) {
+    return String(section?.title || "") + " " + (Array.isArray(section?.paragraphs) ? section.paragraphs.join(" ") : "");
+  }).join("\n") + " " + String(template?.marketDate || "");
+}
+
+function collectDates(text) {
+  return new Set(String(text || "").match(/\d{4}-\d{2}-\d{2}/g) || []);
+}
+
+function collectTickers(text) {
+  return new Set((String(text || "").match(/\b[A-Z]{2,5}\b/g) || []).filter(function (token) {
+    return !/^Q[1-4]$/.test(token) && !TICKER_ALLOWLIST_EXTRA.has(token);
+  }));
+}
+
+function allowedTickers(template) {
+  const tickers = collectTickers(templatePlainText(template));
+  tickers.add("QQQ");
   return tickers;
 }
 
@@ -198,15 +216,25 @@ export function validateBeginnerReadingInterpretation(template, payload, facts) 
     return { valid: false, errors: Array.from(new Set(errors.concat(["missing_interpretation"]))), paragraphs: [] };
   }
   if (containsBannedBeginnerReading(text)) errors.push("prohibited_language");
-  const allowedPercents = collectPercents(readingText(template));
+  if (META_LAYOUT_PATTERN.test(text)) errors.push("layout_tour");
+  const sourceText = templatePlainText(template);
+  const allowedPercents = collectPercents(sourceText);
   collectPercents(text).forEach(function (value) {
     if (!allowedPercents.has(value)) errors.push("invented_percent");
   });
-  const tickers = allowedTickers(facts);
-  const unknown = (text.match(/\b[A-Z]{2,5}\b/g) || []).filter(function (token) {
-    return !tickers.has(token) && !/^Q[1-4]$/.test(token) && token !== "FY" && token !== "IR" && token !== "ETF" && token !== "QQQ";
+  const allowedDates = collectDates(sourceText);
+  collectDates(text).forEach(function (value) {
+    if (!allowedDates.has(value)) errors.push("invented_date");
   });
-  if (unknown.length) errors.push("unknown_ticker");
+  const tickers = allowedTickers(template);
+  collectTickers(text).forEach(function (token) {
+    if (!tickers.has(token)) errors.push("unknown_ticker");
+  });
+  if (!DISCIPLINE_LABELS.some(function (label) { return sourceText.includes(label); })) {
+    if (DISCIPLINE_LABELS.some(function (label) { return text.includes(label); })) {
+      errors.push("invented_discipline");
+    }
+  }
   try {
     assertSafeBeginnerReadingText(text);
   } catch (_error) {
@@ -233,23 +261,23 @@ export function buildBeginnerReadingPolishRequest(template, facts, config) {
         role: "system",
         content: [
           "Return exactly one JSON object and no markdown.",
-          "Write a separate beginner explanation of the supplied five-section template.",
-          "This is teaching, not a rewrite of the template and not new market data.",
-          "Output {paragraphs: string[]} with 2 to 5 short Chinese paragraphs.",
-          "Explain how the sections relate: index vs MAGS vs named leaders; news that already happened vs scheduled calendar items; how to read similar-day history without calling it a forecast; personal discipline if present.",
-          "You may explain terms such as 相对 QQQ, 小样本, and why a scheduled earnings item cannot explain today.",
-          "Any number, ticker, or classification you mention must already appear in the template.",
-          "If a section is an empty state, say the system could not connect that piece; do not fill it in.",
+          "Write a beginner reading of today from the template paragraphs only.",
+          "Output {paragraphs: string[]} with 2 or 3 short Chinese paragraphs, each under 280 characters.",
+          "Talk about what today means, not about the page layout. Do not say 格子, 五段, 第一格, 卡片, or 拆成.",
+          "Connect only facts written in the template: what can be known, what is unconnected, and what is merely scheduled.",
+          "If a paragraph is an empty state, restate that the system could not connect that piece. Do not name extra stocks, news, earnings, or discipline triggers.",
+          "Any ticker, percent, date, or discipline label you mention must already appear in the template paragraphs.",
           "Do not add buy/sell/hold advice, probabilities, or facts that are not in the template."
         ].join(" ")
       },
       {
         role: "user",
         content: JSON.stringify({
-          task: "Explain this beginner reading for a newcomer. Output {paragraphs:[]} only. Do not repeat the five section titles as a second copy.",
+          task: "Write a beginner reading of today. Output {paragraphs:[]} only.",
           version: BEGINNER_READING_VERSION,
-          template,
-          facts
+          marketDate: template.marketDate,
+          mode: template.mode,
+          sections: template.sections
         })
       }
     ]
