@@ -231,7 +231,9 @@ const state = {
   currentScenario: { value: null, loading: false, error: "" },
   beginnerReading: {
     home: null,
+    homeInput: null,
     calendar: null,
+    calendarInput: null,
     calendarDate: ""
   },
   researchTasks: { runs: [], loading: false, error: "" },
@@ -2900,6 +2902,7 @@ function setCalendarSelectedDate(date) {
   const next = String(date || "");
   if (state.marketCalendar.selectedDate !== next) {
     state.beginnerReading.calendar = null;
+    state.beginnerReading.calendarInput = null;
     state.beginnerReading.calendarDate = next;
     renderCalendarBeginnerReading();
   }
@@ -2987,15 +2990,22 @@ function mapSimilarDaysToScenario(payload) {
 }
 
 function observationsForReading(marketDate) {
+  const qqq = state.quotes[NASDAQ_BENCHMARK_SYMBOL];
+  const qqqChange = qqq && typeof qqq.changePercent === "number" ? qqq.changePercent : null;
   return (Array.isArray(state.observations) ? state.observations : []).filter(function (item) {
     return item?.marketDate === marketDate;
   }).map(function (item) {
     const quote = state.quotes[item.symbol] || null;
+    const changePercent = quote && typeof quote.changePercent === "number" ? quote.changePercent : null;
+    let alignedWithQqq = null;
+    if (changePercent !== null && qqqChange !== null) {
+      alignedWithQqq = (changePercent > 0 && qqqChange > 0) || (changePercent < 0 && qqqChange < 0) || (changePercent === 0 && qqqChange === 0);
+    }
     return {
       symbol: item.symbol,
       kind: item.kind,
       priority: item.priority,
-      changePercent: quote && typeof quote.changePercent === "number" ? quote.changePercent : null
+      alignedWithQqq
     };
   });
 }
@@ -3073,7 +3083,9 @@ function renderCalendarBeginnerReading() {
 }
 
 function generateHomeBeginnerReading() {
-  state.beginnerReading.home = buildBeginnerReading(assembleHomeBeginnerReadingInput(), { now: new Date() });
+  const input = assembleHomeBeginnerReadingInput();
+  state.beginnerReading.homeInput = input;
+  state.beginnerReading.home = buildBeginnerReading(input, { now: new Date() });
   renderHomeBeginnerReading();
 }
 
@@ -3085,7 +3097,9 @@ async function generateCalendarBeginnerReading() {
   if (date && !state.marketCalendar.similarity && !state.marketCalendar.similarityError) {
     await refreshSimilarDays(date);
   }
-  state.beginnerReading.calendar = buildBeginnerReading(assembleCalendarBeginnerReadingInput(), { now: new Date() });
+  const input = assembleCalendarBeginnerReadingInput();
+  state.beginnerReading.calendarInput = input;
+  state.beginnerReading.calendar = buildBeginnerReading(input, { now: new Date() });
   state.beginnerReading.calendarDate = date || "";
   renderCalendarBeginnerReading();
 }
@@ -3095,16 +3109,63 @@ function handleBeginnerReadingAction(event, variant) {
   if (action === "collapse") {
     if (variant === "day") {
       state.beginnerReading.calendar = null;
+      state.beginnerReading.calendarInput = null;
       renderCalendarBeginnerReading();
     } else {
       state.beginnerReading.home = null;
+      state.beginnerReading.homeInput = null;
       renderHomeBeginnerReading();
     }
+    return;
+  }
+  if (action === "polish") {
+    void polishBeginnerReading(variant);
     return;
   }
   if (action !== "generate") return;
   if (variant === "day") void generateCalendarBeginnerReading();
   else generateHomeBeginnerReading();
+}
+
+function polishErrorMessage(result) {
+  if (result?.reason === "disabled") return "当前未开启 AI 润色，仍显示模板。";
+  if (result?.reason === "daily_request_limit") return "今日润色次数已用完，仍显示模板。";
+  if (result?.reason === "invalid_reading_input") return "当前解读输入不完整，仍显示模板。";
+  return "AI 润色未通过校验，仍显示模板。";
+}
+
+async function polishBeginnerReading(variant) {
+  const isDay = variant === "day";
+  const current = isDay ? state.beginnerReading.calendar : state.beginnerReading.home;
+  const input = isDay ? state.beginnerReading.calendarInput : state.beginnerReading.homeInput;
+  if (!current || !input) return;
+  if (!window.confirm("会把当前五段解读骨架发给模型润色，不含持仓数量和成本。是否继续？")) return;
+  current.polishState = "loading";
+  current.polishError = null;
+  if (isDay) renderCalendarBeginnerReading();
+  else renderHomeBeginnerReading();
+  try {
+    const response = await fetch("./api/beginner-reading/polish", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ input })
+    });
+    const result = await response.json().catch(function () { return {}; });
+    if (result && result.polished && result.reading && Array.isArray(result.reading.sections)) {
+      result.reading.polishState = "applied";
+      result.reading.polishError = null;
+      if (isDay) state.beginnerReading.calendar = result.reading;
+      else state.beginnerReading.home = result.reading;
+    } else {
+      current.polishState = "failed";
+      current.polishError = polishErrorMessage(result);
+    }
+  } catch (_error) {
+    current.polishState = "failed";
+    current.polishError = "AI 润色请求失败，仍显示模板。";
+  }
+  if (isDay) renderCalendarBeginnerReading();
+  else renderHomeBeginnerReading();
 }
 
 function getMag7RelativeRanking() {

@@ -252,7 +252,9 @@ function buildPersonalSection(input, qqqChange) {
     const kind = OBSERVATION_KIND_LABELS[item.kind];
     const change = finiteNumber(item.changePercent);
     let relation = "无法对照当天 QQQ";
-    if (change !== null && qqqChange !== null) {
+    if (item.alignedWithQqq === true) relation = "与当天 QQQ 同向";
+    else if (item.alignedWithQqq === false) relation = "与当天 QQQ 反向";
+    else if (change !== null && qqqChange !== null) {
       relation = sameDirection(change, qqqChange) ? "与当天 QQQ 同向" : "与当天 QQQ 反向";
     }
     return symbol + " 触发了" + kind + "。当天该股" + relation + "。";
@@ -302,6 +304,9 @@ export function getBeginnerReadingView(reading, variant) {
     hint: "把当前屏幕上的纳指、新闻、日历和你的纪律串起来读；不是预测，也不是买卖建议。",
     primaryLabel: hasBody ? "按当前页面再读一次" : (isDay ? "读一下这一天" : "读一下今天"),
     collapseLabel: hasBody ? "收起" : null,
+    polishLabel: hasBody ? "用 AI 润色这一篇" : null,
+    polishState: reading && reading.polishState || null,
+    polishError: reading && reading.polishError || null,
     generatedAt: hasBody ? reading.generatedAt : null,
     sections: hasBody ? reading.sections : null
   };
@@ -320,12 +325,28 @@ export function renderBeginnerReadingMarkup(view) {
   const actions = [
     '<button type="button" class="btn btn-primary" data-beginner-reading-action="generate">' + escapeHtml(source.primaryLabel) + "</button>"
   ];
+  if (source.polishLabel) {
+    const polishBusy = source.polishState === "loading";
+    actions.push(
+      '<button type="button" class="btn btn-ghost" data-beginner-reading-action="polish"'
+      + (polishBusy ? " disabled" : "")
+      + ">"
+      + escapeHtml(polishBusy ? "正在润色…" : source.polishLabel)
+      + "</button>"
+    );
+  }
   if (source.collapseLabel) {
     actions.push('<button type="button" class="btn btn-ghost" data-beginner-reading-action="collapse">' + escapeHtml(source.collapseLabel) + "</button>");
   }
-  const meta = source.hasBody && source.generatedAt
-    ? '<p class="beginner-reading-generated">生成于点击时刻 · ' + escapeHtml(source.generatedAt) + "</p>"
-    : "";
+  let meta = "";
+  if (source.hasBody && source.generatedAt) {
+    meta = '<p class="beginner-reading-generated">生成于点击时刻 · ' + escapeHtml(source.generatedAt) + "</p>";
+  }
+  if (source.polishState === "applied") {
+    meta += '<p class="beginner-reading-generated">已用 AI 润色通顺，数字和分类仍来自模板。</p>';
+  } else if (source.polishError) {
+    meta += '<p class="beginner-reading-generated">' + escapeHtml(source.polishError) + "</p>";
+  }
   let body = "";
   if (source.hasBody) {
     body = '<div class="beginner-reading-sections">' + source.sections.map(function (item) {

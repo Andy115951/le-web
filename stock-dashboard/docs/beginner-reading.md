@@ -200,7 +200,7 @@ NVIDIA FY2027 Q2（`2026-08-26`）在该日收盘前必须写成预定事项，�
 
 ### 第二期：同一骨架的模型润色（后做）
 
-`deepseek-v4-flash` 网关探针已通过；`2026-08-24` 对 `2026-08-21` 研究快照的受控验证亦为 `accepted`。第二期仍须修订本规格后，增加**单独确认**的「用 AI 润色」动作；「读一下」默认只跑模板。不得把网页按钮当成出站入口，也不得把已关闭的一次性验证开关长期留在 Production。
+`deepseek-v4-flash` 网关探针已通过；`2026-08-24` 对 `2026-08-21` 研究快照的受控验证亦为 `accepted`。第二期已增加单独确认的「用 AI 润色这一篇」：浏览器先 `confirm`，再把消毒后的五段骨架发给模型；「读一下」仍只跑模板。使用独立开关 `DEEPSEEK_BEGINNER_READING_ENABLED`，不打开收盘研究复盘。失败或未开启时保留模板。不得把「读一下」当成出站入口。
 
 约束：
 
@@ -211,7 +211,7 @@ NVIDIA FY2027 Q2（`2026-08-26`）在该日收盘前必须写成预定事项，�
 - 只有 `accepted` 才允许替换模板正文；否则保持第一期文案。
 - 现有 `research-narrative-v1` 可复用审计表，或出 `beginner-reading-v1` 的平行契约。不得把未校验的 `recap` 直接贴到首页。
 
-第二期不在本文件未修订前开始。
+第二期入口已落地：`lib/beginner-reading-polish.mjs` + `POST /api/beginner-reading/polish`。生产需显式设置 `DEEPSEEK_BEGINNER_READING_ENABLED=true` 后按钮才会真正出站。
 
 ## 8. 验收
 

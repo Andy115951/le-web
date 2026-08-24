@@ -155,6 +155,8 @@ test("idle view and markup have no five-section body until the user generates on
     assert.equal(readyHtml.includes('data-beginner-reading-section="' + id + '"'), true);
   });
   assert.equal(readyHtml.includes("按当前页面再读一次"), true);
+  assert.equal(readyHtml.includes("用 AI 润色这一篇"), true);
+  assert.equal(idleHtml.includes("用 AI 润色这一篇"), false);
   assert.equal(readyHtml.includes("收起"), true);
   assert.equal(getBeginnerReadingView(null, "day").primaryLabel, "读一下这一天");
 });
