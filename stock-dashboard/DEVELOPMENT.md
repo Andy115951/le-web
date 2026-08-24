@@ -48,7 +48,8 @@
 - [x] 看板“研究回放”已接入快照摘要与按需详情读取；只展示归档事实、来源聚合和审核状态，不调用模型也不展示投资指令
 - [x] `research_narrative_audits` 已在远程创建；`2026-08-15` 有一次受控快照验证审计被拒绝且未发布摘要，Production 模型出站保持 `disabled`
 - [x] JSON 模式请求固定 `thinking: { type: "disabled" }` 与 `stream: false`，避免 V4 默认 thinking 把小 `max_tokens` 吃成 `finish_reason=length`
-- [x] `2026-08-24` Production 无项目数据探针：审计 `08b82ea6-ecad-4ac1-83e8-15a9d0ebe9b2` 对当时模型 `deepseek-v3.2` 为 `accepted`（`stop`，校验错误 0）；随后模型改为 `deepseek-v4-flash`，该模型尚无正式探针记录；探针开关已关
+- [x] `2026-08-24` Production 无项目数据探针：审计 `08b82ea6-ecad-4ac1-83e8-15a9d0ebe9b2` 对当时模型 `deepseek-v3.2` 为 `accepted`（`stop`，校验错误 0）
+- [x] 随后模型改为 `deepseek-v4-flash`；`2026-08-24` 对该模型另打一次探针，审计 `2c22bb23-a32a-4eca-af32-e6dfdcbc78b7` 为 `accepted`（`stop`，校验错误 0）；探针开关已关
 - [x] `research_task_runs` 已通过 Management API 扩展为 `research-task-run-v2`：新增安全的每次尝试、排队与运行耗时列及受限失败码约束
 - [x] Cron 运行日志、失败诊断、手动重跑和最近运行记录接口
 - [x] Cron 诊断接口脱敏：只返回状态、计数和公共观察宇宙失败摘要，不返回用户 ID、个人标的、原始异常或内部运行详情
@@ -735,7 +736,12 @@ curl --fail-with-body -X POST \
 
 完成后立刻把该变量恢复为 `false` 并重新部署。探针成功仅说明网关协议可用，不等同于研究摘要已获批准，也不会开启 `DEEPSEEK_RESEARCH_ENABLED` 或 `DEEPSEEK_RESEARCH_DATA_APPROVED`。
 
-`2026-08-24` 已对 Production 执行一次无项目数据探针。审计 `08b82ea6-ecad-4ac1-83e8-15a9d0ebe9b2` 为 `accepted`：`finish_reason=stop`，校验错误 0，探针版本 `model-gateway-compatibility-v1`。当时生产模型标识为 `deepseek-v3.2`。随后 Production 的 `DEEPSEEK_MODEL` 已改为 `deepseek-v4-flash`，与本机 `.env.local` 对齐。探针唯一键包含模型名，因此 `deepseek-v4-flash` 若要正式探针需另一次人工批准；不得把 v3.2 的 accepted 记录当成 v4-flash 已探针。验证后已将 `DEEPSEEK_GATEWAY_COMPATIBILITY_ENABLED` 设回 `false`。这不批准研究快照出站，也不打开「读一下」的模型润色。
+`2026-08-24` 已对 Production 执行两次无项目数据探针，唯一键按模型分开：
+
+- `deepseek-v3.2` 审计 `08b82ea6-ecad-4ac1-83e8-15a9d0ebe9b2` 为 `accepted`（`stop`，校验错误 0）
+- 随后生产改为 `deepseek-v4-flash`（与本机对齐，已确认保留）；审计 `2c22bb23-a32a-4eca-af32-e6dfdcbc78b7` 为 `accepted`（`stop`，校验错误 0）
+
+两次均未发送研究数据。验证后已将 `DEEPSEEK_GATEWAY_COMPATIBILITY_ENABLED` 设回 `false` 并重新部署。同一「探针版本 + 提供商 + 模型」不可再打。这不批准研究快照出站，也不打开「读一下」的模型润色。
 
 启用前先使用已归档的历史快照做一次人工、可审计验证：
 
@@ -1020,7 +1026,7 @@ GET /api/nasdaq/research-tasks?limit=20
 
 页面“研究覆盖”只展示这些聚合计数与限制说明。它不会调用模型、不会写入 Supabase、不会公开任务原始错误、审核人、审核备注或完整研究输入，也不会把“有多少材料”表述为数据已完整、归因已正确、预测成立或可以执行交易。
 
-当前生产环境已配置 `SEC_USER_AGENT` 与 `FRED_API_KEY`，Windows 本机已验证手动采集写入。下一次完整收盘 Cron 应自动请求两者，首次自动写入仍需在运行日志中复核。模型网关参数已配置，生产 `DEEPSEEK_MODEL` 为 `deepseek-v4-flash`；`DEEPSEEK_RESEARCH_ENABLED`、`DEEPSEEK_RESEARCH_DATA_APPROVED` 与 `DEEPSEEK_GATEWAY_COMPATIBILITY_ENABLED` 保持 `false`，模型摘要不会运行。`deepseek-v3.2` 的无项目数据探针已 accepted，不表示 v4-flash 已探针，也不表示研究数据获准出站。历史运行不做推测性回填。
+当前生产环境已配置 `SEC_USER_AGENT` 与 `FRED_API_KEY`，Windows 本机已验证手动采集写入。下一次完整收盘 Cron 应自动请求两者，首次自动写入仍需在运行日志中复核。模型网关参数已配置，生产 `DEEPSEEK_MODEL` 为 `deepseek-v4-flash`；`DEEPSEEK_RESEARCH_ENABLED`、`DEEPSEEK_RESEARCH_DATA_APPROVED` 与 `DEEPSEEK_GATEWAY_COMPATIBILITY_ENABLED` 保持 `false`，模型摘要不会运行。`deepseek-v3.2` 与 `deepseek-v4-flash` 的无项目数据探针均已 `accepted`，不表示研究数据获准出站。历史运行不做推测性回填。
 
 覆盖面板中的“研究集成准备度”会把内置市场采集固定标为 `ready`，并按当前服务端环境分别显示 SEC、FRED、模型摘要和无项目数据网关探针状态。模型摘要会精确区分 `needs_configuration`（缺少网关参数）、`disabled`（已配置但功能开关关闭）、`data_approval_required`（功能已打开但尚未批准把研究快照发送给第三方）和 `ready`。网关探针只显示 `needs_configuration / disabled / ready`，它不表示研究数据获准出站。这是为多端协作准备的安全检查，不会返回 `SEC_USER_AGENT`、`FRED_API_KEY`、`DEEPSEEK_API_KEY`、联系人、环境变量值或具体配置失败原因；状态为待配置时，按第 6 节和第 13 节在本机 `.env.local` 与 Vercel Production 分别补齐变量后重新部署即可。
 
