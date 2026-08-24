@@ -2412,6 +2412,13 @@ body {
 .beginner-reading-section h3 { margin: 0 0 6px; color: #1d2a42; font-size: 0.86rem; }
 .beginner-reading-section p { margin: 0 0 6px; color: #3d4c66; font-size: 0.82rem; line-height: 1.55; }
 .beginner-reading-section p:last-child { margin-bottom: 0; }
+.beginner-reading-ai { margin-top: 14px; padding: 14px 15px; border: 1px solid #c9d8f4; border-left: 4px solid #3d6fd8; border-radius: 14px; background: linear-gradient(180deg, #eef4ff, #f7f9ff); }
+.beginner-reading-ai-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+.beginner-reading-ai-head h3 { margin: 0; color: #1d2a42; font-size: 0.95rem; }
+.beginner-reading-ai-hint { margin: 0 0 10px; color: #5b6d89; font-size: 0.78rem; line-height: 1.5; }
+.beginner-reading-ai-body { display: grid; gap: 8px; }
+.beginner-reading-ai-body p { margin: 0; color: #24344f; font-size: 0.86rem; line-height: 1.65; }
+.beginner-reading-ai-status { color: #5b6d89; font-weight: 700; }
 .beginner-reading-embed { margin-bottom: 14px; padding: 14px; border: 1px solid rgba(184, 204, 238, 0.18); border-radius: 14px; background: rgba(255, 255, 255, 0.07); }
 .beginner-reading-embed .eyebrow { color: #9bb6ea; }
 .beginner-reading-embed h2 { color: #fff; font-size: 1.05rem; }
@@ -2420,6 +2427,11 @@ body {
 .beginner-reading-embed .beginner-reading-section { border-color: rgba(184, 204, 238, 0.16); background: rgba(8, 16, 32, 0.28); }
 .beginner-reading-embed .beginner-reading-section h3 { color: #edf3ff; }
 .beginner-reading-embed .beginner-reading-section p { color: #d5e0f2; }
+.beginner-reading-embed .beginner-reading-ai { border-color: rgba(154, 184, 255, 0.35); border-left-color: #8fb0ff; background: linear-gradient(180deg, rgba(70, 104, 176, 0.28), rgba(12, 22, 42, 0.35)); }
+.beginner-reading-embed .beginner-reading-ai-head h3 { color: #edf3ff; }
+.beginner-reading-embed .beginner-reading-ai-hint { color: #c2d0e8; }
+.beginner-reading-embed .beginner-reading-ai-body p { color: #e6edfb; }
+.beginner-reading-embed .beginner-reading-ai-status { color: #9bb6ea; }
 .beginner-reading-embed .btn-ghost { border-color: rgba(184, 204, 238, 0.28); color: #d5e4ff; background: transparent; }
 
 .current-scenario-card { background: linear-gradient(145deg, #fbfcff, #f0f6ff); }

@@ -155,8 +155,20 @@ test("idle view and markup have no five-section body until the user generates on
     assert.equal(readyHtml.includes('data-beginner-reading-section="' + id + '"'), true);
   });
   assert.equal(readyHtml.includes("按当前页面再读一次"), true);
-  assert.equal(readyHtml.includes("用 AI 润色这一篇"), true);
-  assert.equal(idleHtml.includes("用 AI 润色这一篇"), false);
+  assert.equal(readyHtml.includes("生成 AI 解读"), true);
+  assert.equal(idleHtml.includes("生成 AI 解读"), false);
+  assert.equal(readyHtml.includes("data-beginner-reading-ai"), false);
   assert.equal(readyHtml.includes("收起"), true);
   assert.equal(getBeginnerReadingView(null, "day").primaryLabel, "读一下这一天");
+
+  const interpreted = getBeginnerReadingView({
+    ...reading,
+    interpretState: "applied",
+    interpretation: { paragraphs: ["QQQ 这是讲解，不是新数据。", "预定财报不能拿来解释今天。"] }
+  }, "home");
+  const interpretedHtml = renderBeginnerReadingMarkup(interpreted);
+  assert.equal(interpretedHtml.includes("data-beginner-reading-ai"), true);
+  assert.equal(interpretedHtml.includes("AI 解读"), true);
+  assert.equal(interpretedHtml.includes("QQQ 这是讲解，不是新数据。"), true);
+  assert.equal(interpretedHtml.includes("data-beginner-reading-section=\"market\""), true);
 });

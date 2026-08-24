@@ -122,18 +122,18 @@
 - 当前信号是确定性规则，不是 AI 投资建议
 - 当日涨跌线索是基于同期 `QQQ` 表现和公开新闻做的关联判断，不宣称单一新闻必然导致涨跌
 - 历史归因从现在开始持续积累；价格可以补历史，但过去某日的新闻原因不做无证据倒推
-- 新人关联解读：默认只有说明和「读一下今天 / 读一下这一天」；点出五段模板后，可另点「用 AI 润色这一篇」（需确认）。润色不发送持仓数量和成本；失败或未开启时保留模板。独立开关 `DEEPSEEK_BEGINNER_READING_ENABLED`，不打开收盘研究复盘
+- 新人关联解读：默认只有说明和「读一下今天 / 读一下这一天」；点出五段模板后，可另点「生成 AI 解读」（需确认）。讲解出现在下面单独区域，不替换五段事实；不发送持仓数量和成本；失败或未开启时保留模板。独立开关 `DEEPSEEK_BEGINNER_READING_ENABLED`，不打开收盘研究复盘
 
 ### 下一阶段
 
 产品层（不插入研究批次的顺序，规格见 [docs/beginner-reading.md](docs/beginner-reading.md)）：
 
-- 新人关联解读已落地模板 + 单独确认的「用 AI 润色这一篇」。`2026-08-24` 生产已打开 `DEEPSEEK_BEGINNER_READING_ENABLED`；收盘研究复盘两闸仍关。「读一下」永不调模型
+- 新人关联解读已落地模板 + 单独确认的「生成 AI 解读」。讲解在模板下方单独区域。`2026-08-24` 生产已打开 `DEEPSEEK_BEGINNER_READING_ENABLED`；收盘研究复盘两闸仍关。「读一下」永不调模型
 
 研究层仍严格按顺序：
 
 1. 确认下一次完整收盘 Cron 实际写入 SEC filings 与 FRED 观测；扩展公司 IR 财报日历覆盖，并为日度特征 / 相似日补齐官方宏观和公司事件维度
-2. `deepseek-v3.2` 与 `deepseek-v4-flash` 无项目数据探针均已通过。`2026-08-24` 已对 `2026-08-21` 研究快照用 `deepseek-v4-flash` 完成一次受控验证（`accepted`）。新人解读 AI 润色走单独按钮「用 AI 润色这一篇」；生产已打开 `DEEPSEEK_BEGINNER_READING_ENABLED`，不打开收盘研究复盘
+2. `deepseek-v3.2` 与 `deepseek-v4-flash` 无项目数据探针均已通过。`2026-08-24` 已对 `2026-08-21` 研究快照用 `deepseek-v4-flash` 完成一次受控验证（`accepted`）。新人解读 AI 走单独按钮「生成 AI 解读」，结果写在模板下方的讲解区；生产已打开 `DEEPSEEK_BEGINNER_READING_ENABLED`，不打开收盘研究复盘
 3. 特征扩充后再重跑冻结评估，并重新冻结事后阶段诊断工件；当前 Logistic / 浅层树均未晋升
 
 ## 技术结构
@@ -150,8 +150,8 @@
 
 - `docs/beginner-reading.md`: 新人关联解读产品规格（手动触发、五段骨架、禁止句、两期实现）
 - `lib/beginner-reading.mjs`: 第一期确定性模板；只在用户点击时由页面调用
-- `lib/beginner-reading-polish.mjs`: 第二期润色校验与出站；独立于收盘研究复盘
-- `api/beginner-reading/polish.js`: `GET` 查看是否开启，`POST` 用消毒后的解读输入润色
+- `lib/beginner-reading-polish.mjs`: 第二期 AI 解读校验与出站；独立于收盘研究复盘
+- `api/beginner-reading/polish.js`: `GET` 查看是否开启，`POST` 用消毒后的解读输入生成单独讲解区
 - `index.html`: 页面结构
 - `app.js`: 主交互逻辑
 - `storage.js`: 本地数据、默认股票、偏好设置
@@ -397,7 +397,7 @@ vercel
 4. 新人关联解读
    - 规格： [docs/beginner-reading.md](docs/beginner-reading.md)；模板 `lib/beginner-reading.mjs`；开发说明见 [DEVELOPMENT.md](DEVELOPMENT.md) 第 8.4.1 节
    - 第一期已上线。首页和日历单日详情用手动按钮生成讲解，不自动出现、不随行情刷新改写
-   - 第一期只跑本地模板，按钮不触发模型出站；模型润色是另一次经规格修订的确认动作
+   - 第一期只跑本地模板，按钮不触发模型出站；AI 解读是另一次经规格修订的确认动作，写在单独区域
 
 5. AI 研究摘要层
    - 已完成：受控 DeepSeek / 兼容网关执行器、输出契约、一次性验证入口和拒绝回放

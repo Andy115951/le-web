@@ -3118,8 +3118,8 @@ function handleBeginnerReadingAction(event, variant) {
     }
     return;
   }
-  if (action === "polish") {
-    void polishBeginnerReading(variant);
+  if (action === "interpret" || action === "polish") {
+    void interpretBeginnerReading(variant);
     return;
   }
   if (action !== "generate") return;
@@ -3127,21 +3127,22 @@ function handleBeginnerReadingAction(event, variant) {
   else generateHomeBeginnerReading();
 }
 
-function polishErrorMessage(result) {
-  if (result?.reason === "disabled") return "当前未开启 AI 润色，仍显示模板。";
-  if (result?.reason === "daily_request_limit") return "今日润色次数已用完，仍显示模板。";
-  if (result?.reason === "invalid_reading_input") return "当前解读输入不完整，仍显示模板。";
-  return "AI 润色未通过校验，仍显示模板。";
+function interpretErrorMessage(result) {
+  if (result?.reason === "disabled") return "当前未开启 AI 解读，上面的五段事实仍在。";
+  if (result?.reason === "daily_request_limit") return "今日解读次数已用完，上面的五段事实仍在。";
+  if (result?.reason === "invalid_reading_input") return "当前解读输入不完整，上面的五段事实仍在。";
+  return "AI 解读未通过校验，上面的五段事实仍在。";
 }
 
-async function polishBeginnerReading(variant) {
+async function interpretBeginnerReading(variant) {
   const isDay = variant === "day";
   const current = isDay ? state.beginnerReading.calendar : state.beginnerReading.home;
   const input = isDay ? state.beginnerReading.calendarInput : state.beginnerReading.homeInput;
   if (!current || !input) return;
-  if (!window.confirm("会把当前五段解读骨架发给模型润色，不含持仓数量和成本。是否继续？")) return;
-  current.polishState = "loading";
-  current.polishError = null;
+  if (!window.confirm("会把当前五段事实发给模型做讲解，不含持仓数量和成本。结果会出现在下面单独的 AI 解读区。是否继续？")) return;
+  current.interpretState = "loading";
+  current.interpretError = null;
+  current.interpretation = null;
   if (isDay) renderCalendarBeginnerReading();
   else renderHomeBeginnerReading();
   try {
@@ -3151,18 +3152,20 @@ async function polishBeginnerReading(variant) {
       body: JSON.stringify({ input })
     });
     const result = await response.json().catch(function () { return {}; });
-    if (result && result.polished && result.reading && Array.isArray(result.reading.sections)) {
-      result.reading.polishState = "applied";
-      result.reading.polishError = null;
-      if (isDay) state.beginnerReading.calendar = result.reading;
-      else state.beginnerReading.home = result.reading;
+    const paragraphs = result && result.interpretation && Array.isArray(result.interpretation.paragraphs)
+      ? result.interpretation.paragraphs
+      : [];
+    if (result && result.interpreted && paragraphs.length) {
+      current.interpretState = "applied";
+      current.interpretError = null;
+      current.interpretation = result.interpretation;
     } else {
-      current.polishState = "failed";
-      current.polishError = polishErrorMessage(result);
+      current.interpretState = "failed";
+      current.interpretError = interpretErrorMessage(result);
     }
   } catch (_error) {
-    current.polishState = "failed";
-    current.polishError = "AI 润色请求失败，仍显示模板。";
+    current.interpretState = "failed";
+    current.interpretError = "AI 解读请求失败，上面的五段事实仍在。";
   }
   if (isDay) renderCalendarBeginnerReading();
   else renderHomeBeginnerReading();

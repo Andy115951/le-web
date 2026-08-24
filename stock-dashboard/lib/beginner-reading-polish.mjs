@@ -1,6 +1,5 @@
 import { createRequire } from "node:module";
 import {
-  BEGINNER_READING_SECTION_IDS,
   BEGINNER_READING_VERSION,
   assertSafeBeginnerReadingText,
   buildBeginnerReading,
@@ -18,7 +17,11 @@ const { fingerprint } = require("./research-narrative-contract.js");
 const { getSupabaseConfig, requestSupabase } = require("./supabase-server.js");
 const { marketDate } = require("./daily-market-events.js");
 
-export const BEGINNER_READING_POLISH_VERSION = "beginner-reading-polish-v1";
+export const BEGINNER_READING_POLISH_VERSION = "beginner-reading-interpret-v1";
+export const BEGINNER_READING_INTERPRET_VERSION = BEGINNER_READING_POLISH_VERSION;
+const MIN_INTERPRET_PARAGRAPHS = 2;
+const MAX_INTERPRET_PARAGRAPHS = 5;
+const MAX_INTERPRET_PARAGRAPH_CHARS = 480;
 const POLISH_PROVIDER = "DeepSeek";
 const MAX_DAILY_REQUESTS_HARD_LIMIT = 3;
 const MAX_OUTPUT_TOKENS_HARD_LIMIT = 1400;
@@ -173,30 +176,27 @@ function allowedTickers(facts) {
   return tickers;
 }
 
-export function validatePolishedReading(template, polished, facts) {
+function extractInterpretationParagraphs(payload) {
+  if (Array.isArray(payload?.paragraphs)) return payload.paragraphs;
+  if (Array.isArray(payload?.interpretation?.paragraphs)) return payload.interpretation.paragraphs;
+  return [];
+}
+
+export function validateBeginnerReadingInterpretation(template, payload, facts) {
   const errors = [];
-  if (!polished || typeof polished !== "object") {
-    return { valid: false, errors: ["missing_polished_reading"] };
+  const paragraphs = extractInterpretationParagraphs(payload)
+    .map(function (item) { return String(item || "").trim(); })
+    .filter(Boolean);
+  if (paragraphs.length < MIN_INTERPRET_PARAGRAPHS || paragraphs.length > MAX_INTERPRET_PARAGRAPHS) {
+    errors.push("paragraph_count");
   }
-  if (polished.version !== BEGINNER_READING_VERSION) errors.push("invalid_version");
-  if (polished.marketDate !== template.marketDate) errors.push("market_date_mismatch");
-  if (polished.mode !== template.mode) errors.push("mode_mismatch");
-  const sections = Array.isArray(polished.sections) ? polished.sections : [];
-  if (sections.map(function (item) { return item?.id; }).join() !== BEGINNER_READING_SECTION_IDS.join()) {
-    errors.push("section_order");
-  }
-  const titles = {
-    market: "大盘",
-    leaders: "权重股相对 QQQ",
-    news_calendar: "资讯和日历",
-    history: "历史对照",
-    personal: "和你有关"
-  };
-  sections.forEach(function (section) {
-    if (titles[section?.id] && section.title !== titles[section.id]) errors.push("section_title");
-    if (!Array.isArray(section?.paragraphs) || !section.paragraphs.length) errors.push("empty_section");
+  paragraphs.forEach(function (paragraph) {
+    if (paragraph.length > MAX_INTERPRET_PARAGRAPH_CHARS) errors.push("paragraph_too_long");
   });
-  const text = readingText(polished);
+  const text = paragraphs.join("\n");
+  if (!text) {
+    return { valid: false, errors: Array.from(new Set(errors.concat(["missing_interpretation"]))), paragraphs: [] };
+  }
   if (containsBannedBeginnerReading(text)) errors.push("prohibited_language");
   const allowedPercents = collectPercents(readingText(template));
   collectPercents(text).forEach(function (value) {
@@ -212,29 +212,41 @@ export function validatePolishedReading(template, polished, facts) {
   } catch (_error) {
     if (!errors.includes("prohibited_language")) errors.push("prohibited_language");
   }
-  return { valid: errors.length === 0, errors: Array.from(new Set(errors)) };
+  return {
+    valid: errors.length === 0,
+    errors: Array.from(new Set(errors)),
+    paragraphs
+  };
+}
+
+export function validatePolishedReading(template, payload, facts) {
+  return validateBeginnerReadingInterpretation(template, payload, facts);
 }
 
 export function buildBeginnerReadingPolishRequest(template, facts, config) {
   return applyJsonModeRequestDefaults({
     model: config.model,
-    temperature: 0.1,
+    temperature: 0.2,
     max_tokens: config.maxOutputTokens,
     messages: [
       {
         role: "system",
         content: [
           "Return exactly one JSON object and no markdown.",
-          "Rewrite the supplied five-section beginner reading in clearer Chinese.",
-          "Keep every number, ticker, classification, and empty-state sentence meaning.",
-          "Do not add buy/sell advice, probabilities, or facts that are not in the template.",
-          "sections must keep ids market, leaders, news_calendar, history, personal in that order."
+          "Write a separate beginner explanation of the supplied five-section template.",
+          "This is teaching, not a rewrite of the template and not new market data.",
+          "Output {paragraphs: string[]} with 2 to 5 short Chinese paragraphs.",
+          "Explain how the sections relate: index vs MAGS vs named leaders; news that already happened vs scheduled calendar items; how to read similar-day history without calling it a forecast; personal discipline if present.",
+          "You may explain terms such as 相对 QQQ, 小样本, and why a scheduled earnings item cannot explain today.",
+          "Any number, ticker, or classification you mention must already appear in the template.",
+          "If a section is an empty state, say the system could not connect that piece; do not fill it in.",
+          "Do not add buy/sell/hold advice, probabilities, or facts that are not in the template."
         ].join(" ")
       },
       {
         role: "user",
         content: JSON.stringify({
-          task: "Polish this beginner reading. Output {version, marketDate, mode, sections:[{id,title,paragraphs:[]}]}",
+          task: "Explain this beginner reading for a newcomer. Output {paragraphs:[]} only. Do not repeat the five section titles as a second copy.",
           version: BEGINNER_READING_VERSION,
           template,
           facts
@@ -249,7 +261,9 @@ function safeResult(result) {
     ok: result.status === "accepted",
     status: result.status,
     reason: result.reason || null,
-    polished: result.status === "accepted",
+    interpreted: result.status === "accepted",
+    polished: false,
+    interpretation: result.interpretation || null,
     reading: result.reading || null,
     validationErrorCount: Array.isArray(result.validationErrors) ? result.validationErrors.length : 0
   };
@@ -287,7 +301,7 @@ async function persistPolishAudit(facts, output, metadata, requestImpl, config) 
         narrative: output || {},
         validation_errors: metadata.validationErrors || [],
         metadata: {
-          runId: "beginner-reading-polish",
+          runId: "beginner-reading-interpret",
           generatedAt: new Date().toISOString(),
           latencyMs: metadata.latencyMs || null,
           task: BEGINNER_READING_POLISH_VERSION
@@ -330,29 +344,29 @@ export async function runBeginnerReadingPolish(input, options = {}) {
     }
   }
   const startedAt = Date.now();
-  let polished = null;
-  let validation = { valid: false, errors: ["gateway_request_failed"] };
+  let payloadObject = null;
+  let validation = { valid: false, errors: ["gateway_request_failed"], paragraphs: [] };
   try {
     const payload = await (options.requestModel || requestDeepSeek)(
       buildBeginnerReadingPolishRequest(template, facts, config),
       config,
       options.fetchImpl
     );
-    polished = parseDeepSeekResponse(payload);
-    if (polished && typeof polished === "object") {
-      polished.version = BEGINNER_READING_VERSION;
-      polished.marketDate = template.marketDate;
-      polished.mode = template.mode;
-      polished.generatedAt = template.generatedAt;
-      polished.polishedAt = new Date().toISOString();
-    }
-    validation = validatePolishedReading(template, polished, facts);
+    payloadObject = parseDeepSeekResponse(payload);
+    validation = validateBeginnerReadingInterpretation(template, payloadObject, facts);
   } catch (error) {
-    validation = { valid: false, errors: [String(error?.message || "gateway_request_failed").slice(0, 80)] };
+    validation = { valid: false, errors: [String(error?.message || "gateway_request_failed").slice(0, 80)], paragraphs: [] };
   }
   const accepted = validation.valid;
+  const interpretation = accepted ? {
+    version: BEGINNER_READING_INTERPRET_VERSION,
+    marketDate: template.marketDate,
+    mode: template.mode,
+    generatedAt: new Date().toISOString(),
+    paragraphs: validation.paragraphs
+  } : null;
   if (shouldTouchStore) {
-    await persistPolishAudit(facts, accepted ? polished : { modelResponseRejected: true }, {
+    await persistPolishAudit(facts, accepted ? interpretation : { modelResponseRejected: true }, {
       packetFingerprint,
       model: config.model,
       status: accepted ? "accepted" : "rejected",
@@ -363,14 +377,16 @@ export async function runBeginnerReadingPolish(input, options = {}) {
   if (!accepted) {
     return safeResult({
       status: "rejected",
-      reason: "polish_validation_failed",
+      reason: "interpretation_validation_failed",
       reading: template,
+      interpretation: null,
       validationErrors: validation.errors
     });
   }
   return safeResult({
     status: "accepted",
-    reading: polished,
+    reading: template,
+    interpretation,
     validationErrors: []
   });
 }
@@ -384,7 +400,12 @@ export async function handleBeginnerReadingPolishRequest(req, res) {
   };
   if (req.method === "GET") {
     const config = isBeginnerReadingPolishConfigured(process.env);
-    send(200, { ok: true, polishEnabled: config.enabled, reason: config.enabled ? null : config.reason });
+    send(200, {
+      ok: true,
+      polishEnabled: config.enabled,
+      interpretEnabled: config.enabled,
+      reason: config.enabled ? null : config.reason
+    });
     return;
   }
   if (req.method !== "POST") {

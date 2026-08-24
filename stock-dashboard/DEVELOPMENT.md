@@ -60,7 +60,7 @@
 - [x] 财报日历基础层：`earnings_events` migration、官方 IR 候选校验/显式导入、`GET /api/nasdaq/earnings` 和动态日历展示已实现；首条 NVIDIA FY2027 Q2 官方候选已归档，预定事项不进入涨跌归因
 - [x] 决策日志：`decision-logs.mjs` 纯函数模块（校验/归一/last-write-wins 合并/补录结果）、`watchlist_states.decision_logs` 加性列与 RLS 继承、`storage.js`/`cloud.js`/`app.js` 三层接线（含旧库列缺失降级）、看板面板与观察记录一键起草已实现；只记录用户已做的决定与理由，不生成买卖建议
 - [x] 新人关联解读第一期：`lib/beginner-reading.mjs` 确定性模板 + 首页/日历手动「读一下」按钮；打开页面和行情刷新都不生成正文，不写云、不调用模型；规格见 [docs/beginner-reading.md](docs/beginner-reading.md)
-- [x] 新人关联解读第二期：`POST /api/beginner-reading/polish` + 「用 AI 润色这一篇」确认框；独立开关 `DEEPSEEK_BEGINNER_READING_ENABLED`；不发送股数/成本；失败保留模板
+- [x] 新人关联解读第二期：`POST /api/beginner-reading/polish` + 「生成 AI 解读」确认框；讲解写在模板下方单独区域，不替换五段事实；独立开关 `DEEPSEEK_BEGINNER_READING_ENABLED`；不发送股数/成本；失败保留模板
 - [x] `2026-08-24` 生产打开 `DEEPSEEK_BEGINNER_READING_ENABLED`；`DEEPSEEK_RESEARCH_ENABLED` 与 `DEEPSEEK_RESEARCH_DATA_APPROVED` 保持 false，探针开关保持关闭
 
 页面、API、事件规则和数据库开发现在都可进行；当前未完成项不会阻塞下一批代码开发。
@@ -746,7 +746,7 @@ curl --fail-with-body -X POST \
 - `deepseek-v3.2` 审计 `08b82ea6-ecad-4ac1-83e8-15a9d0ebe9b2` 为 `accepted`（`stop`，校验错误 0）
 - 随后生产改为 `deepseek-v4-flash`（与本机对齐，已确认保留）；审计 `2c22bb23-a32a-4eca-af32-e6dfdcbc78b7` 为 `accepted`（`stop`，校验错误 0）
 
-两次均未发送研究数据。验证后已将 `DEEPSEEK_GATEWAY_COMPATIBILITY_ENABLED` 设回 `false` 并重新部署。同一「探针版本 + 提供商 + 模型」不可再打。这不批准研究快照出站，也不打开「读一下」的模型润色。
+两次均未发送研究数据。验证后已将 `DEEPSEEK_GATEWAY_COMPATIBILITY_ENABLED` 设回 `false` 并重新部署。同一「探针版本 + 提供商 + 模型」不可再打。这不批准研究快照出站，「读一下」也仍不调模型。
 
 启用前先使用已归档的历史快照做一次人工、可审计验证：
 
