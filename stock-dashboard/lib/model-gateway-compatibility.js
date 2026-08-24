@@ -1,13 +1,14 @@
 const crypto = require("crypto");
 const {
   DEEPSEEK_PROVIDER,
+  applyJsonModeRequestDefaults,
   getDeepSeekGatewayConfig,
   requestDeepSeek
 } = require("./deepseek-research-narrative");
 const { getSupabaseConfig, requestSupabase } = require("./supabase-server");
 
 const GATEWAY_COMPATIBILITY_PROBE_VERSION = "model-gateway-compatibility-v1";
-const GATEWAY_COMPATIBILITY_MAX_OUTPUT_TOKENS = 48;
+const GATEWAY_COMPATIBILITY_MAX_OUTPUT_TOKENS = 128;
 
 function isEnabledFlag(value) {
   return String(value || "").trim().toLowerCase() === "true";
@@ -23,16 +24,15 @@ function fingerprintText(value) {
 }
 
 function buildGatewayCompatibilityRequest(config) {
-  return {
+  return applyJsonModeRequestDefaults({
     model: config.model,
     temperature: 0,
     max_tokens: GATEWAY_COMPATIBILITY_MAX_OUTPUT_TOKENS,
-    response_format: { type: "json_object" },
     messages: [
       { role: "system", content: "Return exactly one JSON object and no markdown." },
       { role: "user", content: JSON.stringify({ probeVersion: GATEWAY_COMPATIBILITY_PROBE_VERSION, task: 'Return exactly {"ok":true,"probeVersion":"model-gateway-compatibility-v1"}. This is a gateway compatibility probe and contains no project data.' }) }
     ]
-  };
+  });
 }
 
 function validateGatewayCompatibilityResponse(payload) {

@@ -2,7 +2,7 @@
 
 本文档面向本地开发、Supabase 初始化、Vercel 部署和每日行情历史任务维护。产品功能与进度概览见 [README.md](README.md)，完整产品路线图见 [ROADMAP.md](ROADMAP.md)，数据库完整 SQL 见 [SUPABASE_SETUP.md](SUPABASE_SETUP.md)，新人关联解读（手动触发、不走模型出站）规格见 [docs/beginner-reading.md](docs/beginner-reading.md)。该解读不是采集或 Cron 的一部分：页面加载和行情刷新都不得自动生成正文。
 
-## 当前环境状态（2026-08-18）
+## 当前环境状态（2026-08-24）
 
 当前 Windows 开发机已经完成：
 
@@ -27,7 +27,9 @@
 - Supabase CLI 已升级到 `2.113.0` 并关联项目 `ougpvpolmzsmaljscruo`
 - Docker Desktop `29.2.1` 已启动
 - 正式 migration 已创建，远程表、约束、Data API 权限和 RLS 已通过 Management API 应用并验证
-- Vercel Production 已配置 `SUPABASE_URL`、`SUPABASE_SECRET_KEY`、`CRON_SECRET`、`SEC_USER_AGENT` 和 `FRED_API_KEY`
+- Vercel Production 已配置 `SUPABASE_URL`、`SUPABASE_SECRET_KEY`、`CRON_SECRET`、`SEC_USER_AGENT`、`FRED_API_KEY`，以及 DeepSeek 网关参数
+- 生产 `DEEPSEEK_MODEL` 已改为 `deepseek-v4-flash`，与本机 `.env.local` 对齐；维护者确认保留该模型（相对 `deepseek-v3.2` 输出略贵，但智力更合适；JSON 请求仍关闭 thinking）
+- `DEEPSEEK_RESEARCH_ENABLED`、`DEEPSEEK_RESEARCH_DATA_APPROVED`、`DEEPSEEK_GATEWAY_COMPATIBILITY_ENABLED` 均为 `false`
 - 本机 `.env.local` 已配置为仅当前用户可读，并被 Git 忽略
 - 生产部署和 Cron 鉴权已验证，固定地址为 `https://stock-dashboard-psi-henna.vercel.app`
 
@@ -43,7 +45,9 @@
 - [x] `event_review_decisions` 已在远程创建；确定性分类、只读队列和追加式人工审核 CLI 已实现
 - [x] `research_packet_snapshots` 已在远程创建；首份 `2026-08-11` 输入快照已验证可幂等重跑
 - [x] 看板“研究回放”已接入快照摘要与按需详情读取；只展示归档事实、来源聚合和审核状态，不调用模型也不展示投资指令
-- [x] `research_narrative_audits` 已在远程创建；`2026-08-15` 有一次受控验证审计被拒绝且未发布摘要，Production 模型出站保持 `disabled`
+- [x] `research_narrative_audits` 已在远程创建；`2026-08-15` 有一次受控快照验证审计被拒绝且未发布摘要，Production 模型出站保持 `disabled`
+- [x] JSON 模式请求固定 `thinking: { type: "disabled" }` 与 `stream: false`，避免 V4 默认 thinking 把小 `max_tokens` 吃成 `finish_reason=length`
+- [x] `2026-08-24` Production 无项目数据探针：审计 `08b82ea6-ecad-4ac1-83e8-15a9d0ebe9b2` 对当时模型 `deepseek-v3.2` 为 `accepted`（`stop`，校验错误 0）；随后模型改为 `deepseek-v4-flash`，该模型尚无正式探针记录；探针开关已关
 - [x] `research_task_runs` 已通过 Management API 扩展为 `research-task-run-v2`：新增安全的每次尝试、排队与运行耗时列及受限失败码约束
 - [x] Cron 运行日志、失败诊断、手动重跑和最近运行记录接口
 - [x] Cron 诊断接口脱敏：只返回状态、计数和公共观察宇宙失败摘要，不返回用户 ID、个人标的、原始异常或内部运行详情
@@ -686,7 +690,7 @@ DEEPSEEK_MAX_OUTPUT_TOKENS=1400
 
 第一次保持两个开关为 `false` 部署并检查运行日志；确认模型 ID、每日预算和账户归属后，才考虑把 `DEEPSEEK_RESEARCH_ENABLED` 改为 `true`。即使它为 `true`，服务端仍要求 `DEEPSEEK_RESEARCH_DATA_APPROVED=true` 才会把不可变研究包发送给第三方：这是独立于”功能启用”的人工数据出站确认。代码层硬性限制每日最多 `3` 次请求、单次最多 `1400` 输出 token，即使环境变量误填更大也不会放宽。
 
-`DEEPSEEK_REQUEST_TIMEOUT_MS` 控制单次模型请求的超时时间，单位毫秒，默认 `50000`（50 秒），硬性上限 `90000`（90 秒）。生成 1400 token 响应约需 35–45 秒，25 秒以内的值会导致必然超时；未设置时使用默认值，只有网关延迟极高时才需要调大。DeepSeek 的 JSON 模式需要请求 `response_format: { type: "json_object" }` 且提示词明确要求 JSON；实现已经固定这两点，参考 [DeepSeek JSON Output](https://api-docs.deepseek.com/guides/json_mode)。
+`DEEPSEEK_REQUEST_TIMEOUT_MS` 控制单次模型请求的超时时间，单位毫秒，默认 `50000`（50 秒），硬性上限 `90000`（90 秒）。生成 1400 token 响应约需 35–45 秒，25 秒以内的值会导致必然超时；未设置时使用默认值，只有网关延迟极高时才需要调大。DeepSeek 的 JSON 模式需要请求 `response_format: { type: "json_object" }` 且提示词明确要求 JSON；实现已经固定这两点，参考 [DeepSeek JSON Output](https://api-docs.deepseek.com/guides/json_mode)。`deepseek-v4-flash` 默认会开启 thinking：若不显式关闭，推理 token 会占满较小的 `max_tokens`，网关返回 `finish_reason=length` 且 `content` 为空，校验就会记成「未完整结束」。JSON 请求因此固定发送 `thinking: { type: "disabled" }` 和 `stream: false`（兼容 OpenAI Chat Completions 网关也接受这两个字段）。
 
 如果使用兼容 OpenAI Chat Completions 的第三方网关，可额外设置仅服务端变量 `DEEPSEEK_API_URL` 为完整 HTTPS `/chat/completions` 地址；未设置时继续使用官方 DeepSeek 地址。该地址、密钥、模型名称和请求限制均必须在本机 `.env.local` 与 Vercel Production 分别配置，绝不能写入 Git 或浏览器变量。先以不含项目数据的最小 JSON 请求确认该网关支持 `response_format: json_object`；在项目维护者明确批准把不可变研究快照发送给该第三方前，不得把 `DEEPSEEK_RESEARCH_DATA_APPROVED` 设为 `true`。
 
@@ -704,7 +708,7 @@ curl --fail-with-body -X POST \
 
 #### 8.2.4.1 已执行验证记录
 
-`2026-08-15` 已对批准的 `2026-08-11` 快照执行一次受控验证。审计记录 `7ca68fea-797e-46c9-9ee2-34b503dfceb1` 为 `rejected`，原因是网关没有返回可接受的完整结束状态；系统未发布模型摘要。该结果本身证明固定指纹、服务端审计与拒绝路径均已工作。验证后已将 Production 和本机的 `DEEPSEEK_RESEARCH_ENABLED`、`DEEPSEEK_RESEARCH_DATA_APPROVED` 设回 `false`，并移除 Production 的一次性指纹和验证变量；生产 `research-quality` 的 `modelNarrative` 状态为 `disabled`。
+`2026-08-15` 已对批准的 `2026-08-11` 快照执行一次受控验证。审计记录 `7ca68fea-797e-46c9-9ee2-34b503dfceb1` 为 `rejected`，原因是网关没有返回可接受的完整结束状态；系统未发布模型摘要。该结果本身证明固定指纹、服务端审计与拒绝路径均已工作。`2026-08-24` 对本机同一网关做了无项目数据对照：默认 thinking 打开时，`max_tokens=48` 的探针得到 `finish_reason=length`、正文为空；加上 `thinking: { type: "disabled" }` 后得到 `finish_reason=stop` 且 JSON 为 `{"ok":true,"probeVersion":"model-gateway-compatibility-v1"}`。验证后已将 Production 和本机的 `DEEPSEEK_RESEARCH_ENABLED`、`DEEPSEEK_RESEARCH_DATA_APPROVED` 设回 `false`，并移除 Production 的一次性指纹和验证变量；生产 `research-quality` 的 `modelNarrative` 状态为 `disabled`。
 
 后续若要再次验证，必须先使用**不含项目研究数据**的最小请求确认该网关会返回完整结束状态和 JSON 对象，再由维护者重新明确批准一份新的不可变快照、单独设置新的指纹与一次性变量。不得复用这次已经消耗的验证授权，也不得通过关闭保护重试同一份研究输入。
 
@@ -729,6 +733,8 @@ curl --fail-with-body -X POST \
 ```
 
 完成后立刻把该变量恢复为 `false` 并重新部署。探针成功仅说明网关协议可用，不等同于研究摘要已获批准，也不会开启 `DEEPSEEK_RESEARCH_ENABLED` 或 `DEEPSEEK_RESEARCH_DATA_APPROVED`。
+
+`2026-08-24` 已对 Production 执行一次无项目数据探针。审计 `08b82ea6-ecad-4ac1-83e8-15a9d0ebe9b2` 为 `accepted`：`finish_reason=stop`，校验错误 0，探针版本 `model-gateway-compatibility-v1`。当时生产模型标识为 `deepseek-v3.2`。随后 Production 的 `DEEPSEEK_MODEL` 已改为 `deepseek-v4-flash`，与本机 `.env.local` 对齐。探针唯一键包含模型名，因此 `deepseek-v4-flash` 若要正式探针需另一次人工批准；不得把 v3.2 的 accepted 记录当成 v4-flash 已探针。验证后已将 `DEEPSEEK_GATEWAY_COMPATIBILITY_ENABLED` 设回 `false`。这不批准研究快照出站，也不打开「读一下」的模型润色。
 
 启用前先使用已归档的历史快照做一次人工、可审计验证：
 
@@ -1013,7 +1019,7 @@ GET /api/nasdaq/research-tasks?limit=20
 
 页面“研究覆盖”只展示这些聚合计数与限制说明。它不会调用模型、不会写入 Supabase、不会公开任务原始错误、审核人、审核备注或完整研究输入，也不会把“有多少材料”表述为数据已完整、归因已正确、预测成立或可以执行交易。
 
-当前生产环境已配置 `SEC_USER_AGENT` 与 `FRED_API_KEY`，Windows 本机已验证手动采集写入。下一次完整收盘 Cron 应自动请求两者，首次自动写入仍需在运行日志中复核。模型网关参数已配置，但 `DEEPSEEK_RESEARCH_ENABLED` 与 `DEEPSEEK_RESEARCH_DATA_APPROVED` 保持 `false`，模型摘要同样不会运行。历史运行不做推测性回填。
+当前生产环境已配置 `SEC_USER_AGENT` 与 `FRED_API_KEY`，Windows 本机已验证手动采集写入。下一次完整收盘 Cron 应自动请求两者，首次自动写入仍需在运行日志中复核。模型网关参数已配置，生产 `DEEPSEEK_MODEL` 为 `deepseek-v4-flash`；`DEEPSEEK_RESEARCH_ENABLED`、`DEEPSEEK_RESEARCH_DATA_APPROVED` 与 `DEEPSEEK_GATEWAY_COMPATIBILITY_ENABLED` 保持 `false`，模型摘要不会运行。`deepseek-v3.2` 的无项目数据探针已 accepted，不表示 v4-flash 已探针，也不表示研究数据获准出站。历史运行不做推测性回填。
 
 覆盖面板中的“研究集成准备度”会把内置市场采集固定标为 `ready`，并按当前服务端环境分别显示 SEC、FRED、模型摘要和无项目数据网关探针状态。模型摘要会精确区分 `needs_configuration`（缺少网关参数）、`disabled`（已配置但功能开关关闭）、`data_approval_required`（功能已打开但尚未批准把研究快照发送给第三方）和 `ready`。网关探针只显示 `needs_configuration / disabled / ready`，它不表示研究数据获准出站。这是为多端协作准备的安全检查，不会返回 `SEC_USER_AGENT`、`FRED_API_KEY`、`DEEPSEEK_API_KEY`、联系人、环境变量值或具体配置失败原因；状态为待配置时，按第 6 节和第 13 节在本机 `.env.local` 与 Vercel Production 分别补齐变量后重新部署即可。
 
@@ -1556,7 +1562,7 @@ Could not find the table 'public.watchlist_states' in the schema cache
 
 ## 13. 后续环境变量
 
-DeepSeek 摘要是可选功能，默认关闭。它使用下列服务端变量：`DEEPSEEK_RESEARCH_ENABLED`、`DEEPSEEK_RESEARCH_DATA_APPROVED`、`DEEPSEEK_API_KEY`、`DEEPSEEK_API_URL`、`DEEPSEEK_MODEL`、`DEEPSEEK_MAX_DAILY_REQUESTS`、`DEEPSEEK_MAX_OUTPUT_TOKENS`。启用前必须先设置不超过预算的每日请求数，并在 Vercel Production 与本机 `.env.local` 分别配置；无需在 Vercel Development 保存 Secret。无项目数据的协议探针另用 `DEEPSEEK_GATEWAY_COMPATIBILITY_ENABLED`，它不替代研究快照的两道出站开关。
+DeepSeek 摘要是可选功能，默认关闭。它使用下列服务端变量：`DEEPSEEK_RESEARCH_ENABLED`、`DEEPSEEK_RESEARCH_DATA_APPROVED`、`DEEPSEEK_API_KEY`、`DEEPSEEK_API_URL`、`DEEPSEEK_MODEL`、`DEEPSEEK_MAX_DAILY_REQUESTS`、`DEEPSEEK_MAX_OUTPUT_TOKENS`。当前生产与本机模型均为 `deepseek-v4-flash`。启用前必须先设置不超过预算的每日请求数，并在 Vercel Production 与本机 `.env.local` 分别配置；无需在 Vercel Development 保存 Secret。无项目数据的协议探针另用 `DEEPSEEK_GATEWAY_COMPATIBILITY_ENABLED`，它不替代研究快照的两道出站开关；唯一键是 `(probe_version, provider, model)`，换模型等于新的一次额度。
 
 以后增加其他 AI 摘要或收费数据源时，应在接入代码的同一变更中：
 

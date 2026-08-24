@@ -12,6 +12,16 @@ const MAX_DAILY_REQUESTS_HARD_LIMIT = 3;
 const MAX_OUTPUT_TOKENS_HARD_LIMIT = 1400;
 const REQUEST_TIMEOUT_MS_DEFAULT = 50_000;
 const REQUEST_TIMEOUT_MS_HARD_MAX = 90_000;
+const JSON_MODE_THINKING = { type: "disabled" };
+
+function applyJsonModeRequestDefaults(body) {
+  return {
+    ...body,
+    stream: false,
+    response_format: body?.response_format || { type: "json_object" },
+    thinking: JSON_MODE_THINKING
+  };
+}
 
 function boundedPositiveInteger(value, fallback, maximum) {
   const number = Math.round(Number(value));
@@ -90,11 +100,10 @@ function isDeepSeekResearchConfigured(env = process.env) {
 
 function buildDeepSeekRequest(packet, config) {
   const instructions = buildResearchNarrativeInstructions(packet);
-  return {
+  return applyJsonModeRequestDefaults({
     model: config.model,
     temperature: 0.1,
     max_tokens: config.maxOutputTokens,
-    response_format: { type: "json_object" },
     messages: [
       {
         role: "system",
@@ -115,7 +124,7 @@ function buildDeepSeekRequest(packet, config) {
         })
       }
     ]
-  };
+  });
 }
 
 function stripMarkdownCodeFence(text) {
@@ -245,8 +254,10 @@ async function runDeepSeekResearchNarrative(packet, options = {}) {
 module.exports = {
   DEEPSEEK_API_URL,
   DEEPSEEK_PROVIDER,
+  JSON_MODE_THINKING,
   MAX_DAILY_REQUESTS_HARD_LIMIT,
   MAX_OUTPUT_TOKENS_HARD_LIMIT,
+  applyJsonModeRequestDefaults,
   buildDeepSeekRequest,
   countAttemptsForNewYorkDate,
   classifyDeepSeekFailure,

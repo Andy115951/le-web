@@ -359,7 +359,7 @@ SEC_USER_AGENT
 FRED_API_KEY
 ```
 
-模型执行器已接入但默认关闭：`DEEPSEEK_RESEARCH_ENABLED`、`DEEPSEEK_RESEARCH_DATA_APPROVED`、`DEEPSEEK_API_KEY`、可选 `DEEPSEEK_API_URL` / `DEEPSEEK_MODEL`，以及一次性网关探针开关。浏览器使用 Supabase Project URL 和 Publishable Key。后续按需增加 `MARKET_DATA_API_KEY`、`NEWS_API_KEY`、`SENTRY_DSN`。真实值永远不进入 Git。
+模型执行器已接入但默认关闭。生产与本机 `DEEPSEEK_MODEL` 均为 `deepseek-v4-flash`（已确认保留：价目上比 `deepseek-v3.2` 输出略贵，综合智力与网关 JSON 关闭 thinking 后可用）。相关变量：`DEEPSEEK_RESEARCH_ENABLED`、`DEEPSEEK_RESEARCH_DATA_APPROVED`、`DEEPSEEK_API_KEY`、`DEEPSEEK_API_URL`、`DEEPSEEK_MODEL`，以及一次性网关探针开关 `DEEPSEEK_GATEWAY_COMPATIBILITY_ENABLED`（保持 `false`）。浏览器使用 Supabase Project URL 和 Publishable Key。后续按需增加 `MARKET_DATA_API_KEY`、`NEWS_API_KEY`、`SENTRY_DSN`。真实值永远不进入 Git。
 
 ## 15. 可观测性与运维
 
@@ -481,9 +481,10 @@ FRED_API_KEY
 - [x] 实现默认关闭的受控模型摘要执行器：仅使用归档输入、每日请求上限、同输入同模型幂等、引用校验和追加式审计；支持官方 DeepSeek 或仅服务端 HTTPS 兼容网关，真实研究数据出站需 `DEEPSEEK_RESEARCH_DATA_APPROVED=true` 的独立确认
 - [x] 增加仅由 `CRON_SECRET` 触发的一次性固定快照验证入口：不接受请求选择日期或指纹，执行器同时强制精确指纹和首次尝试后永久拒绝的限制
 - [x] 在维护者终端执行一次已批准快照验证，复核追加审计结果后关闭临时出站开关；`2026-08-15` 的审计被拒绝且未发布摘要，Production 已恢复 `disabled`
-- [x] 实现无项目数据、一次性且可审计的网关兼容性探针：固定 JSON、`CRON_SECRET` 鉴权、预留后才出站、同探针版本与模型拒绝重复尝试
+- [x] 实现无项目数据、一次性且可审计的网关兼容性探针：固定 JSON、`CRON_SECRET` 鉴权、预留后才出站、同探针版本与模型拒绝重复尝试；JSON 请求关闭 thinking、不走 stream
 - [x] 扩展快照级模型审计回放：拒绝摘要只显示白名单失败类别，旧记录不回填、不推断原始错误或模型文本
-- [ ] 在维护者明确批准后，执行一次无项目数据探针，确认网关完整结束状态与 JSON 响应兼容性；不得复用已消耗的快照授权
+- [x] `2026-08-24` 已对当时生产模型 `deepseek-v3.2` 执行一次无项目数据探针，审计 `accepted`（`stop`，校验错误 0）；不得复用已消耗的快照授权或该次探针额度
+- [ ] 对当前生产模型 `deepseek-v4-flash` 另做一次无项目数据探针（唯一键含模型名）；通过后才可批准新的研究快照验证或解读润色
 - [x] 每日确定性事实报告：从不可变研究输入快照生成 QQQ 收盘、涨跌与证据计数，并以快照+版本幂等归档；不调用模型、不输出交易结论
 - [x] 每周确定性事实汇总：按纽约自然周动态聚合不可变日报，显示实际覆盖日、已观察 QQQ 区间变化和证据覆盖；覆盖不足三日明确标记 `limited`
 - [x] 节假日感知冻结周报：对 2026–2028 年按 NYSE 官方全天休市日历计算应有日报，提前收盘仍算交易日；日历覆盖外回退为严格五个工作日校验，不把未知缺口猜成假日
@@ -521,7 +522,7 @@ FRED_API_KEY
 研究与采集仍严格按顺序，不插入产品层：
 
 1. 复核下一次完整收盘 Cron 是否实际写入 SEC filings 与 FRED 观测；扩展已上线的公司 IR 财报日历覆盖，并为日度特征和相似日补齐官方宏观/公司事件维度。独立 Labeler 已落地，不再作为本批次前置。
-2. 先用不含项目数据的最小请求确认网关完整结束状态与 JSON 兼容性。只有重新明确批准一份新的历史研究快照后，才重新设置受限环境变量并由维护者通过 `CRON_SECRET` 调用固定快照验证入口一次；复核审计并关闭临时出站开关后，再把已接受模型输出接入完整 Agent 流程回放。
+2. `deepseek-v3.2` 网关探针已 accepted。生产模型现为 `deepseek-v4-flash`：若要该模型的正式探针记录，需另一次人工批准。只有重新明确批准一份新的历史研究快照后，才由维护者通过 `CRON_SECRET` 调用固定快照验证入口一次；复核审计并关闭临时出站开关后，再把已接受模型输出接入完整 Agent 流程回放。新人解读 AI 润色必须是单独确认动作，不能绑在「读一下」上。
 3. 扩充官方宏观/公司事件特征后再重跑固定评估，并重新冻结事后阶段诊断工件；当前 Logistic 已按固定门槛判定为不能晋升。
 
 产品层可与第 1 项并行，不替代上面的顺序：

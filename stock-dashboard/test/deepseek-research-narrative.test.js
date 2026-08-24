@@ -156,6 +156,8 @@ test("enabled model execution still refuses data transfer without explicit appro
 test("DeepSeek request contains only the fixed packet contract and never embeds the API key", function () {
   const body = buildDeepSeekRequest(packet, configured());
   assert.equal(body.response_format.type, "json_object");
+  assert.equal(body.stream, false);
+  assert.deepEqual(body.thinking, { type: "disabled" });
   assert.equal(body.messages.length, 2);
   assert.match(body.messages[0].content, /JSON/);
   assert.match(body.messages[0].content, /not investment advice/);
@@ -235,8 +237,14 @@ test("invalid or truncated DeepSeek output becomes an audited rejection without 
 
 test("DeepSeek response parser accepts clean JSON and rejects incomplete completions", function () {
   assert.deepEqual(parseDeepSeekResponse({ choices: [{ finish_reason: "stop", message: { content: "{\"ok\":true}" } }] }), { ok: true });
+  assert.deepEqual(parseDeepSeekResponse({
+    choices: [{ finish_reason: "stop", message: { content: "{\"ok\":true}", reasoning_content: "internal scratch" } }]
+  }), { ok: true });
   assert.throws(function () {
     parseDeepSeekResponse({ choices: [{ finish_reason: "length", message: { content: "{}" } }] });
+  }, /finish cleanly/);
+  assert.throws(function () {
+    parseDeepSeekResponse({ choices: [{ finish_reason: "length", message: { content: "", reasoning_content: "used the whole budget" } }] });
   }, /finish cleanly/);
 });
 

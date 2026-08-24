@@ -36,7 +36,10 @@ test("gateway probe remains disabled until its dedicated outbound switch is expl
 test("gateway probe request is fixed, JSON-only, bounded, and contains no project research data", function () {
   const body = buildGatewayCompatibilityRequest(configured());
   assert.equal(body.max_tokens, GATEWAY_COMPATIBILITY_MAX_OUTPUT_TOKENS);
+  assert.ok(body.max_tokens >= 48);
   assert.equal(body.response_format.type, "json_object");
+  assert.equal(body.stream, false);
+  assert.deepEqual(body.thinking, { type: "disabled" });
   assert.equal(body.messages.length, 2);
   assert.equal(JSON.stringify(body).includes("researchPacket"), false);
   assert.equal(JSON.stringify(body).includes("marketDate"), false);
