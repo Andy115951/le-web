@@ -41,7 +41,7 @@ async function getRecentProviderNarrativeAttempts(options = {}, config = getSupa
   if (!provider) return [];
   const rows = await requestImpl(
     config,
-    "/rest/v1/research_narrative_audits?select=id,created_at,status"
+    "/rest/v1/research_narrative_audits?select=id,created_at,status,packet_fingerprint,model"
       + "&provider=eq." + encodeURIComponent(provider)
       + "&order=created_at.desc&limit=" + limit
   );

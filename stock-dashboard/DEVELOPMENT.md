@@ -50,6 +50,7 @@
 - [x] JSON 模式请求固定 `thinking: { type: "disabled" }` 与 `stream: false`，避免 V4 默认 thinking 把小 `max_tokens` 吃成 `finish_reason=length`
 - [x] `2026-08-24` Production 无项目数据探针：审计 `08b82ea6-ecad-4ac1-83e8-15a9d0ebe9b2` 对当时模型 `deepseek-v3.2` 为 `accepted`（`stop`，校验错误 0）
 - [x] 随后模型改为 `deepseek-v4-flash`；`2026-08-24` 对该模型另打一次探针，审计 `2c22bb23-a32a-4eca-af32-e6dfdcbc78b7` 为 `accepted`（`stop`，校验错误 0）；探针开关已关
+- [x] `2026-08-24` 对 `2026-08-21` 研究快照用 `deepseek-v4-flash` 做一次受控验证，审计 `43401531-35b4-4cc7-9079-bbcb0e6cfaaa` 为 `accepted`；出站开关与一次性指纹已关闭
 - [x] `research_task_runs` 已通过 Management API 扩展为 `research-task-run-v2`：新增安全的每次尝试、排队与运行耗时列及受限失败码约束
 - [x] Cron 运行日志、失败诊断、手动重跑和最近运行记录接口
 - [x] Cron 诊断接口脱敏：只返回状态、计数和公共观察宇宙失败摘要，不返回用户 ID、个人标的、原始异常或内部运行详情
@@ -696,7 +697,7 @@ DEEPSEEK_MAX_OUTPUT_TOKENS=1400
 
 如果使用兼容 OpenAI Chat Completions 的第三方网关，可额外设置仅服务端变量 `DEEPSEEK_API_URL` 为完整 HTTPS `/chat/completions` 地址；未设置时继续使用官方 DeepSeek 地址。该地址、密钥、模型名称和请求限制均必须在本机 `.env.local` 与 Vercel Production 分别配置，绝不能写入 Git 或浏览器变量。先以不含项目数据的最小 JSON 请求确认该网关支持 `response_format: json_object`；在项目维护者明确批准把不可变研究快照发送给该第三方前，不得把 `DEEPSEEK_RESEARCH_DATA_APPROVED` 设为 `true`。
 
-若只批准一次指定快照验证，必须同时设置 `DEEPSEEK_ALLOWED_PACKET_FINGERPRINT=<64 位快照指纹>` 与 `DEEPSEEK_ONE_TIME_VALIDATION=true`。执行器会在任何数据库或网关请求前拒绝其它指纹，返回 `packet_not_approved`；一旦该提供方已产生过任意一次审计尝试，也会永久拒绝后续发送并返回 `one_time_validation_consumed`。这项硬限制与每日上限、已接受快照去重共同生效。完成验证后仍应将该变量和两个开关恢复为关闭状态。
+若只批准一次指定快照验证，必须同时设置 `DEEPSEEK_ALLOWED_PACKET_FINGERPRINT=<64 位快照指纹>` 与 `DEEPSEEK_ONE_TIME_VALIDATION=true`。执行器会在任何数据库或网关请求前拒绝其它指纹，返回 `packet_not_approved`；同一指纹一旦已有任意审计尝试，也会永久拒绝后续发送并返回 `one_time_validation_consumed`。换一份新快照（新指纹）可以再批准一次。这项硬限制与每日上限、已接受快照去重共同生效。完成验证后仍应将该变量和两个开关恢复为关闭状态。
 
 完成部署后，唯一的生产验证入口是 `POST /api/cron/validate-approved-research-snapshot`。它必须带 `Authorization: Bearer $CRON_SECRET`，不读取请求体、日期或指纹参数；服务端只会按环境变量中的已批准指纹查询归档快照。运行以下命令前，先在当前终端安全设置 `CRON_SECRET`，不要把真实值粘贴到聊天、Git 或 shell 历史：
 
@@ -712,7 +713,9 @@ curl --fail-with-body -X POST \
 
 `2026-08-15` 已对批准的 `2026-08-11` 快照执行一次受控验证。审计记录 `7ca68fea-797e-46c9-9ee2-34b503dfceb1` 为 `rejected`，原因是网关没有返回可接受的完整结束状态；系统未发布模型摘要。该结果本身证明固定指纹、服务端审计与拒绝路径均已工作。`2026-08-24` 对本机同一网关做了无项目数据对照：默认 thinking 打开时，`max_tokens=48` 的探针得到 `finish_reason=length`、正文为空；加上 `thinking: { type: "disabled" }` 后得到 `finish_reason=stop` 且 JSON 为 `{"ok":true,"probeVersion":"model-gateway-compatibility-v1"}`。验证后已将 Production 和本机的 `DEEPSEEK_RESEARCH_ENABLED`、`DEEPSEEK_RESEARCH_DATA_APPROVED` 设回 `false`，并移除 Production 的一次性指纹和验证变量；生产 `research-quality` 的 `modelNarrative` 状态为 `disabled`。
 
-后续若要再次验证，必须先使用**不含项目研究数据**的最小请求确认该网关会返回完整结束状态和 JSON 对象，再由维护者重新明确批准一份新的不可变快照、单独设置新的指纹与一次性变量。不得复用这次已经消耗的验证授权，也不得通过关闭保护重试同一份研究输入。
+后续若要再次验证，必须先使用**不含项目研究数据**的最小请求确认该网关会返回完整结束状态和 JSON 对象，再由维护者重新明确批准一份**尚未尝试过**的不可变快照、单独设置新的指纹与一次性变量。不得复用已经消耗的指纹授权，也不得通过关闭保护重试同一份研究输入。
+
+`2026-08-24` 已对市场日 `2026-08-21` 快照（指纹 `0668ae6f9f6e…7b39`）用生产模型 `deepseek-v4-flash` 执行一次受控验证。审计 `43401531-35b4-4cc7-9079-bbcb0e6cfaaa` 为 `accepted`，校验错误 0。验证后已将 `DEEPSEEK_RESEARCH_ENABLED`、`DEEPSEEK_RESEARCH_DATA_APPROVED`、`DEEPSEEK_ONE_TIME_VALIDATION` 设回 `false`，并移除 `DEEPSEEK_ALLOWED_PACKET_FINGERPRINT`。这仍不打开网页「读一下」的模型出站；解读 AI 必须另做单独确认按钮。
 
 #### 8.2.4.2 无项目数据网关兼容性探针
 
