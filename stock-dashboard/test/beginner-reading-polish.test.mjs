@@ -171,6 +171,34 @@ test("accepted interpretation is a separate panel and does not replace the templ
   assert.equal(result.reading.sections[0].paragraphs[0], template.sections[0].paragraphs[0]);
 });
 
+test("interpretation is not blocked by prior daily attempts", async function () {
+  const paragraphs = [
+    "今天没有纳指基准，所以没法判断大盘。",
+    "公开资讯和历史样本都还连不上。"
+  ];
+  let modelCalls = 0;
+  const result = await runBeginnerReadingPolish(baseInput(), {
+    env: enabledEnv(),
+    skipDailyLimit: false,
+    supabaseConfig: {},
+    now: new Date(generatedAt),
+    requestSupabase: async function () {
+      return [
+        { id: "1", created_at: generatedAt },
+        { id: "2", created_at: generatedAt },
+        { id: "3", created_at: generatedAt }
+      ];
+    },
+    requestModel: async function () {
+      modelCalls += 1;
+      return { choices: [{ finish_reason: "stop", message: { content: JSON.stringify({ paragraphs }) } }] };
+    }
+  });
+  assert.equal(result.status, "accepted");
+  assert.equal(result.interpreted, true);
+  assert.equal(modelCalls, 1);
+});
+
 test("interpretation request sends the template and not raw page facts", async function () {
   let sent = null;
   await runBeginnerReadingPolish(baseInput(), {

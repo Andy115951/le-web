@@ -15,7 +15,6 @@ const {
 } = require("./deepseek-research-narrative.js");
 const { fingerprint } = require("./research-narrative-contract.js");
 const { getSupabaseConfig, requestSupabase } = require("./supabase-server.js");
-const { marketDate } = require("./daily-market-events.js");
 
 export const BEGINNER_READING_POLISH_VERSION = "beginner-reading-interpret-v2";
 export const BEGINNER_READING_INTERPRET_VERSION = BEGINNER_READING_POLISH_VERSION;
@@ -26,7 +25,6 @@ const META_LAYOUT_PATTERN = /第[一二三四五]格|五个小格子|五个格�
 const DISCIPLINE_LABELS = ["回撤纪律", "目标已到", "临近目标", "相对 QQQ 偏弱", "当日波动较大"];
 const TICKER_ALLOWLIST_EXTRA = new Set(["FY", "IR", "ETF"]);
 const POLISH_PROVIDER = "DeepSeek";
-const MAX_DAILY_REQUESTS_HARD_LIMIT = 3;
 const MAX_OUTPUT_TOKENS_HARD_LIMIT = 1400;
 const DRIVER_TYPES = new Set(["market", "company", "mixed", "unclear", "insufficient_evidence"]);
 const OBSERVATION_KINDS = new Set(["drawdown_rule", "target_hit", "target_near", "relative_weakness", "daily_drop"]);
@@ -57,7 +55,6 @@ export function isBeginnerReadingPolishConfigured(env = process.env) {
     apiKey: gateway.apiKey,
     model: gateway.model,
     apiUrl: gateway.apiUrl,
-    maxDailyRequests: boundedPositiveInteger(env.DEEPSEEK_MAX_DAILY_REQUESTS, 1, MAX_DAILY_REQUESTS_HARD_LIMIT),
     maxOutputTokens: boundedPositiveInteger(env.DEEPSEEK_MAX_OUTPUT_TOKENS, 900, MAX_OUTPUT_TOKENS_HARD_LIMIT)
   };
 }
@@ -297,19 +294,6 @@ function safeResult(result) {
   };
 }
 
-async function countPolishAttempts(now, requestImpl, config) {
-  const date = marketDate(now);
-  const rows = await requestImpl(
-    config,
-    "/rest/v1/research_narrative_audits?select=id,created_at"
-      + "&packet_contract_version=eq." + encodeURIComponent(BEGINNER_READING_POLISH_VERSION)
-      + "&order=created_at.desc&limit=20"
-  );
-  return (Array.isArray(rows) ? rows : []).filter(function (row) {
-    return row?.created_at && marketDate(new Date(row.created_at)) === date;
-  }).length;
-}
-
 async function persistPolishAudit(facts, output, metadata, requestImpl, config) {
   const outputFingerprint = fingerprint(output || { rejected: true });
   try {
@@ -357,20 +341,9 @@ export async function runBeginnerReadingPolish(input, options = {}) {
     return safeResult({ status: "rejected", reason: "invalid_reading_input" });
   }
   const packetFingerprint = fingerprint(facts);
-  const now = options.now instanceof Date ? options.now : new Date();
   const shouldTouchStore = options.skipDailyLimit !== true;
   const requestDb = options.requestSupabase || (shouldTouchStore ? requestSupabase : null);
   const supabaseConfig = options.supabaseConfig || (shouldTouchStore ? getSupabaseConfig() : null);
-  if (shouldTouchStore) {
-    try {
-      const used = await countPolishAttempts(now, requestDb, supabaseConfig);
-      if (used >= config.maxDailyRequests) {
-        return safeResult({ status: "skipped", reason: "daily_request_limit", reading: template });
-      }
-    } catch (_error) {
-      // Continue without a stored ledger if audits are unavailable.
-    }
-  }
   const startedAt = Date.now();
   let payloadObject = null;
   let validation = { valid: false, errors: ["gateway_request_failed"], paragraphs: [] };
