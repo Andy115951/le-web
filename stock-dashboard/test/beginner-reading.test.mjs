@@ -7,7 +7,8 @@ import {
   buildBeginnerReading,
   containsBannedBeginnerReading,
   getBeginnerReadingView,
-  renderBeginnerReadingMarkup
+  renderBeginnerReadingMarkup,
+  splitBeginnerReadingSentences
 } from "../lib/beginner-reading.mjs";
 
 const generatedAt = "2026-08-23T16:05:00.000Z";
@@ -164,12 +165,23 @@ test("idle view and markup have no five-section body until the user generates on
   const interpreted = getBeginnerReadingView({
     ...reading,
     interpretState: "applied",
-    interpretation: { paragraphs: ["QQQ 这是讲解，不是新数据。", "预定财报不能拿来解释今天。"] }
+    interpretation: {
+      paragraphs: [
+        "今天没有纳指基准。不能把空状态补成故事。",
+        "预定财报不能拿来解释今天。"
+      ]
+    }
   }, "home");
   const interpretedHtml = renderBeginnerReadingMarkup(interpreted);
+  assert.deepEqual(splitBeginnerReadingSentences("今天没有纳指基准。不能把空状态补成故事。"), [
+    "今天没有纳指基准。",
+    "不能把空状态补成故事。"
+  ]);
   assert.equal(interpretedHtml.includes("data-beginner-reading-ai"), true);
+  assert.equal(interpretedHtml.includes("beginner-reading-ai-block"), true);
   assert.equal(interpretedHtml.includes("AI 解读"), true);
-  assert.equal(interpretedHtml.includes("QQQ 这是讲解，不是新数据。"), true);
+  assert.equal(interpretedHtml.includes("今天没有纳指基准。"), true);
+  assert.equal(interpretedHtml.includes("不能把空状态补成故事。"), true);
   assert.equal(interpretedHtml.includes("data-beginner-reading-section=\"market\""), true);
 
   const confirming = getBeginnerReadingView({ ...reading, interpretState: "confirm" }, "home");

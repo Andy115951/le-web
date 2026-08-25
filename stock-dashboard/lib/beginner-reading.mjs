@@ -321,6 +321,28 @@ function escapeHtml(value) {
     .replace(/"/g, "&quot;");
 }
 
+export function splitBeginnerReadingSentences(paragraph) {
+  const text = String(paragraph || "").trim();
+  if (!text) return [];
+  const pieces = text.match(/[^。！？]+[。！？]?/g) || [text];
+  return pieces.map(function (item) { return item.trim(); }).filter(Boolean);
+}
+
+function renderBeginnerReadingAiBlocks(paragraphs) {
+  return paragraphs.map(function (paragraph, index) {
+    const sentences = splitBeginnerReadingSentences(paragraph);
+    const lines = (sentences.length ? sentences : [paragraph]).map(function (sentence) {
+      return "<p>" + escapeHtml(sentence) + "</p>";
+    }).join("");
+    return [
+      '<article class="beginner-reading-ai-block">',
+      '<span class="beginner-reading-ai-index" aria-hidden="true">' + (index + 1) + "</span>",
+      '<div class="beginner-reading-ai-copy">' + lines + "</div>",
+      "</article>"
+    ].join("");
+  }).join("");
+}
+
 function renderBeginnerReadingAiMarkup(source) {
   const paragraphs = Array.isArray(source.interpretation?.paragraphs) ? source.interpretation.paragraphs : [];
   const confirming = source.interpretState === "confirm";
@@ -341,9 +363,7 @@ function renderBeginnerReadingAiMarkup(source) {
   } else if (loading) {
     inner = '<p class="beginner-reading-ai-status">正在生成 AI 解读…</p>';
   } else if (applied) {
-    inner = paragraphs.map(function (paragraph) {
-      return "<p>" + escapeHtml(paragraph) + "</p>";
-    }).join("");
+    inner = renderBeginnerReadingAiBlocks(paragraphs);
   } else {
     inner = '<p class="beginner-reading-ai-status">' + escapeHtml(source.interpretError) + "</p>";
   }
