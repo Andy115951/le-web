@@ -2612,12 +2612,13 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(43, 97, 21
   .calendar-weekdays span { padding: 3px; font-size: 0.64rem; }
   .calendar-day,
   .calendar-placeholder { min-height: 78px; }
-  .calendar-day { gap: 5px; padding: 6px; border-radius: 9px; }
+  .calendar-day { gap: 4px; padding: 5px 4px; border-radius: 9px; }
   .calendar-day-top strong { font-size: 0.8rem; }
   .calendar-day-top em { display: none; }
-  .calendar-move { font-size: 0.78rem; }
-  .calendar-status { font-size: 0.57rem; }
-  .calendar-day-meta { font-size: 0.54rem; }
+  .calendar-move { font-size: 0.66rem; letter-spacing: -0.05em; }
+  .calendar-status { font-size: 0.54rem; }
+  .calendar-day-meta { font-size: 0.5rem; }
+  .calendar-day-meta b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .calendar-day-meta i { display: none; }
   .calendar-detail { padding: 15px; }
   .replay-heading { align-items: stretch; }
