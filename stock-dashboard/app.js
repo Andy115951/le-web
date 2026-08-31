@@ -1567,10 +1567,15 @@ function renderReplayNarrative(replay) {
     '<p>' + escapeHtml(narrative.recap || "") + '</p>',
     claims.length ? '<div class="replay-claims">' + claims.map(function (claim) {
       const citations = claim?.citations || {};
-      const count = (Array.isArray(citations.eventKeys) ? citations.eventKeys.length : 0)
-        + (Array.isArray(citations.candidateMarketDates) ? citations.candidateMarketDates.length : 0)
-        + (Array.isArray(citations.baselineKeys) ? citations.baselineKeys.length : 0);
-      return '<div><span>' + escapeHtml(claim?.text || "") + '</span><b>' + count + " 条引用</b></div>";
+      const eventCount = Array.isArray(citations.eventKeys) ? citations.eventKeys.length : 0;
+      const similarCount = Array.isArray(citations.candidateMarketDates) ? citations.candidateMarketDates.length : 0;
+      const baselineCount = Array.isArray(citations.baselineKeys) ? citations.baselineKeys.length : 0;
+      const chips = [];
+      if (eventCount) chips.push('<i class="cite-chip cite-event">事件 ' + eventCount + "</i>");
+      if (baselineCount) chips.push('<i class="cite-chip cite-baseline">行情基准 ' + baselineCount + "</i>");
+      if (similarCount) chips.push('<i class="cite-chip cite-similar">相似日 ' + similarCount + "</i>");
+      const chipHtml = chips.length ? '<span class="cite-chips">' + chips.join("") + "</span>" : '<span class="cite-chips cite-none">无引用</span>';
+      return '<div><span>' + escapeHtml(claim?.text || "") + "</span>" + chipHtml + "</div>";
     }).join("") + "</div>" : "",
     uncertainties.length ? '<div class="replay-uncertainties"><b>不确定性</b><span>' + escapeHtml(uncertainties.join(" · ")) + "</span></div>" : "",
     '<small>此文本只在服务端通过固定输入、来源引用和非建议语言校验后才会显示，不构成投资建议。</small>',

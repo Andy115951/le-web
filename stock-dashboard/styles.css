@@ -2283,6 +2283,12 @@ body {
 .replay-claims > div { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 7px 8px; border-left: 2px solid rgba(232, 179, 75, 0.5); background: rgba(4, 13, 30, 0.18); }
 .replay-claims span { color: #d8e3f3; font-size: 0.63rem; line-height: 1.45; }
 .replay-claims b { flex: 0 0 auto; color: #f1cd84; font-size: 0.56rem; white-space: nowrap; }
+.cite-chips { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.cite-chip { padding: 2px 6px; border-radius: 999px; font-size: 0.52rem; font-style: normal; font-weight: 700; white-space: nowrap; }
+.cite-event { color: #9fc0ff; background: rgba(93, 144, 237, 0.18); }
+.cite-baseline { color: #8fe3c4; background: rgba(52, 199, 145, 0.16); }
+.cite-similar { color: #d9c0ff; background: rgba(147, 112, 219, 0.18); }
+.cite-none { color: #c98b8b; font-size: 0.52rem; }
 .replay-uncertainties { display: grid; gap: 4px; margin-top: 9px; padding: 8px; border-radius: 8px; background: rgba(114, 132, 167, 0.14); }
 .replay-uncertainties b { color: #b5c8e2; font-size: 0.58rem; }
 .replay-uncertainties span { color: #9fb0c7; font-size: 0.61rem; line-height: 1.42; }
