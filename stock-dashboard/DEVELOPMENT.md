@@ -792,6 +792,7 @@ npm run narrative:verify -- 2026-08-14 --bypass-limit  # 仅本地：跳过每�
 - 模型早期会把目标日自身误填进 `candidateMarketDates`，被合约校验以「unknown similar-day candidate」拒绝。`2026-08-31` 已在 prompt 收敛此约束（字段说明改为「historical similar-day date; never the target date」并加一条 prohibited）；`2026-08-11` 实测模型改为正确引用 5 个真实历史相似日。收敛仅微增 prompt token，不加长冗余文字——事件多的交易日（如 `2026-08-13` 有 14 事件）叙述本就逼近 `1400` token 上限，堆砌 prompt 会挤占输出导致截断。
 - 纯数据类 claim（QQQ 收盘价来自 `marketState`、NDX 权重来自 `ndxSnapshot`）过去没有可引用的 `eventKey`，会被「requires at least one citation」拒绝。`2026-08-31` 已在合约新增第三类可引证据 `baselineKeys`（`market:<symbol>` 与 `ndx-weights`），向后兼容：缺失该字段的旧叙述仍合法。`2026-08-11` 实测模型正确用 `baselineKeys` 引用 QQQ 收盘与 NDX 权重，通过校验。
 - 模型引用 `ndx-weights` 时会附带 NDX 快照的官方来源 URL。`2026-08-31` 已让 baseline 自带来源白名单：`allowedEvidence` 中每个 baselineKey 关联其合法来源 URL（`ndx-weights` → `ndxSnapshot.sourceUrl`），`sourceUrls` 校验放宽为「属于已引 event 或已引 baseline」。`2026-08-11` 实测整份叙述 `accepted`、校验错误 0：QQQ 收盘引 `market:QQQ`、NDX 权重引 `ndx-weights` 并附官方 PDF、SEC 文件引 event、相似日引历史候选——三类可引证据全部到位。至此 AI 叙述可关联「大盘/个股/新闻/历史/权重」全维度且每条 claim 均可追溯来源。
+- 前端「研究回放」区已展示已验证叙述（标题/复盘/逐条 claim 引用计数/不确定性），按快照 `packet_fingerprint` 匹配已接受叙述。`2026-08-31` 修复：引用计数此前漏算 `baselineKeys`，导致仅引 baseline 的纯数据 claim（如 QQQ 收盘）显示「0 条引用」；现已计入三类证据。前端不提供模型调用按钮，只读展示服务端已通过校验的叙述。
 
 #### 8.2.4.3 本地绕过速率限制与超时的测试脚本
 

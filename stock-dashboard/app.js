@@ -1567,7 +1567,9 @@ function renderReplayNarrative(replay) {
     '<p>' + escapeHtml(narrative.recap || "") + '</p>',
     claims.length ? '<div class="replay-claims">' + claims.map(function (claim) {
       const citations = claim?.citations || {};
-      const count = (Array.isArray(citations.eventKeys) ? citations.eventKeys.length : 0) + (Array.isArray(citations.candidateMarketDates) ? citations.candidateMarketDates.length : 0);
+      const count = (Array.isArray(citations.eventKeys) ? citations.eventKeys.length : 0)
+        + (Array.isArray(citations.candidateMarketDates) ? citations.candidateMarketDates.length : 0)
+        + (Array.isArray(citations.baselineKeys) ? citations.baselineKeys.length : 0);
       return '<div><span>' + escapeHtml(claim?.text || "") + '</span><b>' + count + " 条引用</b></div>";
     }).join("") + "</div>" : "",
     uncertainties.length ? '<div class="replay-uncertainties"><b>不确定性</b><span>' + escapeHtml(uncertainties.join(" · ")) + "</span></div>" : "",
