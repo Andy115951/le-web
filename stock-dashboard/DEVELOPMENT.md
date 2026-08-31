@@ -51,6 +51,7 @@
 - [x] `2026-08-24` Production 无项目数据探针：审计 `08b82ea6-ecad-4ac1-83e8-15a9d0ebe9b2` 对当时模型 `deepseek-v3.2` 为 `accepted`（`stop`，校验错误 0）
 - [x] 随后模型改为 `deepseek-v4-flash`；`2026-08-24` 对该模型另打一次探针，审计 `2c22bb23-a32a-4eca-af32-e6dfdcbc78b7` 为 `accepted`（`stop`，校验错误 0）；探针开关已关
 - [x] `2026-08-24` 对 `2026-08-21` 研究快照用 `deepseek-v4-flash` 做一次受控验证，审计 `43401531-35b4-4cc7-9079-bbcb0e6cfaaa` 为 `accepted`；出站开关与一次性指纹已关闭
+- [x] `2026-08-31` 补齐价格后重建派生数据，重新归档 `2026-08-14` 干净快照（指纹 `08fb83c7…`，含完整 `marketState` + 14 事件 + 5 相似日）；用 `deepseek-v4-flash` 做首次三支柱齐全的受控验证，审计 `65de89d4-b1d5-48e0-9b2a-f64eeb46232f` 为 `accepted`（校验错误 0）。叙述正确把同向个股归因为大盘、把偏离个股（AMZN）标为需看个股新闻、对证据不足者（WMT）拒绝归因，并列出不确定性；出站开关已关回 `false`
 - [x] `research_task_runs` 已通过 Management API 扩展为 `research-task-run-v2`：新增安全的每次尝试、排队与运行耗时列及受限失败码约束
 - [x] Cron 运行日志、失败诊断、手动重跑和最近运行记录接口
 - [x] Cron 诊断接口脱敏：只返回状态、计数和公共观察宇宙失败摘要，不返回用户 ID、个人标的、原始异常或内部运行详情
