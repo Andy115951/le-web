@@ -1066,7 +1066,7 @@ GET /api/nasdaq/research-tasks?limit=20
 
 页面“研究覆盖”只展示这些聚合计数与限制说明。它不会调用模型、不会写入 Supabase、不会公开任务原始错误、审核人、审核备注或完整研究输入，也不会把“有多少材料”表述为数据已完整、归因已正确、预测成立或可以执行交易。
 
-当前生产环境已配置 `SEC_USER_AGENT` 与 `FRED_API_KEY`，Windows 本机已验证手动采集写入。下一次完整收盘 Cron 应自动请求两者，首次自动写入仍需在运行日志中复核。模型网关参数已配置，生产 `DEEPSEEK_MODEL` 为 `deepseek-v4-flash`；`DEEPSEEK_RESEARCH_ENABLED`、`DEEPSEEK_RESEARCH_DATA_APPROVED` 与 `DEEPSEEK_GATEWAY_COMPATIBILITY_ENABLED` 保持 `false`，模型摘要不会运行。`deepseek-v3.2` 与 `deepseek-v4-flash` 的无项目数据探针均已 `accepted`，不表示研究数据获准出站。历史运行不做推测性回填。
+当前生产环境已配置 `SEC_USER_AGENT` 与 `FRED_API_KEY`，Windows 本机已验证手动采集写入。`2026-08-31` 复核确认生产收盘 Cron 已在自动写入两者：`nasdaq_market_event_history`、`price_bars_daily`、SEC filings、`research_packet_snapshots` 均新鲜至最近交易日 `2026-08-28`，FRED 观测至 `2026-08-26`（FRED 源本身发布滞后，属正常）。可用 `npm run coverage:check` 一次性核对各数据源最新写入日期（只读，不触发模型或写库）。模型网关参数已配置，生产 `DEEPSEEK_MODEL` 为 `deepseek-v4-flash`；`DEEPSEEK_RESEARCH_ENABLED`、`DEEPSEEK_RESEARCH_DATA_APPROVED` 与 `DEEPSEEK_GATEWAY_COMPATIBILITY_ENABLED` 保持 `false`，模型摘要不会运行。`deepseek-v3.2` 与 `deepseek-v4-flash` 的无项目数据探针均已 `accepted`，不表示研究数据获准出站。历史运行不做推测性回填。
 
 覆盖面板中的“研究集成准备度”会把内置市场采集固定标为 `ready`，并按当前服务端环境分别显示 SEC、FRED、模型摘要和无项目数据网关探针状态。模型摘要会精确区分 `needs_configuration`（缺少网关参数）、`disabled`（已配置但功能开关关闭）、`data_approval_required`（功能已打开但尚未批准把研究快照发送给第三方）和 `ready`。网关探针只显示 `needs_configuration / disabled / ready`，它不表示研究数据获准出站。这是为多端协作准备的安全检查，不会返回 `SEC_USER_AGENT`、`FRED_API_KEY`、`DEEPSEEK_API_KEY`、联系人、环境变量值或具体配置失败原因；状态为待配置时，按第 6 节和第 13 节在本机 `.env.local` 与 Vercel Production 分别补齐变量后重新部署即可。
 
