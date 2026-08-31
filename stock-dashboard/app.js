@@ -370,6 +370,18 @@ function bindEvents() {
         item.classList.toggle("is-active", item === button);
       });
       target.scrollIntoView({ behavior: "smooth", block: "start" });
+      // On the horizontally-scrolling mobile nav, center the active item within
+      // its own strip so the user can see which section they are in (with 14
+      // entries in a ~333px strip it can otherwise sit far off-screen). Adjust
+      // only the strip's horizontal scroll, never the page's vertical scroll.
+      const strip = button.closest(".command-links");
+      if (strip && strip.scrollWidth > strip.clientWidth) {
+        const targetLeft = button.offsetLeft - (strip.clientWidth - button.offsetWidth) / 2;
+        // Instant scroll: smooth horizontal scroll on this masked strip proved
+        // unreliable (the animation could be dropped, leaving the active item
+        // off-screen). A direct jump always lands the item in view.
+        strip.scrollLeft = Math.max(0, targetLeft);
+      }
     });
   });
 
