@@ -97,7 +97,17 @@ function allowedEvidence(packet) {
   (packet?.historicalSimilarity?.matches || []).forEach(function (match) {
     if (match?.candidateMarketDate) candidateDates.add(String(match.candidateMarketDate));
   });
-  return { eventByKey, candidateDates };
+  // Baseline facts are structured values already inside the packet (QQQ market
+  // state, NDX constituent weights). They let a pure-data claim cite the packet
+  // itself instead of an event key or a similar-day date.
+  const baselineKeys = new Set();
+  if (packet?.marketState && Number.isFinite(Number(packet.marketState.changePercent))) {
+    baselineKeys.add("market:" + String(packet.marketState.symbol || "QQQ"));
+  }
+  if (packet?.ndxSnapshot && Array.isArray(packet.ndxSnapshot.topMembers) && packet.ndxSnapshot.topMembers.length) {
+    baselineKeys.add("ndx-weights");
+  }
+  return { eventByKey, candidateDates, baselineKeys };
 }
 
 function validateCitation(citation, evidence, field, errors) {
@@ -105,6 +115,11 @@ function validateCitation(citation, evidence, field, errors) {
   const eventKeys = stringList(value.eventKeys, field + ".eventKeys", errors, { unique: true, maxLength: 200 });
   const sourceUrls = stringList(value.sourceUrls, field + ".sourceUrls", errors, { unique: true, maxLength: 2000 });
   const candidateMarketDates = stringList(value.candidateMarketDates, field + ".candidateMarketDates", errors, { unique: true, maxLength: 10 });
+  // baselineKeys is an optional, backward-compatible citation channel: a missing
+  // field is treated as an empty list so pre-existing narratives stay valid.
+  const baselineKeys = value.baselineKeys === undefined
+    ? []
+    : stringList(value.baselineKeys, field + ".baselineKeys", errors, { unique: true, maxLength: 20 });
   eventKeys.forEach(function (key) {
     if (!evidence.eventByKey.has(key)) errors.push(field + " cites an unknown event key: " + key);
   });
@@ -115,9 +130,12 @@ function validateCitation(citation, evidence, field, errors) {
   candidateMarketDates.forEach(function (date) {
     if (!evidence.candidateDates.has(date)) errors.push(field + " cites an unknown similar-day candidate: " + date);
   });
-  if (!eventKeys.length && !candidateMarketDates.length) errors.push(field + " requires at least one event or historical candidate citation");
+  baselineKeys.forEach(function (key) {
+    if (!evidence.baselineKeys.has(key)) errors.push(field + " cites an unknown baseline fact: " + key);
+  });
+  if (!eventKeys.length && !candidateMarketDates.length && !baselineKeys.length) errors.push(field + " requires at least one event, historical candidate, or baseline citation");
   if (eventKeys.length && !sourceUrls.length) errors.push(field + " must cite a source URL for every event-based claim");
-  return { eventKeys, sourceUrls, candidateMarketDates };
+  return { eventKeys, sourceUrls, candidateMarketDates, baselineKeys };
 }
 
 function validateResearchNarrative(output, packet) {
@@ -171,12 +189,13 @@ function buildResearchNarrativeInstructions(packet) {
       marketDate: packet?.asOf?.marketDate || null,
       title: "string (max 100 chars)",
       recap: "string (max 900 chars)",
-      claims: [{ id: "lowercase-id", text: "string (max 420 chars)", citations: { eventKeys: ["known event key"], sourceUrls: ["source URL for cited event"], candidateMarketDates: ["historical similar-day date; never the target date"] } }],
+      claims: [{ id: "lowercase-id", text: "string (max 420 chars)", citations: { eventKeys: ["known event key"], sourceUrls: ["source URL for cited event"], candidateMarketDates: ["historical similar-day date; never the target date"], baselineKeys: ["known baseline fact key for QQQ price/NDX weight claims"] } }],
       uncertainties: ["string"]
     },
     allowedEvidence: {
       eventKeys: Array.from(evidence.eventByKey.keys()),
-      candidateMarketDates: Array.from(evidence.candidateDates)
+      candidateMarketDates: Array.from(evidence.candidateDates),
+      baselineKeys: Array.from(evidence.baselineKeys)
     },
     prohibited: [
       "Investment instructions or target prices",

@@ -67,6 +67,34 @@ test("research narrative contract rejects uncited sources and investment instruc
   assert.ok(validation.errors.some(function (error) { return /prohibited/.test(error); }));
 });
 
+test("research narrative contract accepts baseline citations for packet market/NDX facts", function () {
+  const baselinePacket = {
+    ...packet,
+    marketState: { symbol: "QQQ", changePercent: -0.34 },
+    ndxSnapshot: { topMembers: [{ symbol: "NVDA", weightPercent: 8.42 }] }
+  };
+  const instructions = buildResearchNarrativeInstructions(baselinePacket);
+  assert.deepEqual(instructions.allowedEvidence.baselineKeys, ["market:QQQ", "ndx-weights"]);
+
+  const narrative = validNarrative();
+  narrative.claims.push({
+    id: "qqq-close",
+    text: "QQQ 当日收盘小幅下跌，为客观行情事实。",
+    citations: { eventKeys: [], sourceUrls: [], candidateMarketDates: [], baselineKeys: ["market:QQQ"] }
+  });
+  const validation = validateResearchNarrative(narrative, baselinePacket);
+  assert.equal(validation.valid, true);
+  assert.deepEqual(validation.errors, []);
+});
+
+test("research narrative contract rejects unknown baseline keys", function () {
+  const narrative = validNarrative();
+  narrative.claims[0].citations = { eventKeys: [], sourceUrls: [], candidateMarketDates: [], baselineKeys: ["market:TSLA"] };
+  const validation = validateResearchNarrative(narrative, packet);
+  assert.equal(validation.valid, false);
+  assert.ok(validation.errors.some(function (error) { return /unknown baseline fact/.test(error); }));
+});
+
 test("research narrative contract rejects citations to events rejected by human review", function () {
   const rejectedPacket = {
     ...packet,
