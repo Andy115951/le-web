@@ -87,6 +87,45 @@ test("research narrative contract accepts baseline citations for packet market/N
   assert.deepEqual(validation.errors, []);
 });
 
+test("research narrative contract accepts a baseline source URL and rejects an unrelated one", function () {
+  const baselinePacket = {
+    ...packet,
+    ndxSnapshot: {
+      sourceUrl: "https://www.nasdaq.com/docs/2026/05/04/NDX.pdf",
+      topMembers: [{ symbol: "NVDA", weightPercent: 8.42 }]
+    }
+  };
+  const ok = validNarrative();
+  ok.claims.push({
+    id: "ndx-weight",
+    text: "英伟达在 Nasdaq-100 中权重约 8.42%，为官方成分快照事实。",
+    citations: {
+      eventKeys: [],
+      sourceUrls: ["https://www.nasdaq.com/docs/2026/05/04/NDX.pdf"],
+      candidateMarketDates: [],
+      baselineKeys: ["ndx-weights"]
+    }
+  });
+  const okValidation = validateResearchNarrative(ok, baselinePacket);
+  assert.equal(okValidation.valid, true);
+  assert.deepEqual(okValidation.errors, []);
+
+  const bad = validNarrative();
+  bad.claims.push({
+    id: "ndx-weight-bad",
+    text: "权重引用了不相关的来源。",
+    citations: {
+      eventKeys: [],
+      sourceUrls: ["https://example.com/unrelated"],
+      candidateMarketDates: [],
+      baselineKeys: ["ndx-weights"]
+    }
+  });
+  const badValidation = validateResearchNarrative(bad, baselinePacket);
+  assert.equal(badValidation.valid, false);
+  assert.ok(badValidation.errors.some(function (error) { return /not attached to a cited event or baseline/.test(error); }));
+});
+
 test("research narrative contract rejects unknown baseline keys", function () {
   const narrative = validNarrative();
   narrative.claims[0].citations = { eventKeys: [], sourceUrls: [], candidateMarketDates: [], baselineKeys: ["market:TSLA"] };

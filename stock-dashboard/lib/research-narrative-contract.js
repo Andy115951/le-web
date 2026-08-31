@@ -100,14 +100,20 @@ function allowedEvidence(packet) {
   // Baseline facts are structured values already inside the packet (QQQ market
   // state, NDX constituent weights). They let a pure-data claim cite the packet
   // itself instead of an event key or a similar-day date.
-  const baselineKeys = new Set();
+  // Baseline facts are structured values already inside the packet (QQQ market
+  // state, NDX constituent weights). They let a pure-data claim cite the packet
+  // itself. Each key maps to the set of source URLs that legitimately back it
+  // (empty when the fact has no standalone URL, e.g. price data).
+  const baselineByKey = new Map();
   if (packet?.marketState && Number.isFinite(Number(packet.marketState.changePercent))) {
-    baselineKeys.add("market:" + String(packet.marketState.symbol || "QQQ"));
+    baselineByKey.set("market:" + String(packet.marketState.symbol || "QQQ"), new Set());
   }
   if (packet?.ndxSnapshot && Array.isArray(packet.ndxSnapshot.topMembers) && packet.ndxSnapshot.topMembers.length) {
-    baselineKeys.add("ndx-weights");
+    const ndxUrls = new Set();
+    if (packet.ndxSnapshot.sourceUrl) ndxUrls.add(String(packet.ndxSnapshot.sourceUrl));
+    baselineByKey.set("ndx-weights", ndxUrls);
   }
-  return { eventByKey, candidateDates, baselineKeys };
+  return { eventByKey, candidateDates, baselineByKey };
 }
 
 function validateCitation(citation, evidence, field, errors) {
@@ -123,15 +129,16 @@ function validateCitation(citation, evidence, field, errors) {
   eventKeys.forEach(function (key) {
     if (!evidence.eventByKey.has(key)) errors.push(field + " cites an unknown event key: " + key);
   });
+  baselineKeys.forEach(function (key) {
+    if (!evidence.baselineByKey.has(key)) errors.push(field + " cites an unknown baseline fact: " + key);
+  });
   sourceUrls.forEach(function (url) {
     const belongsToCitedEvent = eventKeys.some(function (key) { return evidence.eventByKey.get(key)?.has(url); });
-    if (!belongsToCitedEvent) errors.push(field + " cites a source URL not attached to a cited event");
+    const belongsToCitedBaseline = baselineKeys.some(function (key) { return evidence.baselineByKey.get(key)?.has(url); });
+    if (!belongsToCitedEvent && !belongsToCitedBaseline) errors.push(field + " cites a source URL not attached to a cited event or baseline");
   });
   candidateMarketDates.forEach(function (date) {
     if (!evidence.candidateDates.has(date)) errors.push(field + " cites an unknown similar-day candidate: " + date);
-  });
-  baselineKeys.forEach(function (key) {
-    if (!evidence.baselineKeys.has(key)) errors.push(field + " cites an unknown baseline fact: " + key);
   });
   if (!eventKeys.length && !candidateMarketDates.length && !baselineKeys.length) errors.push(field + " requires at least one event, historical candidate, or baseline citation");
   if (eventKeys.length && !sourceUrls.length) errors.push(field + " must cite a source URL for every event-based claim");
@@ -195,7 +202,7 @@ function buildResearchNarrativeInstructions(packet) {
     allowedEvidence: {
       eventKeys: Array.from(evidence.eventByKey.keys()),
       candidateMarketDates: Array.from(evidence.candidateDates),
-      baselineKeys: Array.from(evidence.baselineKeys)
+      baselineKeys: Array.from(evidence.baselineByKey.keys())
     },
     prohibited: [
       "Investment instructions or target prices",
