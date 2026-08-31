@@ -38,6 +38,7 @@
 - [ ] 当前网络没有公网 IPv6，`supabase db push --linked` 无法直连数据库；Schema 已通过 `supabase db query --linked --file` 应用，但仍需在具备 IPv6 或 Pooler 数据库密码时登记 migration 历史
 - [x] 公共 `nasdaq_market_event_history` 已建表并完成 14 个核心标的真实写入
 - [x] `daily_market_features` 已通过 Management API 应用并完成 1,254 行 QQQ 回填
+- [x] `2026-08-31` 修复特征的事件归属：FRED 宏观观测按日历日发布（含周末/假日），此前严格按 `market_date` 分组导致周末发布的观测落在无特征行的日期而丢失。改为按可用时点归属到「上一交易日收盘 < available_at ≤ 本交易日收盘」窗口的第一个交易日；泄漏防护不变。重建后 `knownEventDays` 由 4 增至 14，周日 `2026-08-16` 的 12 条 FRED 观测正确归入周一 `2026-08-17` 特征（`fred_macro_observation:12`）
 - [x] `similar_day_matches` 已通过 Management API 应用并完成 5,848 条 QQQ 相似日回填
 - [x] `ndx_constituent_changes` 已通过 Management API 应用；首份快照没有前序版本，因此当前尚无变更行
 - [ ] NDX 全量官方快照仍是 `2026-05-01`（来源 `https://www.nasdaq.com/docs/2026/05/04/NDX.pdf`）。`2026-08-24` 探测 `nasdaq.com/docs/2026/06–08/*/NDX.pdf` 与 `business.nasdaq.com/Docs/NDX.pdf` 均重定向到同一份 5 月 PDF；公开 Fact Sheet `FS_NDX.pdf` 日期为 `2026-06-30` 但只有权重前 10，不足 100–110 只，不能当候选导入。完整名单仍需 Nasdaq 官方全量权重 PDF 或登录后的 Weighting 表

@@ -60,6 +60,31 @@ test("price features use only trailing data through each feature date", function
   assert.equal(first.availableEventCount, 0);
 });
 
+test("weekend macro events attribute to the next trading day, not their calendar date", function () {
+  // Two trading days spanning a weekend: Fri 2026-08-14 and Mon 2026-08-17.
+  const prices = [
+    { market_date: "2026-08-14", open: 99, high: 101, low: 98, close: 100, adjusted_close: 100, volume: 1000, source: "test", captured_at: "2026-08-14T21:00:00.000Z" },
+    { market_date: "2026-08-17", open: 100, high: 102, low: 99, close: 101, adjusted_close: 101, volume: 1100, source: "test", captured_at: "2026-08-17T21:00:00.000Z" }
+  ];
+  // A FRED macro observation published Sunday 2026-08-16 before the Monday close.
+  // Its calendar market_date (Sunday) has no feature row; it must land on Monday.
+  const events = [{
+    event_type: "fred_macro_observation",
+    impact_level: "medium",
+    tickers: [],
+    market_date: "2026-08-16",
+    available_at: "2026-08-16T08:06:00.000Z"
+  }];
+  const features = buildDailyMarketFeatures({ prices, events, computedAt: "2026-09-01T00:00:00.000Z" });
+  const friday = features.find(function (f) { return f.marketDate === "2026-08-14"; });
+  const monday = features.find(function (f) { return f.marketDate === "2026-08-17"; });
+  // Friday closed before the Sunday release, so it must not see the event.
+  assert.equal(friday.availableEventCount, 0);
+  // Monday is the first trading day on which the weekend event was available.
+  assert.equal(monday.availableEventCount, 1);
+  assert.deepEqual(monday.eventTypeCounts, { fred_macro_observation: 1 });
+});
+
 test("trailing calculations have stable boundary behavior", function () {
   assert.equal(annualizedVolatility(Array(21).fill(100)), 0);
   assert.equal(annualizedVolatility(Array(20).fill(100)), null);

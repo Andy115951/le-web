@@ -106,12 +106,13 @@ function buildDailyMarketFeatures(options) {
   const prices = [...(options?.prices || [])].sort(function (left, right) {
     return String(left.market_date || left.marketDate).localeCompare(String(right.market_date || right.marketDate));
   });
-  const eventsByDate = new Map();
-  (options?.events || []).forEach(function (event) {
-    const date = String(event.market_date || event.marketDate || "");
-    if (!eventsByDate.has(date)) eventsByDate.set(date, []);
-    eventsByDate.get(date).push(event);
-  });
+  // Events are attributed to the first trading day on which they were available,
+  // not to their raw calendar market_date. FRED macro observations publish on
+  // calendar days (including weekends/holidays); attributing them to the next
+  // trading day's close prevents weekend releases from vanishing into a date
+  // that has no feature row. Leakage safety is preserved: an event only counts
+  // once its available_at is at or before that trading day's close.
+  const allEvents = (options?.events || []).slice();
   const computedAt = options?.computedAt || new Date().toISOString();
   const result = [];
 
@@ -125,7 +126,16 @@ function buildDailyMarketFeatures(options) {
     const priorVolumes = prices.slice(Math.max(0, index - 20), index).map(validPrice).map(function (item) { return item.volume; }).filter(function (value) { return value !== null; });
     const averagePriorVolume = average(priorVolumes);
     const featureAsOf = marketCloseAt(date);
-    const events = summarizeKnownEvents(eventsByDate.get(date) || [], featureAsOf);
+    // Window: (prior trading day's close, this trading day's close]. The first
+    // day has no lower bound so any earlier backlog is still captured once.
+    const priorClose = index > 0 ? new Date(marketCloseAt(String(prices[index - 1].market_date || prices[index - 1].marketDate))) : null;
+    const cutoff = new Date(featureAsOf);
+    const windowEvents = allEvents.filter(function (event) {
+      const availableAt = eventAvailableAt(event);
+      if (!availableAt || availableAt > cutoff) return false;
+      return !priorClose || availableAt > priorClose;
+    });
+    const events = summarizeKnownEvents(windowEvents, featureAsOf);
 
     result.push({
       marketDate: date,
