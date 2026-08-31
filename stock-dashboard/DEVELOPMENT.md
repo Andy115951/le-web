@@ -491,6 +491,16 @@ node scripts/backfill-market-prices.js QQQ 5y
 
 **注意**：`price_bars_daily` 与事件采集（`nasdaq_market_event_history`）是两条独立管线。收盘 Cron 现已同时更新两者（`backfillDailyPrices("QQQ", "1y")`），日历数据会随每次收盘自动保持新鲜；无需再手动执行本脚本补缺。
 
+**价格是研究系统的地基**：`marketState`（研究包里的 QQQ 基准）、`daily_market_features`、`market_forward_labels`、`similar_day_matches` 全部派生自 `price_bars_daily`。若某段价格曾缺失，那段时间生成的研究快照会带 `marketState: null` 且相似日为空——快照不可变，不会自动回填。补齐价格后，须按顺序重建派生数据，历史快照则需重新归档才会带上完整基准：
+
+```bash
+npm run features:qqq   # 日度特征
+npm run labels:qqq     # 前瞻标签
+npm run similar-days:qqq  # 相似日
+```
+
+`2026-08-31` 已完成一次全量重建（features/labels 各 1267 天，similar-days 5913 条匹配），修复了此前价格缺口导致的 `marketState` 与相似日空缺。
+
 启动 `vercel dev` 后可公开读取：
 
 ```text
