@@ -788,7 +788,7 @@ npm run narrative:verify -- 2026-08-14 --bypass-limit  # 仅本地：跳过每�
 
 **已知约束（`2026-08-31` 实测）：**
 
-- `DEEPSEEK_MAX_OUTPUT_TOKENS=900` 在事件多的交易日（如 `2026-08-13` 有 14 事件 + SEC filing）会截断模型响应，返回 `Model response did not finish cleanly`。设为 `1400` 后可写完整。生产环境应确认此值不低于 `1400`。
+- `DEEPSEEK_MAX_OUTPUT_TOKENS` 过小（旧默认 `900`）在事件多的交易日（如 `2026-08-13` 有 14 事件 + SEC filing）会截断模型响应，返回 `Model response did not finish cleanly`。`2026-08-31` 已把库默认值提到硬上限 `1400`（漏配时也用满血），并把 Vercel Production 显式设为 `1400`；本机 `.env.local` 同步为 `1400`。该值仅在收盘 Cron 运行时读取，无需重新部署即生效。
 - 模型有时把目标日自身（前一交易日）误填进 `candidateMarketDates`，被合约校验以「unknown similar-day candidate」正确拒绝。这是待收敛的 prompt 约束问题，不是脚本缺陷；校验器阻止了错误引用落库。
 
 #### 8.2.4.3 本地绕过速率限制与超时的测试脚本

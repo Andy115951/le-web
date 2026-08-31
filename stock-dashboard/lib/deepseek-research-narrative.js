@@ -93,7 +93,7 @@ function isDeepSeekResearchConfigured(env = process.env) {
     model: gateway.model,
     apiUrl: gateway.apiUrl,
     maxDailyRequests: boundedPositiveInteger(env.DEEPSEEK_MAX_DAILY_REQUESTS, 1, MAX_DAILY_REQUESTS_HARD_LIMIT),
-    maxOutputTokens: boundedPositiveInteger(env.DEEPSEEK_MAX_OUTPUT_TOKENS, 900, MAX_OUTPUT_TOKENS_HARD_LIMIT),
+    maxOutputTokens: boundedPositiveInteger(env.DEEPSEEK_MAX_OUTPUT_TOKENS, MAX_OUTPUT_TOKENS_HARD_LIMIT, MAX_OUTPUT_TOKENS_HARD_LIMIT),
     requestTimeoutMs: boundedPositiveInteger(env.DEEPSEEK_REQUEST_TIMEOUT_MS, REQUEST_TIMEOUT_MS_DEFAULT, REQUEST_TIMEOUT_MS_HARD_MAX)
   };
 }
