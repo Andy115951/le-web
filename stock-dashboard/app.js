@@ -8,6 +8,7 @@ import {
   getBeginnerReadingView,
   renderBeginnerReadingMarkup
 } from "./lib/beginner-reading.mjs";
+import { GLOSSARY, annotateGlossaryTerms, getGlossaryEntry } from "./lib/glossary.mjs";
 import {
   loadCloudConfig,
   saveCloudConfig,
@@ -92,6 +93,7 @@ const els = {
   calendarBeginnerReading: document.getElementById("calendarBeginnerReading"),
   calendarDetail: document.getElementById("calendarDetail"),
   beginnerReadingHome: document.getElementById("beginnerReadingHome"),
+  glossaryPopover: document.getElementById("glossaryPopover"),
   refreshResearchReplayBtn: document.getElementById("refreshResearchReplayBtn"),
   researchReplayHint: document.getElementById("researchReplayHint"),
   researchReplayList: document.getElementById("researchReplayList"),
@@ -292,6 +294,37 @@ async function init() {
   await Promise.all([refreshUpcomingEarnings(), refreshMarketHistory(), refreshMarketCalendar(), refreshCurrentMarketScenario(), refreshResearchReplay(), refreshModelReview(), refreshResearchHealth(), refreshResearchQuality(), refreshResearchTasks(), refreshEventReview(), refreshDailyReports(), refreshWeeklyReports()]);
 }
 
+function openGlossaryPopover(chip) {
+  if (!els.glossaryPopover || !chip) return;
+  const entry = getGlossaryEntry(chip.getAttribute("data-glossary"));
+  if (!entry) return;
+  els.glossaryPopover.innerHTML = [
+    '<div class="glossary-popover-head"><strong>' + escapeHtml(entry.title) + "</strong>",
+    '<button type="button" class="glossary-close" aria-label="关闭">×</button></div>',
+    "<p>" + escapeHtml(entry.body) + "</p>",
+    '<small>名词解释 · 帮助理解，不构成投资建议</small>'
+  ].join("");
+  els.glossaryPopover.classList.remove("hidden");
+  // Position near the clicked chip, kept within the viewport.
+  const rect = chip.getBoundingClientRect();
+  const pop = els.glossaryPopover;
+  const width = Math.min(300, window.innerWidth - 24);
+  pop.style.width = width + "px";
+  let left = rect.left + window.scrollX;
+  if (left + width > window.scrollX + window.innerWidth - 12) {
+    left = window.scrollX + window.innerWidth - width - 12;
+  }
+  left = Math.max(window.scrollX + 12, left);
+  pop.style.left = left + "px";
+  pop.style.top = (rect.bottom + window.scrollY + 8) + "px";
+  const closeBtn = pop.querySelector(".glossary-close");
+  if (closeBtn) closeBtn.addEventListener("click", closeGlossaryPopover);
+}
+
+function closeGlossaryPopover() {
+  if (els.glossaryPopover) els.glossaryPopover.classList.add("hidden");
+}
+
 function getNewYorkMonth(now = new Date()) {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/New_York",
@@ -446,6 +479,22 @@ function bindEvents() {
   }
   if (els.refreshResearchTasksBtn) els.refreshResearchTasksBtn.addEventListener("click", function () { void refreshResearchTasks(); });
   if (els.refreshEventReviewBtn) els.refreshEventReviewBtn.addEventListener("click", function () { void refreshEventReview(); });
+  // Glossary: clicking any term chip anywhere on the page opens a plain-language card.
+  document.addEventListener("click", function (event) {
+    const chip = event.target.closest ? event.target.closest(".glossary-term") : null;
+    if (chip) {
+      event.preventDefault();
+      event.stopPropagation();
+      openGlossaryPopover(chip);
+      return;
+    }
+    if (els.glossaryPopover && !els.glossaryPopover.classList.contains("hidden") && !event.target.closest(".glossary-popover")) {
+      closeGlossaryPopover();
+    }
+  });
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") closeGlossaryPopover();
+  });
   document.querySelectorAll("[data-event-review-filter]").forEach(function (button) {
     button.addEventListener("click", function () {
       state.eventReview.filter = button.getAttribute("data-event-review-filter") || "needs_attention";
@@ -3094,11 +3143,24 @@ function assembleCalendarBeginnerReadingInput() {
 function renderHomeBeginnerReading() {
   if (!els.beginnerReadingHome) return;
   els.beginnerReadingHome.innerHTML = renderBeginnerReadingMarkup(getBeginnerReadingView(state.beginnerReading.home, "home"));
+  annotateGlossaryInReading(els.beginnerReadingHome);
 }
 
 function renderCalendarBeginnerReading() {
   if (!els.calendarBeginnerReading) return;
   els.calendarBeginnerReading.innerHTML = renderBeginnerReadingMarkup(getBeginnerReadingView(state.beginnerReading.calendar, "day"));
+  annotateGlossaryInReading(els.calendarBeginnerReading);
+}
+
+// Annotate glossary terms inside already-rendered reading paragraphs. Operates on
+// each paragraph's text so we never break existing markup or citation links.
+function annotateGlossaryInReading(container) {
+  if (!container) return;
+  container.querySelectorAll(".beginner-reading-section p").forEach(function (paragraph) {
+    if (paragraph.querySelector(".glossary-term")) return;
+    const annotated = annotateGlossaryTerms(paragraph.textContent, escapeHtml);
+    if (annotated !== escapeHtml(paragraph.textContent)) paragraph.innerHTML = annotated;
+  });
 }
 
 function generateHomeBeginnerReading() {

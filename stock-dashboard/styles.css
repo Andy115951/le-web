@@ -801,6 +801,50 @@ tr.target-hit td:first-child {
   color: var(--sub);
 }
 
+.glossary-term {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: help;
+  border-bottom: 1px dashed rgba(49, 95, 191, 0.55);
+}
+.glossary-term i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  margin-left: 2px;
+  border-radius: 999px;
+  background: #e6eeff;
+  color: #315fbf;
+  font-size: 0.6rem;
+  font-style: normal;
+  font-weight: 800;
+  vertical-align: super;
+}
+.glossary-term:hover { color: #315fbf; }
+.glossary-term:hover i { background: #315fbf; color: #fff; }
+.glossary-popover {
+  position: absolute;
+  z-index: 60;
+  padding: 12px 13px;
+  border: 1px solid rgba(49, 95, 191, 0.2);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 34px rgba(24, 39, 66, 0.16);
+}
+.glossary-popover.hidden { display: none; }
+.glossary-popover-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.glossary-popover-head strong { color: #1e2b45; font-size: 0.92rem; }
+.glossary-close { border: 0; background: transparent; color: #8b96a8; font-size: 1.1rem; line-height: 1; cursor: pointer; padding: 0 2px; }
+.glossary-close:hover { color: #315fbf; }
+.glossary-popover p { margin: 0 0 7px; color: #3a4a63; font-size: 0.78rem; line-height: 1.6; }
+.glossary-popover small { color: #97a3b6; font-size: 0.62rem; }
+
 .detail-overlay {
   position: fixed;
   inset: 0;
