@@ -8,7 +8,7 @@ import {
   getBeginnerReadingView,
   renderBeginnerReadingMarkup
 } from "./lib/beginner-reading.mjs";
-import { GLOSSARY, annotateGlossaryTerms, getGlossaryEntry, getDailyConcept } from "./lib/glossary.mjs";
+import { GLOSSARY, annotateGlossaryTerms, getGlossaryEntry, getDailyConcept, SECTION_INTROS, getSectionIntro } from "./lib/glossary.mjs";
 import {
   loadCloudConfig,
   saveCloudConfig,
@@ -280,6 +280,7 @@ async function init() {
   state.observations = saved.observations || [];
   state.decisionLogs = saved.decisionLogs || [];
   bindEvents();
+  injectSectionIntros();
   renderHomeBeginnerReading();
   renderCalendarBeginnerReading();
   syncCloudConfigInputs(cloudConfig);
@@ -323,6 +324,23 @@ function openGlossaryPopover(chip) {
 
 function closeGlossaryPopover() {
   if (els.glossaryPopover) els.glossaryPopover.classList.add("hidden");
+}
+
+// Insert a one-line "beginner view" intro under the heading of each hardcore
+// research/ops panel, so complex sections become a learning entry point instead
+// of noise. Terms inside the intro are glossary-annotated too.
+function injectSectionIntros() {
+  Object.keys(SECTION_INTROS).forEach(function (sectionId) {
+    const section = document.getElementById(sectionId);
+    if (!section || section.querySelector(".section-intro")) return;
+    const heading = section.querySelector(".section-heading, .overview-head, .replay-heading");
+    if (!heading) return;
+    const intro = document.createElement("p");
+    intro.className = "section-intro";
+    intro.innerHTML = '<span class="section-intro-tag">新手视角</span>'
+      + annotateGlossaryTerms(getSectionIntro(sectionId), escapeHtml);
+    heading.insertAdjacentElement("afterend", intro);
+  });
 }
 
 function getNewYorkMonth(now = new Date()) {

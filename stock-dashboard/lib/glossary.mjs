@@ -79,6 +79,23 @@ export function annotateGlossaryTerms(text, escapeFn) {
   return html;
 }
 
+// Beginner-view intros for the hardcore research/ops panels: one plain-language
+// line explaining what the panel is, how to read it, and what it means for a
+// newcomer. Keyed by section element id.
+export const SECTION_INTROS = {
+  researchReplay: "这里能回看“某一天系统看到的原始材料”——价格、事件、相似日。给你复盘用，不是预测。看不懂可以先跳过。",
+  researchQuality: "这里在统计“研究材料攒了多少、有没有漏”。数字多不代表准，只说明覆盖广。对新手：了解系统在自查即可。",
+  researchTaskBoard: "这里是系统每天自动跑的“任务清单”执行记录（采集、归因、报告等）。用来确认后台在正常干活。新手可当“后台健康灯”看。",
+  eventReviewQueue: "这里是“待人工核对”的归因线索队列——系统猜某新闻和涨跌有关，但还没确认。提醒你：机器的归因只是假设，需要复核。",
+  dailyResearchReports: "这里是每天的“客观事实摘要”（收盘、涨跌、证据数），不含任何预测或买卖建议。适合新手快速了解当天发生了什么。",
+  weeklyResearchReports: "这里把一周的每日事实汇总起来，看整周的轮廓。不足三天会标注“数据有限”，提醒你别过度解读。",
+  modelReview: "这里在检验“用模型预测涨跌到底靠不靠谱”。结论目前是——还不如简单参照，所以我们不拿它做决策。这本身就是一课：预测很难，别轻信。"
+};
+
+export function getSectionIntro(id) {
+  return SECTION_INTROS[id] || null;
+}
+
 export function getGlossaryEntry(key) {
   return GLOSSARY[key] || null;
 }

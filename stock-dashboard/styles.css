@@ -857,6 +857,28 @@ tr.target-hit td:first-child {
 .daily-concept-head b { color: #1e2b45; font-size: 0.92rem; }
 .daily-concept p { margin: 0; color: #3a4a63; font-size: 0.78rem; line-height: 1.6; }
 
+.section-intro {
+  margin: 8px 0 4px;
+  padding: 9px 12px;
+  border-left: 3px solid rgba(49, 95, 191, 0.4);
+  border-radius: 0 8px 8px 0;
+  background: rgba(240, 245, 255, 0.7);
+  color: #47566f;
+  font-size: 0.76rem;
+  line-height: 1.6;
+}
+.section-intro-tag {
+  display: inline-block;
+  margin-right: 7px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #315fbf;
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 800;
+  vertical-align: middle;
+}
+
 .detail-overlay {
   position: fixed;
   inset: 0;
