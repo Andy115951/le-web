@@ -1,13 +1,13 @@
 {
   "diagnosticVersion": "qqq-evaluation-regime-diagnostic-v1",
   "kind": "posthoc_evaluation_interval_diagnostic",
-  "generatedAt": "2026-08-12T11:51:24.748Z",
+  "generatedAt": "2026-08-31T05:36:09.652Z",
   "instrument": "QQQ",
   "splitVersion": "qqq-walk-forward-v1",
   "priceCoverage": {
     "firstDate": "2021-08-12",
-    "lastDate": "2026-08-11",
-    "rowCount": 1254,
+    "lastDate": "2026-08-28",
+    "rowCount": 1267,
     "sources": [
       "Yahoo Finance chart"
     ]
@@ -244,7 +244,7 @@
         "metrics": {
           "observedReturnPercent": 10.772052,
           "maximumDrawdownPercent": -2.939653,
-          "annualizedVolatilityPercent": 11.47371,
+          "annualizedVolatilityPercent": 11.473714,
           "observedTradingDays": 63
         }
       }
@@ -263,7 +263,7 @@
         "metrics": {
           "observedReturnPercent": 3.394534,
           "maximumDrawdownPercent": -7.880208,
-          "annualizedVolatilityPercent": 17.358683,
+          "annualizedVolatilityPercent": 17.358634,
           "observedTradingDays": 63
         }
       }
@@ -281,8 +281,8 @@
         "label": "range_bound",
         "metrics": {
           "observedReturnPercent": -2.436117,
-          "maximumDrawdownPercent": -6.237964,
-          "annualizedVolatilityPercent": 15.913357,
+          "maximumDrawdownPercent": -6.237954,
+          "annualizedVolatilityPercent": 15.913382,
           "observedTradingDays": 63
         }
       }
@@ -310,18 +310,18 @@
       "foldId": "fold-16",
       "evaluation": {
         "startDate": "2026-06-18",
-        "endDate": "2026-07-14",
-        "observationCount": 17
+        "endDate": "2026-07-31",
+        "observationCount": 30
       },
       "status": "available",
       "regime": {
         "ruleVersion": "posthoc-qqq-63d-regime-rules-v1",
-        "label": "range_bound",
+        "label": "stress_drawdown",
         "metrics": {
-          "observedReturnPercent": -0.280838,
-          "maximumDrawdownPercent": -4.499415,
-          "annualizedVolatilityPercent": 27.382549,
-          "observedTradingDays": 17
+          "observedReturnPercent": -4.673144,
+          "maximumDrawdownPercent": -10.553702,
+          "annualizedVolatilityPercent": 25.874586,
+          "observedTradingDays": 30
         }
       }
     }

@@ -1560,7 +1560,7 @@
         "featureMedians": {
           "return_1d_percent": 0.106732,
           "return_5d_percent": 0.515755,
-          "return_20d_percent": 1.696941,
+          "return_20d_percent": 1.696951,
           "gap_percent": 0.067228,
           "trailing_volatility_20d_percent": 18.029415,
           "trailing_drawdown_20d_percent": -4.188462,
@@ -1646,8 +1646,8 @@
       },
       "evaluation": {
         "startDate": "2026-06-18",
-        "endDate": "2026-07-14",
-        "observationCount": 17
+        "endDate": "2026-07-31",
+        "observationCount": 30
       },
       "model": {
         "version": "shallow-probability-tree-v1",
@@ -1695,7 +1695,7 @@
           "left": {
             "type": "split",
             "featureKey": "trailing_volatility_20d_percent",
-            "threshold": 23.789467,
+            "threshold": 23.789465,
             "gain": 0.010768,
             "sampleCount": 1077,
             "left": {
@@ -1733,21 +1733,21 @@
         }
       },
       "metrics": {
-        "sampleCount": 17,
-        "accuracy": 0.823529,
-        "balancedAccuracy": 0.5,
-        "brierScore": 0.246252,
-        "actualUpRate": 0.176471
+        "sampleCount": 30,
+        "accuracy": 0.733333,
+        "balancedAccuracy": 0.75,
+        "brierScore": 0.214756,
+        "actualUpRate": 0.533333
       }
     }
   ],
   "summary": {
     "metrics": {
-      "sampleCount": 962,
-      "accuracy": 0.557173,
-      "balancedAccuracy": 0.476918,
-      "brierScore": 0.267957,
-      "actualUpRate": 0.68711
+      "sampleCount": 975,
+      "accuracy": 0.557949,
+      "balancedAccuracy": 0.476185,
+      "brierScore": 0.266699,
+      "actualUpRate": 0.691282
     },
     "calibrationBins": [
       {
@@ -1770,17 +1770,17 @@
         "index": 2,
         "lowerBound": 0.4,
         "upperBound": 0.6,
-        "sampleCount": 277,
-        "averagePredictedProbability": 0.497546,
-        "observedUpRate": 0.703971
+        "sampleCount": 282,
+        "averagePredictedProbability": 0.497486,
+        "observedUpRate": 0.70922
       },
       {
         "index": 3,
         "lowerBound": 0.6,
         "upperBound": 0.8,
-        "sampleCount": 469,
-        "averagePredictedProbability": 0.721973,
-        "observedUpRate": 0.622601
+        "sampleCount": 477,
+        "averagePredictedProbability": 0.720775,
+        "observedUpRate": 0.628931
       },
       {
         "index": 4,

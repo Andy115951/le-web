@@ -63,6 +63,6 @@ test("committed QQQ baseline report remains bound to the frozen split version", 
   const report = getBaselineEvaluationReport();
   assert.equal(report.splitVersion, "qqq-walk-forward-v1");
   assert.equal(report.folds.length, 16);
-  assert.equal(report.summary.alwaysUp.sampleCount, 962);
+  assert.equal(report.summary.alwaysUp.sampleCount, 975);
   assert.match(report.summary.aggregation, /sample-weighted/);
 });

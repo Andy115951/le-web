@@ -100,6 +100,6 @@ test("committed QQQ logistic report is explicitly research-only and tied to froz
   assert.equal(report.deploymentStatus, "research_only_not_selected");
   assert.equal(report.splitVersion, "qqq-walk-forward-v1");
   assert.equal(report.folds.length, 16);
-  assert.equal(report.summary.metrics.sampleCount, 962);
-  assert.equal(report.summary.calibrationBins.reduce(function (sum, bin) { return sum + bin.sampleCount; }, 0), 962);
+  assert.equal(report.summary.metrics.sampleCount, 975);
+  assert.equal(report.summary.calibrationBins.reduce(function (sum, bin) { return sum + bin.sampleCount; }, 0), 975);
 });

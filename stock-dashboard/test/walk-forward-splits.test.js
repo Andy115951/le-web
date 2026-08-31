@@ -56,5 +56,5 @@ test("committed QQQ evaluation manifest is a valid frozen no-leakage artifact", 
   assert.equal(manifest.horizonTradingDays, 20);
   assert.equal(manifest.splits.length, 16);
   assert.equal(manifest.splits[0].training.startDate, "2021-08-12");
-  assert.equal(manifest.lastMatureOutcomeDate, "2026-07-14");
+  assert.equal(manifest.lastMatureOutcomeDate, "2026-07-31");
 });

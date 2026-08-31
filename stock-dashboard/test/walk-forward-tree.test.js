@@ -39,5 +39,5 @@ test("committed QQQ tree report is research-only and bound to frozen splits", fu
   assert.equal(report.deploymentStatus, "research_only_not_selected");
   assert.equal(report.splitVersion, "qqq-walk-forward-v1");
   assert.equal(report.folds.length, 16);
-  assert.equal(report.summary.metrics.sampleCount, 962);
+  assert.equal(report.summary.metrics.sampleCount, 975);
 });

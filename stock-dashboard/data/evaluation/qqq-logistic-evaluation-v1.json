@@ -969,12 +969,12 @@
           "return_5d_percent": 0.304218,
           "return_20d_percent": 1.192781,
           "gap_percent": 0.030639,
-          "trailing_volatility_20d_percent": 21.001067,
+          "trailing_volatility_20d_percent": 21.001066,
           "trailing_drawdown_20d_percent": -5.245092,
           "volume_ratio_20d_percent": 1.987793
         },
         "featureStandardDeviations": {
-          "return_1d_percent": 1.469343,
+          "return_1d_percent": 1.469342,
           "return_5d_percent": 3.08587,
           "return_20d_percent": 5.951403,
           "gap_percent": 0.85322,
@@ -1040,7 +1040,7 @@
           "return_5d_percent": 0.280541,
           "return_20d_percent": 1.116887,
           "gap_percent": 0.033931,
-          "trailing_volatility_20d_percent": 20.713581,
+          "trailing_volatility_20d_percent": 20.713579,
           "trailing_drawdown_20d_percent": -5.21258,
           "volume_ratio_20d_percent": 2.007898
         },
@@ -1056,11 +1056,11 @@
         "coefficients": {
           "intercept": 0.521767,
           "return_1d_percent": -0.003774,
-          "return_5d_percent": -0.058858,
+          "return_5d_percent": -0.058859,
           "return_20d_percent": 0.041137,
           "gap_percent": 0.013767,
           "trailing_volatility_20d_percent": -0.198696,
-          "trailing_drawdown_20d_percent": 0.041705,
+          "trailing_drawdown_20d_percent": 0.041704,
           "volume_ratio_20d_percent": -0.041321
         },
         "options": {
@@ -1091,8 +1091,8 @@
       },
       "evaluation": {
         "startDate": "2026-06-18",
-        "endDate": "2026-07-14",
-        "observationCount": 17
+        "endDate": "2026-07-31",
+        "observationCount": 30
       },
       "model": {
         "version": "logistic-regression-l2-v1",
@@ -1111,7 +1111,7 @@
           "return_5d_percent": 0.33623,
           "return_20d_percent": 1.262505,
           "gap_percent": 0.032255,
-          "trailing_volatility_20d_percent": 20.576542,
+          "trailing_volatility_20d_percent": 20.576541,
           "trailing_drawdown_20d_percent": -5.156208,
           "volume_ratio_20d_percent": 1.536833
         },
@@ -1130,7 +1130,7 @@
           "return_5d_percent": -0.073331,
           "return_20d_percent": 0.137833,
           "gap_percent": 0.053177,
-          "trailing_volatility_20d_percent": -0.220111,
+          "trailing_volatility_20d_percent": -0.220112,
           "trailing_drawdown_20d_percent": -0.044594,
           "volume_ratio_20d_percent": -0.068709
         },
@@ -1141,21 +1141,21 @@
         }
       },
       "metrics": {
-        "sampleCount": 17,
-        "accuracy": 0.176471,
+        "sampleCount": 30,
+        "accuracy": 0.533333,
         "balancedAccuracy": 0.5,
-        "brierScore": 0.303162,
-        "actualUpRate": 0.176471
+        "brierScore": 0.240114,
+        "actualUpRate": 0.533333
       }
     }
   ],
   "summary": {
     "metrics": {
-      "sampleCount": 962,
-      "accuracy": 0.58316,
-      "balancedAccuracy": 0.472306,
-      "brierScore": 0.253391,
-      "actualUpRate": 0.68711
+      "sampleCount": 975,
+      "accuracy": 0.588718,
+      "balancedAccuracy": 0.474538,
+      "brierScore": 0.252115,
+      "actualUpRate": 0.691282
     },
     "calibrationBins": [
       {
@@ -1178,17 +1178,17 @@
         "index": 2,
         "lowerBound": 0.4,
         "upperBound": 0.6,
-        "sampleCount": 234,
-        "averagePredictedProbability": 0.517723,
-        "observedUpRate": 0.760684
+        "sampleCount": 239,
+        "averagePredictedProbability": 0.519136,
+        "observedUpRate": 0.76569
       },
       {
         "index": 3,
         "lowerBound": 0.6,
         "upperBound": 0.8,
-        "sampleCount": 607,
-        "averagePredictedProbability": 0.671936,
-        "observedUpRate": 0.657331
+        "sampleCount": 615,
+        "averagePredictedProbability": 0.671192,
+        "observedUpRate": 0.661789
       },
       {
         "index": 4,

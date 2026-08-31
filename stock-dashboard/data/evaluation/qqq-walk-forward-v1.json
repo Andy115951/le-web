@@ -8,9 +8,9 @@
   "evaluationDays": 63,
   "stepDays": 63,
   "dataStartDate": "2021-08-12",
-  "dataEndDate": "2026-08-11",
-  "lastMatureOutcomeDate": "2026-07-14",
-  "eligibleObservationCount": 1234,
+  "dataEndDate": "2026-08-28",
+  "lastMatureOutcomeDate": "2026-07-31",
+  "eligibleObservationCount": 1247,
   "splits": [
     {
       "id": "fold-01",
@@ -296,8 +296,8 @@
       },
       "evaluation": {
         "startDate": "2026-06-18",
-        "endDate": "2026-07-14",
-        "observationCount": 17
+        "endDate": "2026-07-31",
+        "observationCount": 30
       }
     }
   ]

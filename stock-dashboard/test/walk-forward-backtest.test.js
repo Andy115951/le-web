@@ -34,6 +34,6 @@ test("committed QQQ backtest report stays research-only and retains no decisions
   const report = getWalkForwardBacktestReport();
   assert.equal(report.deploymentStatus, "research_only_not_selected");
   assert.equal(report.splitVersion, "qqq-walk-forward-v1");
-  assert.equal(report.benchmark.summary.decisionCount, 61);
+  assert.equal(report.benchmark.summary.decisionCount, 62);
   assert.ok(report.candidates.every(function (candidate) { return !("decisions" in candidate.summary); }));
 });

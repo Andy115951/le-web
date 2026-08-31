@@ -922,7 +922,7 @@ GET /api/nasdaq/evaluation-baselines
 - 逐折与总体的 `Accuracy`、`Balanced Accuracy`、`Brier Score`
 - 5 个概率分桶的平均预测概率与实际上涨率，样本不足的分桶必须保留样本数
 
-当前真实 QQQ 报告的 `Brier Score` 为 `0.253391`，没有优于条件动量对照的 `0.248766`，且平衡准确率为 `0.472306`。因此报告固定标记为 `research_only_not_selected`：不能接入当前行情页面、Cron 或 DeepSeek 输入，也不能用于生成投资建议。只有先在预先定义的指标和校准门槛上持续优于对照，才可讨论下一版候选。
+当前真实 QQQ 报告的 `Brier Score` 为 `0.252115`，没有优于条件动量对照的 `0.247701`，且平衡准确率为 `0.474538`。因此报告固定标记为 `research_only_not_selected`：不能接入当前行情页面、Cron 或 DeepSeek 输入，也不能用于生成投资建议。只有先在预先定义的指标和校准门槛上持续优于对照，才可讨论下一版候选。（`2026-08-31` 补齐官方宏观事件维度后重跑：Brier 由 `0.253391` 微降至 `0.252115`、平衡准确率由 `0.472306` 微升至 `0.474538`，样本 962→975；改善远不足晋升门槛，仍不选用。）
 
 重建与查询：
 
@@ -942,7 +942,7 @@ GET /api/nasdaq/evaluation-logistic
 
 第二份候选为 [data/evaluation/qqq-tree-evaluation-v1.json](data/evaluation/qqq-tree-evaluation-v1.json)。它是特意受约束的 CART 风格概率树，而不是自动调参的黑盒：最大深度固定为 `2`，每叶最少 `30` 个训练样本；每个节点只在训练期特征的 10 个分位阈值候选中按 Gini gain 选择；缺失值使用对应训练期中位数；叶节点按训练期基础上涨率做 Laplace 平滑。
 
-每个冻结折都重新拟合树与中位数，验证区数据从不参与分裂、填补或概率计算。报告只保留树结构、训练统计、折级/总体指标和 5 分桶校准结果，不保存逐日预测。真实 QQQ 评估为 `Brier Score 0.267957`、`Balanced Accuracy 0.476918`，均未超过条件动量对照，因此持续标记 `research_only_not_selected`，不得接入页面行情、Cron、DeepSeek 或投资建议。
+每个冻结折都重新拟合树与中位数，验证区数据从不参与分裂、填补或概率计算。报告只保留树结构、训练统计、折级/总体指标和 5 分桶校准结果，不保存逐日预测。真实 QQQ 评估为 `Brier Score 0.266699`、`Balanced Accuracy 0.476185`，均未超过条件动量对照，因此持续标记 `research_only_not_selected`，不得接入页面行情、Cron、DeepSeek 或投资建议。
 
 重建与只读查询：
 

@@ -732,8 +732,8 @@
       },
       "evaluation": {
         "startDate": "2026-06-18",
-        "endDate": "2026-07-14",
-        "observationCount": 17
+        "endDate": "2026-07-31",
+        "observationCount": 30
       },
       "momentumFit": {
         "fallbackProbability": 0.632414,
@@ -750,18 +750,18 @@
       },
       "baselines": {
         "alwaysUp": {
-          "sampleCount": 17,
-          "accuracy": 0.176471,
+          "sampleCount": 30,
+          "accuracy": 0.533333,
           "balancedAccuracy": 0.5,
-          "brierScore": 0.823529,
-          "actualUpRate": 0.176471
+          "brierScore": 0.466667,
+          "actualUpRate": 0.533333
         },
         "conditionalMomentum20d": {
-          "sampleCount": 17,
-          "accuracy": 0.176471,
+          "sampleCount": 30,
+          "accuracy": 0.533333,
           "balancedAccuracy": 0.5,
-          "brierScore": 0.334832,
-          "actualUpRate": 0.176471
+          "brierScore": 0.262923,
+          "actualUpRate": 0.533333
         }
       }
     }
@@ -769,18 +769,18 @@
   "summary": {
     "aggregation": "sample-weighted mean of per-fold metrics; balanced accuracy remains a fold-level diagnostic",
     "alwaysUp": {
-      "sampleCount": 962,
-      "accuracy": 0.68711,
+      "sampleCount": 975,
+      "accuracy": 0.691282,
       "balancedAccuracy": 0.5,
-      "brierScore": 0.31289,
-      "actualUpRate": 0.68711
+      "brierScore": 0.308718,
+      "actualUpRate": 0.691282
     },
     "conditionalMomentum20d": {
-      "sampleCount": 962,
-      "accuracy": 0.608108,
-      "balancedAccuracy": 0.506669,
-      "brierScore": 0.248766,
-      "actualUpRate": 0.68711
+      "sampleCount": 975,
+      "accuracy": 0.613333,
+      "balancedAccuracy": 0.50658,
+      "brierScore": 0.247701,
+      "actualUpRate": 0.691282
     }
   }
 }

@@ -12,13 +12,13 @@
   "benchmark": {
     "key": "alwaysLongQQQ",
     "summary": {
-      "decisionCount": 61,
-      "investedDecisionCount": 61,
+      "decisionCount": 62,
+      "investedDecisionCount": 62,
       "investedRate": 1,
-      "averageReturnPercent": 1.705866,
+      "averageReturnPercent": 1.756696,
       "medianReturnPercent": 1.770522,
-      "positiveReturnRate": 0.704918,
-      "cumulativeReturnPercent": 158.859345,
+      "positiveReturnRate": 0.709677,
+      "cumulativeReturnPercent": 171.433022,
       "maximumDrawdownPercent": -18.822258
     }
   },
@@ -26,39 +26,39 @@
     {
       "key": "conditionalMomentum20d",
       "summary": {
-        "decisionCount": 61,
-        "investedDecisionCount": 47,
-        "investedRate": 0.770492,
-        "averageReturnPercent": 1.47098,
-        "medianReturnPercent": 0.724557,
-        "positiveReturnRate": 0.57377,
-        "cumulativeReturnPercent": 131.725576,
+        "decisionCount": 62,
+        "investedDecisionCount": 48,
+        "investedRate": 0.774194,
+        "averageReturnPercent": 1.525599,
+        "medianReturnPercent": 0.724538,
+        "positiveReturnRate": 0.580645,
+        "cumulativeReturnPercent": 142.981274,
         "maximumDrawdownPercent": -18.822258
       }
     },
     {
       "key": "logisticRegression",
       "summary": {
-        "decisionCount": 61,
-        "investedDecisionCount": 48,
-        "investedRate": 0.786885,
-        "averageReturnPercent": 1.135652,
+        "decisionCount": 62,
+        "investedDecisionCount": 49,
+        "investedRate": 0.790323,
+        "averageReturnPercent": 1.195679,
         "medianReturnPercent": 0.463321,
-        "positiveReturnRate": 0.557377,
-        "cumulativeReturnPercent": 90.35384,
+        "positiveReturnRate": 0.564516,
+        "cumulativeReturnPercent": 99.599973,
         "maximumDrawdownPercent": -18.822258
       }
     },
     {
       "key": "shallowProbabilityTree",
       "summary": {
-        "decisionCount": 61,
+        "decisionCount": 62,
         "investedDecisionCount": 43,
-        "investedRate": 0.704918,
-        "averageReturnPercent": 1.29756,
+        "investedRate": 0.693548,
+        "averageReturnPercent": 1.276632,
         "medianReturnPercent": 0,
-        "positiveReturnRate": 0.491803,
-        "cumulativeReturnPercent": 109.02775,
+        "positiveReturnRate": 0.483871,
+        "cumulativeReturnPercent": 109.027751,
         "maximumDrawdownPercent": -18.822258
       }
     }
