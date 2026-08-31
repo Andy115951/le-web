@@ -770,6 +770,27 @@ npm run narrative:run -- 2026-08-11
 
 命令只打印状态、快照指纹、审计 ID 和校验错误数量，不会输出 Key、请求头或完整上游响应。成功后再次执行应返回 `already_accepted` 而不重复请求模型。若返回 `rejected`，先在 `research_narrative_audits` 排查校验错误，不应手动修改审计记录。
 
+#### 8.2.4.2b 一键受控验证 `narrative:verify`
+
+`narrative:run` 要求快照已归档，且数据出站门控（`DEEPSEEK_RESEARCH_DATA_APPROVED` 等）需手动在 `.env.local` 开关。`narrative:verify` 把整条链路收敛成一条命令，且**门控只存在于该进程内存**——通过临时 `env` 对象传给库，绝不写入 `.env.local` 或导出到全局环境，进程退出即自动关闭：
+
+```bash
+set -a
+. ./.env.local
+set +a
+npm run narrative:verify -- 2026-08-14              # 验证已归档快照
+npm run narrative:verify -- 2026-08-14 --archive    # 先归档一份干净快照再验证
+npm run narrative:verify -- 2026-08-14 --full       # 额外打印标题/复盘/论点/不确定性
+npm run narrative:verify -- 2026-08-14 --bypass-limit  # 仅本地：跳过每日上限与一次性消耗
+```
+
+脚本流程：生成研究包 → 校验三支柱（`marketState` / `events` / 相似日）均非空 → 确认（或用 `--archive` 归档）对应指纹的快照 → 进程内钉住该指纹开启一次性受控出站 → 调用模型 → 打印审计状态。`--bypass-limit` 仅用于本地一次会话内验证多天，绝不能用于共享或生产运行。`.env.local` 仍需提供 `DEEPSEEK_API_KEY` / `DEEPSEEK_MODEL` 且 `DEEPSEEK_RESEARCH_ENABLED=true`。
+
+**已知约束（`2026-08-31` 实测）：**
+
+- `DEEPSEEK_MAX_OUTPUT_TOKENS=900` 在事件多的交易日（如 `2026-08-13` 有 14 事件 + SEC filing）会截断模型响应，返回 `Model response did not finish cleanly`。设为 `1400` 后可写完整。生产环境应确认此值不低于 `1400`。
+- 模型有时把目标日自身（前一交易日）误填进 `candidateMarketDates`，被合约校验以「unknown similar-day candidate」正确拒绝。这是待收敛的 prompt 约束问题，不是脚本缺陷；校验器阻止了错误引用落库。
+
 #### 8.2.4.3 本地绕过速率限制与超时的测试脚本
 
 `scripts/dev-narrative-bypass.js` 用于本地管道调试，不受每日请求配额和生产 fetch 超时限制的约束。它通过两个注入点绕过这两项限制：
