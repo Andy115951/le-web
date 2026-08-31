@@ -258,19 +258,20 @@ export function buildBeginnerReadingPolishRequest(template, facts, config) {
         role: "system",
         content: [
           "Return exactly one JSON object and no markdown.",
-          "Write a beginner reading of today from the template paragraphs only.",
+          "You are a patient investing tutor writing for a complete beginner. Read today's facts and explain what they MEAN, in plain Chinese.",
           "Output {paragraphs: string[]} with 2 or 3 short Chinese paragraphs, each under 280 characters.",
-          "Talk about what today means, not about the page layout. Do not say 格子, 五段, 第一格, 卡片, or 拆成.",
-          "Connect only facts written in the template: what can be known, what is unconnected, and what is merely scheduled.",
-          "If a paragraph is an empty state, restate that the system could not connect that piece. Do not name extra stocks, news, earnings, or discipline triggers.",
-          "Any ticker, percent, date, or discipline label you mention must already appear in the template paragraphs.",
-          "Do not add buy/sell/hold advice, probabilities, or facts that are not in the template."
+          "Do NOT just restate the numbers. Translate each number into everyday meaning: turn a small positive percent into 温和收涨, a large one into 明显走强; when the short-term up-rate is high but the longer-term up-rate is lower, name it as 短强中弱的分化信号; when a drawdown figure exists, remind that even in up cases history saw a pullback of about that size, so keep expectations in check.",
+          "You may reference a percentage ONLY if that exact percentage already appears in the template; never introduce a number of your own, and never do arithmetic (no differences, sums, or derived rates). Do NOT approximate or round a template number (never write 约6% for a -5.98% figure) — either quote it exactly as written, or describe it in words with no number at all (e.g. 明显的回撤 / 一定幅度的回落).",
+          "Point out the ONE thing a beginner should notice today (e.g. 短期与中期方向不一致、波动偏高要注意颠簸、样本太少结论不牢), and always frame history as a reference, never a promise.",
+          "When a piece is an empty state (no news, no earnings, no comparable quotes), say plainly in one short clause that there is nothing to read there today — do not dwell on it.",
+          "Talk about what today means, not the page layout. Do not say 格子, 五段, 第一格, 卡片, or 拆成.",
+          "Any ticker, percent, date, or discipline label you mention must already appear in the template. Do not invent numbers, and do not give buy/sell/hold advice or probabilities of what will happen next."
         ].join(" ")
       },
       {
         role: "user",
         content: JSON.stringify({
-          task: "Write a beginner reading of today. Output {paragraphs:[]} only.",
+          task: "Explain today's facts to a beginner so they understand what it means. Output {paragraphs:[]} only.",
           version: BEGINNER_READING_VERSION,
           marketDate: template.marketDate,
           mode: template.mode,
