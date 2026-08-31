@@ -789,7 +789,8 @@ npm run narrative:verify -- 2026-08-14 --bypass-limit  # 仅本地：跳过每�
 **已知约束（`2026-08-31` 实测）：**
 
 - `DEEPSEEK_MAX_OUTPUT_TOKENS` 过小（旧默认 `900`）在事件多的交易日（如 `2026-08-13` 有 14 事件 + SEC filing）会截断模型响应，返回 `Model response did not finish cleanly`。`2026-08-31` 已把库默认值提到硬上限 `1400`（漏配时也用满血），并把 Vercel Production 显式设为 `1400`；本机 `.env.local` 同步为 `1400`。该值仅在收盘 Cron 运行时读取，无需重新部署即生效。
-- 模型有时把目标日自身（前一交易日）误填进 `candidateMarketDates`，被合约校验以「unknown similar-day candidate」正确拒绝。这是待收敛的 prompt 约束问题，不是脚本缺陷；校验器阻止了错误引用落库。
+- 模型早期会把目标日自身误填进 `candidateMarketDates`，被合约校验以「unknown similar-day candidate」拒绝。`2026-08-31` 已在 prompt 收敛此约束（字段说明改为「historical similar-day date; never the target date」并加一条 prohibited）；`2026-08-11` 实测模型改为正确引用 5 个真实历史相似日。收敛仅微增 prompt token，不加长冗余文字——事件多的交易日（如 `2026-08-13` 有 14 事件）叙述本就逼近 `1400` token 上限，堆砌 prompt 会挤占输出导致截断。
+- 仍待收敛：纯数据类 claim（QQQ 收盘价来自 `marketState`、NDX 权重来自 `ndxSnapshot`）没有可引用的 `eventKey`，会被「requires at least one citation」拒绝。属合约可引证据范围问题，非模型幻觉。
 
 #### 8.2.4.3 本地绕过速率限制与超时的测试脚本
 

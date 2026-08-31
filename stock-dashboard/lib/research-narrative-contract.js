@@ -171,7 +171,7 @@ function buildResearchNarrativeInstructions(packet) {
       marketDate: packet?.asOf?.marketDate || null,
       title: "string (max 100 chars)",
       recap: "string (max 900 chars)",
-      claims: [{ id: "lowercase-id", text: "string (max 420 chars)", citations: { eventKeys: ["known event key"], sourceUrls: ["source URL for cited event"], candidateMarketDates: ["known historical candidate date"] } }],
+      claims: [{ id: "lowercase-id", text: "string (max 420 chars)", citations: { eventKeys: ["known event key"], sourceUrls: ["source URL for cited event"], candidateMarketDates: ["historical similar-day date; never the target date"] } }],
       uncertainties: ["string"]
     },
     allowedEvidence: {
@@ -182,7 +182,8 @@ function buildResearchNarrativeInstructions(packet) {
       "Investment instructions or target prices",
       "Forecast probabilities or claims of certainty",
       "Facts without a permitted citation",
-      "Changing or inferring values absent from the input packet"
+      "Changing or inferring values absent from the input packet",
+      "Citing the target date as a similar-day candidate"
     ]
   };
 }
