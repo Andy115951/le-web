@@ -8,7 +8,7 @@ import {
   getBeginnerReadingView,
   renderBeginnerReadingMarkup
 } from "./lib/beginner-reading.mjs";
-import { GLOSSARY, annotateGlossaryTerms, getGlossaryEntry } from "./lib/glossary.mjs";
+import { GLOSSARY, annotateGlossaryTerms, getGlossaryEntry, getDailyConcept } from "./lib/glossary.mjs";
 import {
   loadCloudConfig,
   saveCloudConfig,
@@ -3143,7 +3143,25 @@ function assembleCalendarBeginnerReadingInput() {
 function renderHomeBeginnerReading() {
   if (!els.beginnerReadingHome) return;
   els.beginnerReadingHome.innerHTML = renderBeginnerReadingMarkup(getBeginnerReadingView(state.beginnerReading.home, "home"));
+  injectDailyConcept(els.beginnerReadingHome);
   annotateGlossaryInReading(els.beginnerReadingHome);
+}
+
+// Insert a small "concept of the day" card into the guided-reading panel so a
+// beginner learns one term daily even without generating the market reading.
+function injectDailyConcept(container) {
+  if (!container || container.querySelector(".daily-concept")) return;
+  const concept = getDailyConcept(getNewYorkDate());
+  if (!concept) return;
+  const anchor = container.querySelector(".beginner-reading-actions") || container.querySelector(".beginner-reading-hint");
+  if (!anchor) return;
+  const card = document.createElement("div");
+  card.className = "daily-concept";
+  card.innerHTML = [
+    '<div class="daily-concept-head"><span>📚 每日一课</span><b>' + escapeHtml(concept.title) + "</b></div>",
+    "<p>" + escapeHtml(concept.body) + "</p>"
+  ].join("");
+  anchor.insertAdjacentElement("afterend", card);
 }
 
 function renderCalendarBeginnerReading() {

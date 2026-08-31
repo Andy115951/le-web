@@ -845,6 +845,18 @@ tr.target-hit td:first-child {
 .glossary-popover p { margin: 0 0 7px; color: #3a4a63; font-size: 0.78rem; line-height: 1.6; }
 .glossary-popover small { color: #97a3b6; font-size: 0.62rem; }
 
+.daily-concept {
+  margin: 12px 0 4px;
+  padding: 12px 14px;
+  border: 1px solid rgba(49, 95, 191, 0.16);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f5f8ff, #fbfcff);
+}
+.daily-concept-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.daily-concept-head span { color: #6b7fa8; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.02em; }
+.daily-concept-head b { color: #1e2b45; font-size: 0.92rem; }
+.daily-concept p { margin: 0; color: #3a4a63; font-size: 0.78rem; line-height: 1.6; }
+
 .detail-overlay {
   position: fixed;
   inset: 0;

@@ -82,3 +82,15 @@ export function annotateGlossaryTerms(text, escapeFn) {
 export function getGlossaryEntry(key) {
   return GLOSSARY[key] || null;
 }
+
+// Pick a "concept of the day" deterministically from the date string (YYYY-MM-DD),
+// so everyone sees the same term on the same day and it rotates daily.
+export function getDailyConcept(dateStr) {
+  const keys = Object.keys(GLOSSARY);
+  if (!keys.length) return null;
+  const digits = String(dateStr || "").replace(/\D/g, "");
+  let seed = 0;
+  for (let i = 0; i < digits.length; i += 1) seed = (seed * 31 + Number(digits[i])) % 100000;
+  const key = keys[seed % keys.length];
+  return { key, ...GLOSSARY[key] };
+}
