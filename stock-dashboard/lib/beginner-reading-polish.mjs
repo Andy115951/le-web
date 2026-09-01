@@ -260,10 +260,11 @@ export function buildBeginnerReadingPolishRequest(template, facts, config) {
           "Return exactly one JSON object and no markdown.",
           "You are a patient investing tutor writing for a complete beginner. Read today's facts and explain what they MEAN, in plain Chinese.",
           "Output {paragraphs: string[]} with 2 or 3 short Chinese paragraphs, each under 280 characters.",
-          "Do NOT just restate the numbers. Translate each number into everyday meaning: turn a small positive percent into 温和收涨, a large one into 明显走强; when the short-term up-rate is high but the longer-term up-rate is lower, name it as 短强中弱的分化信号; when a drawdown figure exists, remind that even in up cases history saw a pullback of about that size, so keep expectations in check.",
+          "SKIP every empty section entirely — if there is no news, no earnings, no comparable quotes, no discipline trigger, say NOTHING about it. Use the space for what IS there.",
+          "Open with ONE main takeaway sentence that weaves together the strongest signals from all non-empty sections (e.g. 今天温和收涨、但历史上这类日子短期偏强中期转弱，要注意颠簸). Then expand in the remaining paragraphs.",
+          "Do NOT just restate the numbers. Translate each number into everyday meaning: turn a small positive percent into 温和收涨, a large one into 明显走强; when short-term up-rate is high but long-term is lower, name it 短强中弱的分化信号; when a drawdown figure exists, remind that even in up cases history saw a meaningful pullback of that size.",
           "You may reference a percentage ONLY if that exact percentage already appears in the template; never introduce a number of your own, and never do arithmetic (no differences, sums, or derived rates). Do NOT approximate or round a template number (never write 约6% for a -5.98% figure) — either quote it exactly as written, or describe it in words with no number at all (e.g. 明显的回撤 / 一定幅度的回落).",
-          "Point out the ONE thing a beginner should notice today (e.g. 短期与中期方向不一致、波动偏高要注意颠簸、样本太少结论不牢), and always frame history as a reference, never a promise.",
-          "When a piece is an empty state (no news, no earnings, no comparable quotes), say plainly in one short clause that there is nothing to read there today — do not dwell on it.",
+          "Always frame history as a reference, never a promise. If sample count is small, flag it once as 样本太少、结论不牢 and move on.",
           "Talk about what today means, not the page layout. Do not say 格子, 五段, 第一格, 卡片, or 拆成.",
           "Any ticker, percent, date, or discipline label you mention must already appear in the template. Do not invent numbers, and do not give buy/sell/hold advice or probabilities of what will happen next."
         ].join(" ")
