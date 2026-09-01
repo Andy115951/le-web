@@ -46,6 +46,23 @@ const EMPTY = {
   intraday: "这是盘中对照，收盘后才会有完整日历和研究包；不把盘中价说成收盘事实。"
 };
 
+// Empty-state lines that are pure noise for a beginner (nothing to act on, no
+// insight). A section whose ONLY content is one of these is hidden from the
+// rendered reading — but still kept in the template data the AI reads.
+const NOISE_ONLY_EMPTY = new Set([
+  EMPTY.noBenchmarkLeaders,
+  EMPTY.noLeaders,
+  EMPTY.noNews,
+  EMPTY.noEarnings,
+  EMPTY.noLinkedCause
+]);
+
+export function isNoiseOnlySection(sectionItem) {
+  const paragraphs = Array.isArray(sectionItem?.paragraphs) ? sectionItem.paragraphs : [];
+  if (!paragraphs.length) return true;
+  return paragraphs.every(function (paragraph) { return NOISE_ONLY_EMPTY.has(String(paragraph || "").trim()); });
+}
+
 export const BANNED_BEGINNER_READING_PATTERNS = [
   /\b(buy|sell|long|short|overweight|underweight)\b/i,
   /买入|卖出|加仓|减仓|建仓|清仓|止盈|止损|目标价|价格目标|投资建议|荐股|必涨|必跌/,
@@ -403,7 +420,9 @@ export function renderBeginnerReadingMarkup(view) {
   }
   let body = "";
   if (source.hasBody) {
-    body = '<div class="beginner-reading-sections">' + source.sections.map(function (item) {
+    body = '<div class="beginner-reading-sections">' + source.sections.filter(function (item) {
+      return !isNoiseOnlySection(item);
+    }).map(function (item) {
       return [
         '<section class="beginner-reading-section" data-beginner-reading-section="' + escapeHtml(item.id) + '">',
         "<h3>" + escapeHtml(item.title) + "</h3>",
