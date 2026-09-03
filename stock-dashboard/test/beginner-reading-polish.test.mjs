@@ -70,6 +70,16 @@ test("interpretation validation accepts teaching paragraphs and rejects invented
   assert.equal(invalid.errors.includes("paragraph_count"), true);
   assert.equal(invalid.errors.includes("invented_percent"), true);
   assert.equal(invalid.errors.includes("prohibited_language"), true);
+
+  const unsupportedOutlook = validateBeginnerReadingInterpretation(template, {
+    paragraphs: [
+      "市场短强中弱，接下来仍可能震荡。",
+      "建议保持谨慎，等待更清晰的方向。"
+    ]
+  }, facts);
+  assert.equal(unsupportedOutlook.valid, false);
+  assert.equal(unsupportedOutlook.errors.includes("forward_looking_claim"), true);
+  assert.equal(unsupportedOutlook.errors.includes("actionable_advice"), true);
 });
 
 test("interpretation cannot tour the five boxes or name tickers missing from the template", function () {
@@ -99,13 +109,14 @@ test("interpretation cannot tour the five boxes or name tickers missing from the
   assert.equal(layout.errors.includes("unknown_ticker"), true);
   assert.equal(layout.errors.includes("invented_discipline"), true);
 
-  const grounded = validateBeginnerReadingInterpretation(emptyTape, {
+  const hiddenEmptyState = validateBeginnerReadingInterpretation(emptyTape, {
     paragraphs: [
       "今天没有纳指基准，所以没法判断大盘，也没法对照权重股相对 QQQ 的偏离。",
       "公开资讯、历史样本和个人纪律都还连不上，不能把空状态补成故事。"
     ]
   }, facts);
-  assert.equal(grounded.valid, true);
+  assert.equal(hiddenEmptyState.valid, false);
+  assert.equal(hiddenEmptyState.errors.includes("hidden_empty_state"), true);
 });
 
 test("disabled polish does not call a model", async function () {
@@ -214,4 +225,35 @@ test("interpretation request sends the template and not raw page facts", async f
   assert.equal(user.facts, undefined);
   assert.equal(Array.isArray(user.sections), true);
   assert.equal(JSON.stringify(user).includes("shares"), false);
+});
+
+test("interpretation request omits noise-only empty sections", async function () {
+  let sent = null;
+  const result = await runBeginnerReadingPolish({
+    marketDate: "2026-08-24",
+    mode: "intraday",
+    qqqChangePercent: null,
+    components: [{ symbol: "META", changePercent: -1, relativeToQqq: -1, driverType: "unclear" }],
+    news: [],
+    earnings: [],
+    scenario: { status: "awaiting_target" },
+    observations: []
+  }, {
+    env: enabledEnv(),
+    skipDailyLimit: true,
+    now: new Date(generatedAt),
+    requestModel: async function (payload) {
+      sent = payload;
+      return { choices: [{ finish_reason: "stop", message: { content: JSON.stringify({
+        paragraphs: [
+          "盘中没有纳指基准，不能把盘中价当成收盘结论。",
+          "历史样本还不够，今天也没有触发你设置的纪律。"
+        ]
+      }) } }] };
+    }
+  });
+  const user = JSON.parse(sent.messages[1].content);
+  assert.equal(result.status, "accepted");
+  assert.equal(user.sections.some(function (section) { return section.id === "leaders"; }), false);
+  assert.equal(user.sections.some(function (section) { return section.id === "news_calendar"; }), false);
 });

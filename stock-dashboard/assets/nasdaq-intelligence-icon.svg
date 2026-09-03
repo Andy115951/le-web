@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Nasdaq 100 Intelligence</title>
+  <desc id="desc">Blue market chart inside a rounded square</desc>
+  <defs>
+    <linearGradient id="background" x1="64" y1="48" x2="456" y2="472" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2858c8"/>
+      <stop offset="1" stop-color="#10274f"/>
+    </linearGradient>
+    <linearGradient id="line" x1="108" y1="361" x2="421" y2="145" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#76f0bd"/>
+      <stop offset="1" stop-color="#ffffff"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#background)"/>
+  <rect x="64" y="64" width="384" height="384" rx="72" fill="#081a36" fill-opacity=".42" stroke="#a8c7ff" stroke-opacity=".28" stroke-width="8"/>
+  <path d="M119 352h274M119 280h274M119 208h274" stroke="#b9ccec" stroke-opacity=".22" stroke-width="12" stroke-linecap="round"/>
+  <path d="M114 360l90-79 70 40 123-144" fill="none" stroke="url(#line)" stroke-width="25" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M356 177h41v41" fill="none" stroke="#ffffff" stroke-width="25" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="114" cy="360" r="14" fill="#76f0bd"/>
+  <circle cx="204" cy="281" r="14" fill="#76f0bd"/>
+  <circle cx="274" cy="321" r="14" fill="#76f0bd"/>
+  <circle cx="397" cy="177" r="14" fill="#fff"/>
+</svg>

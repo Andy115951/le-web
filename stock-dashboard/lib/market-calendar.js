@@ -1,5 +1,6 @@
 const { getNdxConstituentChangeSummary, getNdxSnapshot } = require("./ndx-snapshots");
 const { getEarningsEvents } = require("./earnings-calendar");
+const { isKnownNyseFullClosure } = require("./nyse-trading-calendar");
 const { getSupabaseConfig, requestSupabase } = require("./supabase-server");
 const { getUnifiedMarketEventsRange } = require("./unified-market-events");
 
@@ -123,6 +124,7 @@ function buildCalendarDays(options) {
     if (price) status = "trading";
     else if (date > options.today) status = "upcoming";
     else if (weekday === 0 || weekday === 6) status = "weekend";
+    else if (isKnownNyseFullClosure(date)) status = "market-holiday";
     const trailingPrices = observedPrices.filter(function (row) { return row.market_date <= date; })
       .map(function (row) { return Number(row.adjusted_close ?? row.close); })
       .filter(function (value) { return Number.isFinite(value) && value > 0; });

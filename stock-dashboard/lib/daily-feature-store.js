@@ -2,6 +2,7 @@ const { normalizeSymbol } = require("./historical-market-data");
 const { buildDailyMarketFeatures } = require("./daily-market-features");
 const { getStoredDailyPrices, normalizeHistoryLimit } = require("./price-history-store");
 const { getUnifiedMarketEventsRange } = require("./unified-market-events");
+const { getReportedEarningsFeatureEvents } = require("./earnings-calendar");
 const { getSupabaseConfig, requestSupabase } = require("./supabase-server");
 
 function normalizeFeatureDate(value) {
@@ -13,9 +14,9 @@ function normalizeFeatureDate(value) {
   return date;
 }
 
-async function upsertFeatures(config, rows) {
+async function upsertFeatures(config, rows, client = requestSupabase) {
   for (let index = 0; index < rows.length; index += 250) {
-    await requestSupabase(config, "/rest/v1/daily_market_features?on_conflict=instrument_id,market_date,feature_version", {
+    await client(config, "/rest/v1/daily_market_features?on_conflict=instrument_id,market_date,feature_version", {
       method: "POST",
       headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
       body: rows.slice(index, index + 250)
@@ -23,20 +24,26 @@ async function upsertFeatures(config, rows) {
   }
 }
 
-async function rebuildDailyFeatures(symbol) {
+async function rebuildDailyFeatures(symbol, dependencies = {}) {
   const normalizedSymbol = normalizeSymbol(symbol || "QQQ");
-  const config = getSupabaseConfig();
-  const history = await getStoredDailyPrices(normalizedSymbol, 2600);
+  const config = (dependencies.getSupabaseConfig || getSupabaseConfig)();
+  const loadPrices = dependencies.getStoredDailyPrices || getStoredDailyPrices;
+  const loadUnifiedEvents = dependencies.getUnifiedMarketEventsRange || getUnifiedMarketEventsRange;
+  const loadReportedEarnings = dependencies.getReportedEarningsFeatureEvents || getReportedEarningsFeatureEvents;
+  const persistFeatures = dependencies.upsertFeatures || upsertFeatures;
+  const now = dependencies.now || new Date();
+  const history = await loadPrices(normalizedSymbol, 2600);
   if (!history.prices.length) throw new Error("No stored daily prices for " + normalizedSymbol);
   const firstDate = history.prices[0].market_date;
   const lastDate = history.prices.at(-1).market_date;
-  const [events, computedAt] = await Promise.all([
-    getUnifiedMarketEventsRange(firstDate, lastDate, { includeRelations: false }),
-    Promise.resolve(new Date().toISOString())
+  const [events, reportedEarnings, computedAt] = await Promise.all([
+    loadUnifiedEvents(firstDate, lastDate, { includeRelations: false }),
+    loadReportedEarnings({ startDate: firstDate, endDate: lastDate }),
+    Promise.resolve(now.toISOString())
   ]);
-  const features = buildDailyMarketFeatures({ prices: history.prices, events, computedAt });
+  const features = buildDailyMarketFeatures({ prices: history.prices, events: events.concat(reportedEarnings), computedAt });
 
-  await upsertFeatures(config, features.map(function (feature) {
+  await persistFeatures(config, features.map(function (feature) {
     return {
       instrument_id: history.instrument.id,
       market_date: feature.marketDate,
@@ -69,7 +76,8 @@ async function rebuildDailyFeatures(symbol) {
     firstDate,
     lastDate,
     featureVersion: features[0].featureVersion,
-    knownEventDays: features.filter(function (feature) { return feature.availableEventCount > 0; }).length
+    knownEventDays: features.filter(function (feature) { return feature.availableEventCount > 0; }).length,
+    reportedEarningsFeatureEvents: reportedEarnings.length
   };
 }
 
@@ -102,4 +110,4 @@ async function getStoredDailyFeatures(symbol, limit, date) {
   return { instrument, features: (Array.isArray(rows) ? rows : []).reverse() };
 }
 
-module.exports = { getStoredDailyFeatures, normalizeFeatureDate, rebuildDailyFeatures };
+module.exports = { getStoredDailyFeatures, normalizeFeatureDate, rebuildDailyFeatures, upsertFeatures };

@@ -1,0 +1,23 @@
+export const APP_SHELL = [
+  "./",
+  "./index.html",
+  "./styles.css",
+  "./app.js",
+  "./storage.js",
+  "./quotes.js",
+  "./chart.js",
+  "./cloud.js",
+  "./personal-observations.mjs",
+  "./decision-logs.mjs",
+  "./decision-review.mjs",
+  "./pwa-install.mjs",
+  "./pwa-cache-policy.mjs",
+  "./pwa-app-shell.mjs",
+  "./lib/beginner-reading.mjs",
+  "./lib/calendar-similarity-display.mjs",
+  "./lib/earnings-display.mjs",
+  "./lib/glossary.mjs",
+  "./lib/similar-display.mjs",
+  "./assets/nasdaq-intelligence-icon.svg",
+  "./manifest.webmanifest"
+];

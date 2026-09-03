@@ -3,7 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1f4bb6" />
   <title>Nasdaq 100 Intelligence</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" href="./assets/nasdaq-intelligence-icon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="./assets/nasdaq-intelligence-icon-180.png" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -23,6 +27,7 @@
           <span class="muted">最后更新</span>
           <strong id="lastUpdated">--</strong>
         </div>
+        <button type="button" class="btn btn-ghost pwa-install-btn" id="installAppBtn" hidden>安装应用</button>
         <button type="button" class="btn btn-ghost" id="toggleCloudBtn">设置</button>
         <button type="button" class="btn btn-primary" id="refreshBtn">刷新行情</button>
       </div>
@@ -230,6 +235,7 @@
         </div>
         <p class="muted" id="decisionLogHint">记录你在某标的上的实际决定与理由，之后可补录结果复盘；系统不生成买卖建议。</p>
       </div>
+      <div id="decisionReviewBody" aria-live="polite"></div>
       <form id="decisionLogForm" class="decision-log-form">
         <div class="field">
           <label for="decisionSymbolInput">标的</label>
@@ -276,7 +282,13 @@
           <p class="eyebrow">OFFICIAL EARNINGS CALENDAR</p>
           <h2>近期官方财报</h2>
         </div>
-        <p class="muted" id="upcomingEarningsHint">仅显示已人工核对并归档的公司 IR 事项，不构成业绩预测或交易建议。</p>
+        <div class="earnings-heading-actions">
+          <div class="earnings-mode-tabs" id="upcomingEarningsModes" role="group" aria-label="财报时间范围">
+            <button type="button" class="is-active" data-earnings-mode="upcoming" aria-pressed="true">即将公布</button>
+            <button type="button" data-earnings-mode="reported" aria-pressed="false">最近已公布</button>
+          </div>
+          <p class="muted" id="upcomingEarningsHint">仅显示已人工核对并归档的官方公司事项，不构成业绩预测或交易建议。</p>
+        </div>
       </div>
       <div class="upcoming-earnings-list" id="upcomingEarningsBody" aria-live="polite"></div>
     </section>

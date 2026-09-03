@@ -4,6 +4,7 @@ const {
   collectSymbols,
   buildSafeCaptureDetails,
   determineRunStatus,
+  getRecentCaptureRuns,
   normalizeHistoryDays,
   normalizeCaptureOptions,
   normalizeCaptureRunId,
@@ -98,6 +99,29 @@ test("capture run ids only accept UUIDs for protected single-run diagnostics", f
   assert.equal(normalizeCaptureRunId("7ca68fea-797e-46c9-9ee2-34b503dfceb1"), "7ca68fea-797e-46c9-9ee2-34b503dfceb1");
   assert.equal(normalizeCaptureRunId("not-a-run-id"), null);
   assert.equal(normalizeCaptureRunId("7ca68fea-797e-46c9-9ee2-34b503dfceb1&details=*"), null);
+});
+
+test("capture run reads accept an injected server client and retain bounded query filters", async function () {
+  const paths = [];
+  const runs = await getRecentCaptureRuns({ limit: 2, runId: "7ca68fea-797e-46c9-9ee2-34b503dfceb1" }, { url: "https://example.invalid" }, async function (_config, path) {
+    paths.push(path);
+    return [{ id: "run-1" }];
+  });
+  assert.deepEqual(runs, [{ id: "run-1" }]);
+  assert.match(paths[0], /id=eq\.7ca68fea-797e-46c9-9ee2-34b503dfceb1/);
+  assert.match(paths[0], /limit=2/);
+  assert.equal(paths[0].includes("example.invalid"), false);
+});
+
+test("capture summary reads use a minimal column set without diagnostics", async function () {
+  const paths = [];
+  await getRecentCaptureRuns({ limit: 1, safeSummary: true }, { url: "https://example.invalid" }, async function (_config, path) {
+    paths.push(path);
+    return [];
+  });
+  assert.equal(paths.length, 1);
+  assert.match(paths[0], /select=status,market_date,finished_at,details/);
+  assert.doesNotMatch(paths[0], /error_message|source_users|processed_users|failed_users/);
 });
 
 test("determineRunStatus distinguishes complete and partial failures", function () {

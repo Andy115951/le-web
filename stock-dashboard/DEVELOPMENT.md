@@ -2,6 +2,28 @@
 
 本文档面向本地开发、Supabase 初始化、Vercel 部署和每日行情历史任务维护。产品功能与进度概览见 [README.md](README.md)，完整产品路线图见 [ROADMAP.md](ROADMAP.md)，数据库完整 SQL 见 [SUPABASE_SETUP.md](SUPABASE_SETUP.md)，新人关联解读（手动触发、不走模型出站）规格见 [docs/beginner-reading.md](docs/beginner-reading.md)。该解读不是采集或 Cron 的一部分：页面加载和行情刷新都不得自动生成正文。
 
+## 当前本地未发布批次（2026-09-02）
+
+这一批改动仍只在本地工作区，**尚未提交、推送、部署或写入 Supabase**。跨设备继续前先运行：
+
+```bash
+cd stock-dashboard
+npm test
+git status --short
+```
+
+已完成并经过本地 `262/262` 测试验证的重点：
+
+- 研究覆盖面板：显示最近收盘输入的最小安全状态、派生数据新鲜度、财报就绪度和 NDX 官方 HTTPS 来源链接
+- 派生数据维护：`npm run research:rebuild-derived` 默认只预览；只有显式附加 `-- --approve` 才会按特征、标签、相似日顺序写入数据库
+- 财报边界：特征查询与转换都只接受 `reported` 且带精确官方发布时间的事项；候选文件没有自动导入
+- 决策日志同步：删除使用仅含 ID 与时间的 tombstone，离线设备重新联网后会在需要时回写云端，且不会复活已删记录
+- PWA：离线壳仅缓存成功 HTML 与静态模块，自动检查 `app.js` 的本地静态依赖是否包含在 `pwa-app-shell.mjs`；接口、认证与个人数据不缓存
+- 相似日可解释性：页面展示实际可用的动量、风险、成交活跃度和已知事件匹配分数，缺失维度不显示为 0
+- 维护下一步提示：覆盖面板把可观测的失败、滞后和人工审核积压映射为只读的安全核对项，不从网页写库
+
+本批次的外部数据边界：不得在未确认前运行带 `--approve` 的派生重建或财报导入；NDX 新快照仍需有完整的 Nasdaq 官方来源与人工差异审核。部署前必须重新运行 `npm test`，并在需要线上验证时使用只读接口；不要把本节写成已上线状态。
+
 ## 当前环境状态（2026-08-24）
 
 当前 Windows 开发机已经完成：
@@ -17,7 +39,7 @@
   - `FRED_API_KEY`：采集验证通过，12 条宏观观测写入成功
   - `SEC_USER_AGENT`：采集验证通过，3 条 filings 写入成功
 - Vercel 生产环境已补充 `FRED_API_KEY` 和 `SEC_USER_AGENT`，已重新部署
-- 测试 198/198 全绿，代码零 npm 依赖，无需 `npm install`
+- 测试 262/262 全绿，代码零 npm 依赖，无需 `npm install`
 - 服务端归档代码已迁移到新版 `SUPABASE_SECRET_KEY`
 
 当前 Mac 开发机已经完成：
@@ -37,9 +59,9 @@
 
 - [ ] 当前网络没有公网 IPv6，`supabase db push --linked` 无法直连数据库；Schema 已通过 `supabase db query --linked --file` 应用，但仍需在具备 IPv6 或 Pooler 数据库密码时登记 migration 历史
 - [x] 公共 `nasdaq_market_event_history` 已建表并完成 14 个核心标的真实写入
-- [x] `daily_market_features` 已通过 Management API 应用并完成 1,254 行 QQQ 回填
+- [x] `daily_market_features` 已通过 Management API 应用；首次远程回填曾验证 1,254 行 QQQ 数据，实时覆盖以研究面板新鲜度为准
 - [x] `2026-08-31` 修复特征的事件归属：FRED 宏观观测按日历日发布（含周末/假日），此前严格按 `market_date` 分组导致周末发布的观测落在无特征行的日期而丢失。改为按可用时点归属到「上一交易日收盘 < available_at ≤ 本交易日收盘」窗口的第一个交易日；泄漏防护不变。重建后 `knownEventDays` 由 4 增至 14，周日 `2026-08-16` 的 12 条 FRED 观测正确归入周一 `2026-08-17` 特征（`fred_macro_observation:12`）
-- [x] `similar_day_matches` 已通过 Management API 应用并完成 5,848 条 QQQ 相似日回填
+- [x] `similar_day_matches` 已通过 Management API 应用；首次远程回填曾验证 5,848 条 QQQ 相似日，实时覆盖以研究面板新鲜度为准
 - [x] `ndx_constituent_changes` 已通过 Management API 应用；首份快照没有前序版本，因此当前尚无变更行
 - [ ] NDX 全量官方快照仍是 `2026-05-01`（来源 `https://www.nasdaq.com/docs/2026/05/04/NDX.pdf`）。`2026-08-24` 探测 `nasdaq.com/docs/2026/06–08/*/NDX.pdf` 与 `business.nasdaq.com/Docs/NDX.pdf` 均重定向到同一份 5 月 PDF；公开 Fact Sheet `FS_NDX.pdf` 日期为 `2026-06-30` 但只有权重前 10，不足 100–110 只，不能当候选导入。完整名单仍需 Nasdaq 官方全量权重 PDF 或登录后的 Weighting 表
 - [x] SEC EDGAR filings 采集器、统一事件写入和离线测试已实现；生产已配置合规 `SEC_USER_AGENT`，Windows 本机验证写入 3 条 filings
@@ -58,12 +80,18 @@
 - [x] Cron 诊断接口脱敏：只返回状态、计数和公共观察宇宙失败摘要，不返回用户 ID、个人标的、原始异常或内部运行详情
 - [x] 公共行情 Collector 已拆出独立模块，瞬时网络失败最多重试一次；可用受保护 `runId` 单条摘要关联具体运行，不重试个人自选写入或触发模型
 - [x] Nasdaq 核心行情/新闻入口已与个人自选解耦，无登录也可运行
-- [x] NDX 成分变更只读查询已接入动态日历：`GET /api/nasdaq/constituent-changes` 与单日详情只读取审核后快照及追加式变更行；首份快照不会被误写为“无变更”
-- [x] 财报日历基础层：`earnings_events` migration、官方 IR 候选校验/显式导入、`GET /api/nasdaq/earnings` 和动态日历展示已实现；首条 NVIDIA FY2027 Q2 官方候选已归档，预定事项不进入涨跌归因
-- [x] 决策日志：`decision-logs.mjs` 纯函数模块（校验/归一/last-write-wins 合并/补录结果）、`watchlist_states.decision_logs` 加性列与 RLS 继承、`storage.js`/`cloud.js`/`app.js` 三层接线（含旧库列缺失降级）、看板面板与观察记录一键起草已实现；只记录用户已做的决定与理由，不生成买卖建议
+- [x] NDX 成分变更只读查询已接入动态日历：`GET /api/nasdaq/constituent-changes` 与单日详情只读取审核后快照及追加式变更行；首份快照不会被误写为“无变更”。研究覆盖面板还会保守显示该快照的 HTTPS 官方来源链接，便于复核滞后状态，但不提供自动替换入口
+- [x] 财报日历基础层：`earnings_events` migration、官方 IR 候选校验/显式导入、`GET /api/nasdaq/earnings` 和动态日历展示已实现；特征重建在查询层和转换层均固定只接收 `reported` 事项，且只有存在精确官方 `sourcePublishedAt` 时才会进入日度特征，采集时间绝不用于历史回填。首条 NVIDIA FY2027 Q2 官方候选已归档，预定事项不进入涨跌归因。另有 AAPL / META / TSLA / MSFT / AMZN 的 2026 Q2/FY 官方 IR 本地候选待显式导入，尚未写入生产
+- [x] 财报数据边界可观测：研究覆盖面板新增“公司 IR 财报”只读状态，按远程 `earnings_events` 和官方发布时间聚合为 `待导入 / 仅日历 / 特征就绪 / 待建表`；状态不返回来源异常、数据库错误或密钥，也不触发候选导入或特征重建
+- [x] 最近采集输入可观测：研究覆盖面板以最小字段查询读取最近一条 `market_capture_runs`，只取状态、市场日期、完成时间和受限阶段状态，分别展示 QQQ 日线、SEC 与 FRED 的实际结果；它不读取或返回错误原文、用户信息、来源 URL 或密钥，也不会触发重跑。账本读取失败时仅降级为“暂不可用”，不会使整张覆盖页失败
+- [x] 首页财报双视图：同一张官方财报卡可切换未来 30 天与最近 30 天；后者在客户端再次限定 `reported` 并按日期倒序，避免预定事项混入已公布结果
+- [x] 财报时间展示边界：首页“最近已公布”优先展示官方精确发布时间；没有该来源证据时保持盘前/盘后或时段未知，绝不显示候选采集时间为发布时间
+- [x] 决策日志：`decision-logs.mjs` 纯函数模块（校验/归一/last-write-wins 合并/补录结果/删除 tombstone）、`watchlist_states.decision_logs` 加性列与 RLS 继承、`storage.js`/`cloud.js`/`app.js` 三层接线（含旧库列缺失降级）、看板面板与观察记录一键起草已实现；删除会以只含 ID 与时间的 tombstone 同步，旧设备无法在下次合并时复活已删记录。活动日志最多保留 500 条，但最小删除标记不裁剪，避免长期离线设备复活历史记录；重连后的合并若发现云端缺少该标记，会主动写回，失败时保留本地标记以便下次重试。`decision-review.mjs` 只统计活动记录，并对已补录且前后快照完整的新记录显示价格、股数和成本事实对照。旧记录不回填或猜测；价格变化不自动解释为决策优劣。只记录或汇总用户已做的决定，不生成买卖建议
+- [x] PWA 基础安装：`manifest.webmanifest`、SVG/Apple 触屏图标、`sw.js` 与原生安装提示已实现；只缓存成功的 HTML 页面外壳与静态资源，`pwa-app-shell.mjs` 清单由测试约束覆盖页面所有本地静态模块；明确绕过 `/api`、`/auth`、云会话、个人持仓或决策数据
 - [x] 新人关联解读第一期：`lib/beginner-reading.mjs` 确定性模板 + 首页/日历手动「读一下」按钮；打开页面和行情刷新都不生成正文，不写云、不调用模型；规格见 [docs/beginner-reading.md](docs/beginner-reading.md)
 - [x] 新人关联解读第二期：`POST /api/beginner-reading/polish` + 「生成 AI 解读」卡片内确认小框；讲解写在模板下方单独区域，不替换五段事实；独立开关 `DEEPSEEK_BEGINNER_READING_ENABLED`；不发送股数/成本；失败保留模板；不设每日次数上限
 - [x] `2026-08-24` 生产打开 `DEEPSEEK_BEGINNER_READING_ENABLED`；`DEEPSEEK_RESEARCH_ENABLED` 与 `DEEPSEEK_RESEARCH_DATA_APPROVED` 保持 false，探针开关保持关闭
+- [x] `2026-09-02` 只读生产核查：最近一次 `2026-09-01` 收盘任务的市场采集、事件归因/标签、研究快照、日报/周报和到期评估均为 `succeeded`，模型复盘按配置保持 `disabled`；生产累计 15 份研究快照、11 份日报和 4 份周报。同期 QQQ 日线已到 `2026-09-01`，但特征、标签、相似日仍停在 `2026-08-28`，需在受控环境按既有顺序重建，网页和 Cron 不会自动执行全量派生重算。NDX 最近官方快照仍为 `2026-05-01`（124 天前），继续保持 `stale`，不得用观察篮子替代当前完整成分
 
 页面、API、事件规则和数据库开发现在都可进行；当前未完成项不会阻塞下一批代码开发。
 
@@ -534,7 +562,7 @@ npm run labels:qqq
 GET /api/nasdaq/labels?symbol=QQQ&limit=1254
 ```
 
-响应包含 `researchOnly: true`。当前已验证 1,254 行唯一日期，其中完整 20 日标签 1,234 行；重复执行使用 upsert，不产生重复记录。
+响应包含 `researchOnly: true`。历史回填验证曾得到 1,254 行唯一日期，其中完整 20 日标签 1,234 行；该数字不是实时覆盖承诺。重复执行使用 upsert，不产生重复记录。
 
 ### 8.2 统一事件与来源
 
@@ -1043,7 +1071,7 @@ GET /api/nasdaq/daily-reports?limit=7
 
 收盘流程会选择最近一个已经走到最后预期交易日的周来尝试冻结：正常周在周五冻结；如果周五是全天休市，则周四可冻结；假日周若当天没有收盘任务，则会在下一次交易日任务中补做上一个周。只有该周每个预期交易日各自已有至少一份实际归档日报，才会向只追加的 `frozen_weekly_research_reports` 写入 `weekly-research-report-v1`。冻结记录保存 `frozen_at`、预期交易日、全天休市日与日历版本；唯一键 `(week_start, report_version)` 使其不可被同周重跑覆盖。接口优先返回冻结周报；尚未冻结或不符合完整条件的周继续返回动态汇总。
 
-`lib/nyse-trading-calendar.js` 固定了 [NYSE Holidays & Trading Hours](https://www.nyse.com/trade/hours-calendars) 已公布的 2026–2028 年**全天休市**日期。提前收盘仍是有效收盘交易日，必须保留日报。任何跨出这三年范围的周都会显式使用 `strict_weekday_fallback`，继续要求五个工作日，不会把漏采或未知休市猜成完整周。周报不调用模型、不保留用户数据、不输出预测或交易指令。
+`lib/nyse-trading-calendar.js` 固定了 [NYSE Holidays & Trading Hours](https://www.nyse.com/trade/hours-calendars) 已公布的 2026–2028 年**全天休市**日期。提前收盘仍是有效收盘交易日，必须保留日报。动态月历复用同一份名单，仅对覆盖范围内的过去工作日标记 `market-holiday`；周末、未来日期与未知工作日价格缺失仍保持独立，不能拿休市表掩盖采集缺失。任何跨出这三年范围的周都会显式使用 `strict_weekday_fallback`，继续要求五个工作日，不会把漏采或未知休市猜成完整周。周报不调用模型、不保留用户数据、不输出预测或交易指令。
 
 #### 8.2.15 研究任务账本与看板
 
@@ -1063,15 +1091,17 @@ GET /api/nasdaq/research-tasks?limit=20
 
 #### 8.2.16 研究覆盖面板
 
-`GET /api/nasdaq/research-quality` 是只读聚合层，固定使用已有研究健康状态、最近 30 份日报、动态周报、近 30 日归因审核队列和最近 50 条任务账本，返回 `research-quality-v1`。它只提供以下可解释的观察值：已归档快照/日报/周报数量、已成熟和待成熟的 20 交易日结果数量、需人工核对与未审核事件数量，以及每个阶段的最新安全状态。
+`GET /api/nasdaq/research-quality` 是只读聚合层，固定使用已有研究健康状态、最近 30 份日报、动态周报、近 30 日归因审核队列和最近 50 条任务账本，返回 `research-quality-v5`。它只提供以下可解释的观察值：已归档快照/日报/周报数量、已成熟和待成熟的 20 交易日结果数量、需人工核对与未审核事件数量，以及每个阶段的最新安全状态。
 
 页面“研究覆盖”只展示这些聚合计数与限制说明。它不会调用模型、不会写入 Supabase、不会公开任务原始错误、审核人、审核备注或完整研究输入，也不会把“有多少材料”表述为数据已完整、归因已正确、预测成立或可以执行交易。
 
 当前生产环境已配置 `SEC_USER_AGENT` 与 `FRED_API_KEY`，Windows 本机已验证手动采集写入。`2026-08-31` 复核确认生产收盘 Cron 已在自动写入两者：`nasdaq_market_event_history`、`price_bars_daily`、SEC filings、`research_packet_snapshots` 均新鲜至最近交易日 `2026-08-28`，FRED 观测至 `2026-08-26`（FRED 源本身发布滞后，属正常）。可用 `npm run coverage:check` 一次性核对各数据源最新写入日期（只读，不触发模型或写库）。模型网关参数已配置，生产 `DEEPSEEK_MODEL` 为 `deepseek-v4-flash`；`DEEPSEEK_RESEARCH_ENABLED`、`DEEPSEEK_RESEARCH_DATA_APPROVED` 与 `DEEPSEEK_GATEWAY_COMPATIBILITY_ENABLED` 保持 `false`，模型摘要不会运行。`deepseek-v3.2` 与 `deepseek-v4-flash` 的无项目数据探针均已 `accepted`，不表示研究数据获准出站。历史运行不做推测性回填。
 
-覆盖面板中的“研究集成准备度”会把内置市场采集固定标为 `ready`，并按当前服务端环境分别显示 SEC、FRED、模型摘要和无项目数据网关探针状态。模型摘要会精确区分 `needs_configuration`（缺少网关参数）、`disabled`（已配置但功能开关关闭）、`data_approval_required`（功能已打开但尚未批准把研究快照发送给第三方）和 `ready`。网关探针只显示 `needs_configuration / disabled / ready`，它不表示研究数据获准出站。这是为多端协作准备的安全检查，不会返回 `SEC_USER_AGENT`、`FRED_API_KEY`、`DEEPSEEK_API_KEY`、联系人、环境变量值或具体配置失败原因；状态为待配置时，按第 6 节和第 13 节在本机 `.env.local` 与 Vercel Production 分别补齐变量后重新部署即可。
+覆盖面板中的“研究集成准备度”会把内置市场采集固定标为 `ready`，并按当前服务端环境分别显示 SEC、FRED、模型摘要和无项目数据网关探针状态。公司 IR 财报额外区分 `awaiting_import`（尚无已审核日历记录）、`calendar_only`（日历可用但尚无带精确官方发布时间的已公布事项）、`ready`（至少一条事项可安全进入日度特征）和 `needs_database_setup`（部署尚未应用财报表）；它不会把候选文件、采集时间或计划事项伪装成可回测输入。模型摘要会精确区分 `needs_configuration`（缺少网关参数）、`disabled`（已配置但功能开关关闭）、`data_approval_required`（功能已打开但尚未批准把研究快照发送给第三方）和 `ready`。网关探针只显示 `needs_configuration / disabled / ready`，它不表示研究数据获准出站。这是为多端协作准备的安全检查，不会返回 `SEC_USER_AGENT`、`FRED_API_KEY`、`DEEPSEEK_API_KEY`、联系人、环境变量值或具体配置失败原因；状态为待配置时，按第 6 节和第 13 节在本机 `.env.local` 与 Vercel Production 分别补齐变量后重新部署即可。
 
-覆盖面板还会以最新 QQQ 价格日为基准，读取 `daily_market_features`、`market_forward_labels` 和 `similar_day_matches` 的最近日期，显示 `最新 / 滞后 / 未构建 / 未观测`。这只是只读的新鲜度提示：相似日没有匹配行时不能推断它从未计算过，因此保持 `未观测`；网页和 Cron 都不会自动执行全量重建。需要更新时，仍在受控环境依次运行 `npm run features:qqq`、`npm run labels:qqq`、`npm run similar-days:qqq`，并先检查命令输出。
+覆盖面板还会以最新 QQQ 价格日为基准，读取 `daily_market_features`、`market_forward_labels` 和 `similar_day_matches` 的最近日期，显示 `最新 / 滞后 / 未构建 / 未观测`。这只是只读的新鲜度提示：相似日没有匹配行时不能推断它从未计算过，因此保持 `未观测`；网页和 Cron 都不会自动执行全量重建。需要更新时，优先在受控环境运行 `npm run research:rebuild-derived` 查看无写入计划；确认后运行 `npm run research:rebuild-derived -- --approve`，它会严格按特征、标签、相似日顺序执行。三个单独命令仍保留用于定向维护。
+
+覆盖面板的 `NEXT SAFE CHECKS` 会把已观察到的失败、派生数据滞后、NDX 快照滞后、财报日历准备度和人工审核积压转成固定的下一步提示。提示只区分“受保护诊断 / 仅预览 / 官方证据 / 人工审核”，不会携带运行错误、来源 URL、密钥或个人数据，也不会在网页上执行重建、导入、模型请求或任何写库操作。派生数据提示永远先指向无写入预览；实际 `--approve` 仍需维护者在终端显式确认。
 
 #### 8.2.16.1 独立确定性事件归因 Agent 与阶段账本
 
@@ -1177,15 +1207,25 @@ GET /api/nasdaq/constituents?asOf=2026-08-12
 
 `earnings_events` 是独立于市场涨跌事件的服务端表，保存经人工核对的公司 Investor Relations 财报事项。每条记录保存标的、市场日期、可选精确公布时间、`before_market / after_market / during_market / unknown` 时段、`scheduled / reported / cancelled` 状态、可选财务期和来源的可知/采集时间。表已启用 RLS，仅服务端 Secret Key 可读写；浏览器只能读取受限 API。
 
-候选放在 [data/earnings/candidates/](data/earnings/candidates/) 后，先核对公司官方 IR 页面与日期、时段、来源链接，再显式执行：
+候选放在 [data/earnings/candidates/](data/earnings/candidates/) 后，先核对公司官方 IR 页面与日期、时段、来源链接，再执行无凭据、无写入的本地预览：
+
+```bash
+npm run earnings:import -- data/earnings/candidates/<file>.json
+```
+
+预览会显示候选数量、标的、状态、来源数量和可安全进入特征的确切发布时间数量。确认该计划后，才显式执行：
 
 ```bash
 npm run earnings:import -- data/earnings/candidates/<file>.json --approve
 ```
 
-候选可为 JSON 数组或 `{ "events": [...] }`，每项必须含 `symbol`、`marketDate`、`sourceUrl`、`provider` 和 `sourceTitle`。`scheduledAt` 只在官方页面给出确切时点时填写 ISO 时间；只写“盘后”或没有时点时保持空值并使用 `session`，不得补造时间。导入会按标的和官方 URL 生成稳定键、去重来源，并拒绝未注册标的；它不会抓取网页、不会导入估算为实际、不会写入 `events` 市场归因表。
+候选可为 JSON 数组或 `{ "events": [...] }`，每项必须含 `symbol`、`marketDate`、`sourceUrl`、`provider` 和 `sourceTitle`。`scheduledAt` 只在官方页面给出确切时点时填写 ISO 时间；只写“盘后”或没有时点时保持空值并使用 `session`，不得补造时间。导入会按标的和官方 URL 生成稳定键、去重来源，并拒绝未注册标的；它不会抓取网页、不会导入估算为实际、不会写入 `events` 市场归因表。只有带 `--approve` 的第二条命令会读取服务端配置或写入 Supabase。
 
-读取接口：`GET /api/nasdaq/earnings?start=YYYY-MM-DD&end=YYYY-MM-DD&limit=100`。动态日历会把这些事项标记为“财报”，单日详情显示来源与时段，并明确不是当日涨跌原因；首页还会读取未来 30 天、最多 8 条已归档事项，直接展示市场日期、时段、状态和官方 IR 原页。空状态仅表示没有当前范围内已核对的候选，不能推导为市场没有财报。当前远程 `earnings_events` 已创建并验证 RLS，已有 1 条已核对记录：NVIDIA `FY2027 Q2` 在 `2026-08-26 13:20 PT`（`20:20 UTC`）预定公布，来源为 `data/earnings/candidates/nvda-fy2027-q2-2026-08-26.json` 中保留的官方 IR 原页；它仍是 `scheduled`，不代表已公布结果。
+读取接口：`GET /api/nasdaq/earnings?start=YYYY-MM-DD&end=YYYY-MM-DD&limit=100&status=reported`；`status` 可省略或严格为 `scheduled / reported / cancelled`。动态日历会把这些事项标记为“财报”，单日详情显示来源与时段，并明确不是当日涨跌原因；首页可切换未来 30 天或最近 30 天已公布结果，后者向服务端传递 `status=reported`，客户端仍会防御性过滤。空状态仅表示没有当前范围内已核对的候选，不能推导为市场没有财报。当前远程 `earnings_events` 已创建并验证 RLS，已有 1 条已核对记录：NVIDIA `FY2027 Q2` 在 `2026-08-26 13:20 PT`（`20:20 UTC`）预定公布，来源为 `data/earnings/candidates/nvda-fy2027-q2-2026-08-26.json` 中保留的官方 IR 原页；它仍是 `scheduled`，不代表已公布结果。
+
+`data/earnings/candidates/core-q2-2026-reported.json` 另保存了 AAPL、META、TSLA、MSFT、AMZN 的 2026 Q2/FY 已公布事项候选，均已改为对应公司的实际结果公告页，而不是预告页或运营指标更新；它们保留官方来源、市场日期和 `reported` 状态。未有明确公布时点的一律保持 `scheduledAt: null`，Amazon 的来源未明确盘前/盘后，保持 `session: unknown`。该文件只完成本地人工核对和自动契约测试，尚未运行 `--approve`，因此没有写入远程 `earnings_events`，也不会出现在生产日历中。
+
+`npm run features:qqq` 会读取统一事件和远程 `earnings_events`。其中只把 `reported` 且来源拥有精确 `sourcePublishedAt` 的财报映射为 `earnings_reported` 特征事件，再按“上一交易日收盘 < 官方发布时间 <= 本交易日收盘”写入首个可知交易日；`capturedAt` 和候选的市场日期都不能替代这个边界。现有候选缺少精确来源发布时间时仍只用于日历，不会产生伪历史特征。
 
 ### 8.4 Nasdaq 动态日历与单日详情
 
@@ -1203,7 +1243,9 @@ GET /api/nasdaq/calendar?date=2026-08-11
 - `trading`：存在已入库的 `QQQ` 日线
 - `weekend`：已过去的周末
 - `upcoming`：尚未到来的日期
-- `closed-or-missing`：已过去但没有价格的工作日；在没有正式交易所日历前，不武断标记为法定休市
+- `market-holiday`：项目内 2026–2028 年 NYSE 已公布的全天休市日；提前收盘不使用此状态
+- `closed-or-missing`：已过去但没有价格、且不在已覆盖全天休市名单中的工作日；不会武断标记为法定休市
+- 历史相似日只在 `trading` 且已有 QQQ 收盘对象时发起读取；周末、`market-holiday`、`upcoming` 与 `closed-or-missing` 只展示不可匹配原因，不请求相似日接口、更不以空状态构造样本
 
 交易日卡片包含 `QQQ` OHLCV、涨跌幅、截至当日最近 20 个交易日的年化后视波动率、统一事件数量、最高影响等级和涉及标的。后视波动率只读取该日及以前的价格。
 
@@ -1245,7 +1287,7 @@ node --test test/beginner-reading.test.mjs
 
 ### 8.5 日度相似日输入特征
 
-日度特征是后续“历史相似日”计算的唯一基础输入，当前只覆盖 `QQQ` 的价格、成交量和已知事件状态。它与 `market_forward_labels` 严格分表：前者只记录当日收盘时已经可知的信息，后者只用于事后研究。
+日度特征是后续“历史相似日”计算的唯一基础输入，当前覆盖 `QQQ` 的价格、成交量和已知事件状态。事件可来自统一事件层、FRED 宏观观测，或带精确官方发布时间的 `reported` 公司 IR 财报；预定事项、未知精确发布时间的日历记录和采集时间都不能成为历史特征。它与 `market_forward_labels` 严格分表：前者只记录当日收盘时已经可知的信息，后者只用于事后研究。
 
 重建或幂等回填：
 
@@ -1265,11 +1307,7 @@ GET /api/nasdaq/features?symbol=QQQ&date=2026-08-11
 
 特征版本当前为 `qqq-daily-state-v1`。价格特征只使用该日及以前的日线；事件特征只保留 `available_at` 不晚于该日美东 `16:00` 的事件。此规则会排除事后采集、后来才发现或只有归因价值的事件，避免未来数据泄漏。
 
-当前回填验证：
-
-- `1,254` 行，`2021-08-12` 至 `2026-08-11`
-- `1,234` 行具备成熟 20 日前瞻研究标签，标签不参与特征
-- 当前可用事件天数为 `0`，因为现有 14 条统一事件都在对应交易日收盘后才被本系统获得
+回填覆盖和可用事件天数会随着价格、官方事件和受控重建而变化；不要把某次运行的行数或事件天数写成固定产品事实。需要核对时读取研究覆盖面板的派生数据新鲜度，并先运行无写入预览 `npm run research:rebuild-derived`。
 
 ### 8.6 历史相似日研究基线
 
@@ -1278,7 +1316,7 @@ GET /api/nasdaq/features?symbol=QQQ&date=2026-08-11
 - 动量：1 / 5 / 20 日收益与当日跳空
 - 风险：过去 20 个交易日的年化波动率与回撤
 - 参与度：当日成交量相对过去 20 日均量
-- 已知事件：截至当日美东 `16:00` 已获得的统一事件；当前事件样本尚未满足该时间规则，因此该项不参与实际区分
+- 已知事件：截至当日美东 `16:00` 已获得的统一事件、FRED 宏观观测与带精确官方发布时间的已公布财报；预定、未知时间或事后采集的事项不参与实际区分
 
 标准化参数只由目标日期之前的至少 60 个交易日拟合。候选日必须早于目标日，且其未来 20 个交易日研究结果在目标日当时已经成熟；不同候选日之间至少相隔 20 个交易日。这样候选与分数不会读取目标日之后的信息。
 
@@ -1298,7 +1336,7 @@ GET /api/nasdaq/similar-days?date=2026-08-11&limit=5
 GET /api/nasdaq/current-scenario
 ```
 
-响应会返回相似度总分、动量/风险/成交量/事件分项、候选日以及该候选日后续 1 / 3 / 5 / 20 日收益、20 日最大回撤和实现波动率。历史候选结果仅用于研究验证，不能直接当成当前市场的预期收益。
+响应会返回相似度总分、动量/风险/成交活跃度/事件分项、候选日以及该候选日后续 1 / 3 / 5 / 20 日收益、20 日最大回撤和实现波动率。日历单日详情会显示实际可用的匹配维度分数；缺失的分项不会伪造成 0 分。历史候选结果仅用于研究验证，不能直接当成当前市场的预期收益。
 
 响应中的 `summary` 只对本次返回的前 N 个已成熟候选做描述统计：
 
@@ -1312,8 +1350,8 @@ UI 将它称为“候选结果分布”。正收益频率必须标记为历史�
 
 当前真实回填基线：
 
-- `1,193` 个具备可用相似日的目标交易日
-- `5,848` 条匹配，覆盖 `2021-11-08` 至 `2026-08-11`
+- 历史验证时曾有 `1,193` 个具备可用相似日的目标交易日
+- 历史验证时曾有 `5,848` 条匹配，覆盖 `2021-11-08` 至 `2026-08-11`；重建后应以实际返回的日期范围为准
 - 每个目标日最多返回 5 个候选日；历史不足时明确返回空结果而不是伪造分数
 
 ### 8.7 收盘归档验证

@@ -676,12 +676,16 @@ async function getNasdaqMarketHistory(days) {
   return Array.isArray(rows) ? rows : [];
 }
 
-async function getRecentCaptureRuns(options) {
-  const config = getSupabaseConfig();
+async function getRecentCaptureRuns(options, config = getSupabaseConfig(), requestImpl = requestSupabase) {
   const input = options && typeof options === "object" ? options : { limit: options };
   const normalizedLimit = Math.min(50, Math.max(1, Number(input.limit) || 20));
   const runId = normalizeCaptureRunId(input.runId);
-  const columns = [
+  const columns = (input.safeSummary ? [
+    "status",
+    "market_date",
+    "finished_at",
+    "details"
+  ] : [
     "id",
     "trigger_type",
     "status",
@@ -696,9 +700,9 @@ async function getRecentCaptureRuns(options) {
     "failed_users",
     "error_message",
     "details"
-  ].join(",");
+  ]).join(",");
   const filters = runId ? "&id=eq." + encodeURIComponent(runId) : "";
-  const rows = await requestSupabase(config, "/rest/v1/" + RUNS_TABLE
+  const rows = await requestImpl(config, "/rest/v1/" + RUNS_TABLE
     + "?select=" + columns + filters + "&order=started_at.desc&limit=" + normalizedLimit);
   return Array.isArray(rows) ? rows : [];
 }

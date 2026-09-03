@@ -2,7 +2,12 @@ import { loadState, saveState, upsertItem, removeItem, collectGroups } from "./s
 import { fetchQuotes } from "./quotes.js";
 import { renderSparkline, renderTrendChart } from "./chart.js";
 import { buildPersonalObservations, mergePersonalObservations } from "./personal-observations.mjs";
-import { createDecisionLog, mergeDecisionLogs, normalizeDecisionLogs, applyOutcome, DECISION_LOG_ACTIONS, DECISION_LOG_OUTCOMES } from "./decision-logs.mjs";
+import { createDecisionLog, deleteDecisionLog, getActiveDecisionLogs, mergeDecisionLogs, needsDecisionLogWriteBack, normalizeDecisionLogs, applyOutcome, DECISION_LOG_ACTIONS, DECISION_LOG_OUTCOMES } from "./decision-logs.mjs";
+import { buildDecisionReview, buildDecisionSnapshotComparison } from "./decision-review.mjs";
+import { getPwaInstallPresentation, requestPwaInstall } from "./pwa-install.mjs";
+import { getEarningsTimingPresentation, getEarningsViewCopy, getEarningsViewRange, normalizeEarningsViewMode, selectEarningsForView } from "./lib/earnings-display.mjs";
+import { getSimilarMatchComponents } from "./lib/similar-display.mjs";
+import { canLoadSimilarDays, getSimilarDaysUnavailableMessage } from "./lib/calendar-similarity-display.mjs";
 import {
   buildBeginnerReading,
   getBeginnerReadingView,
@@ -32,6 +37,7 @@ const els = {
   sharesInput: document.getElementById("sharesInput"),
   holdingTypeInput: document.getElementById("holdingTypeInput"),
   refreshBtn: document.getElementById("refreshBtn"),
+  installAppBtn: document.getElementById("installAppBtn"),
   addStockBtn: document.getElementById("addStockBtn"),
   addStockInlineBtn: document.getElementById("addStockInlineBtn"),
   toggleCloudBtn: document.getElementById("toggleCloudBtn"),
@@ -73,6 +79,7 @@ const els = {
   decisionActionInput: document.getElementById("decisionActionInput"),
   decisionRationaleInput: document.getElementById("decisionRationaleInput"),
   decisionLinkedInput: document.getElementById("decisionLinkedInput"),
+  decisionReviewBody: document.getElementById("decisionReviewBody"),
   decisionLogBody: document.getElementById("decisionLogBody"),
   decisionLogHint: document.getElementById("decisionLogHint"),
   marketEventsBody: document.getElementById("marketEventsBody"),
@@ -80,6 +87,7 @@ const els = {
   marketEventsHint: document.getElementById("marketEventsHint"),
   upcomingEarningsBody: document.getElementById("upcomingEarningsBody"),
   upcomingEarningsHint: document.getElementById("upcomingEarningsHint"),
+  upcomingEarningsModes: document.getElementById("upcomingEarningsModes"),
   marketHistoryBody: document.getElementById("marketHistoryBody"),
   marketHistoryHint: document.getElementById("marketHistoryHint"),
   calendarPrevBtn: document.getElementById("calendarPrevBtn"),
@@ -176,6 +184,7 @@ const state = {
   marketEventsFetchedAt: 0,
   upcomingEarnings: {
     events: [],
+    mode: "upcoming",
     startDate: "",
     endDate: "",
     loading: false,
@@ -267,6 +276,7 @@ const MAG7_ETF_SYMBOL = "MAGS";
 // Mirrored from lib/nasdaq-universe.js so quotes can start before the API responds.
 const NASDAQ_FOCUS_SYMBOLS = ["QQQ", "MAGS", "NVDA", "AAPL", "MU", "MSFT", "AMD", "AMZN", "TSLA", "GOOGL", "GOOG", "INTC", "META", "AVGO"];
 const NASDAQ_CORE_SYMBOLS = ["NVDA", "AAPL", "MU", "MSFT", "AMD", "AMZN", "TSLA", "GOOGL", "INTC", "META", "AVGO"];
+let deferredPwaInstallPrompt = null;
 
 init();
 
@@ -280,6 +290,7 @@ async function init() {
   state.observations = saved.observations || [];
   state.decisionLogs = saved.decisionLogs || [];
   bindEvents();
+  setupPwa();
   injectSectionIntros();
   renderHomeBeginnerReading();
   renderCalendarBeginnerReading();
@@ -395,6 +406,16 @@ function buildDailyMarketEventsUrl(symbols, benchmarkChange) {
 }
 
 function bindEvents() {
+  if (els.installAppBtn) {
+    els.installAppBtn.addEventListener("click", async function () {
+      const result = await requestPwaInstall(deferredPwaInstallPrompt);
+      deferredPwaInstallPrompt = null;
+      syncPwaInstallButton();
+      if (result.status === "accepted") setStatus("positive", "应用已安装");
+      if (result.status === "dismissed") setStatus("neutral", "已取消安装，可稍后再试");
+    });
+  }
+
   [els.addStockBtn, els.addStockInlineBtn].filter(Boolean).forEach(function (button) {
     button.addEventListener("click", function () {
       revealPanel(els.stockFormPanel, els.symbolInput);
@@ -444,6 +465,17 @@ function bindEvents() {
       void refreshMarketHistory();
     });
   });
+
+  if (els.upcomingEarningsModes) {
+    els.upcomingEarningsModes.addEventListener("click", function (event) {
+      const button = event.target.closest("[data-earnings-mode]");
+      if (!button) return;
+      const mode = normalizeEarningsViewMode(button.getAttribute("data-earnings-mode"));
+      if (mode === state.upcomingEarnings.mode) return;
+      state.upcomingEarnings.mode = mode;
+      void refreshUpcomingEarnings();
+    });
+  }
 
   if (els.calendarPrevBtn) {
     els.calendarPrevBtn.addEventListener("click", function () { void changeCalendarMonth(-1); });
@@ -868,6 +900,44 @@ function bindEvents() {
   });
 }
 
+function isPwaStandalone() {
+  return window.matchMedia?.("(display-mode: standalone)")?.matches === true || window.navigator.standalone === true;
+}
+
+function syncPwaInstallButton() {
+  const button = els.installAppBtn;
+  if (!button) return;
+  const presentation = getPwaInstallPresentation({
+    isStandalone: isPwaStandalone(),
+    promptAvailable: Boolean(deferredPwaInstallPrompt),
+    serviceWorkerSupported: "serviceWorker" in navigator
+  });
+  button.hidden = !presentation.visible;
+  button.disabled = !presentation.enabled;
+  button.textContent = presentation.label;
+  button.title = presentation.title;
+}
+
+function setupPwa() {
+  syncPwaInstallButton();
+  if ("serviceWorker" in navigator) {
+    void navigator.serviceWorker.register("./sw.js", { type: "module" }).catch(function () {
+      // PWA support is progressive: an unavailable worker must not block market data.
+    });
+  }
+  window.addEventListener("beforeinstallprompt", function (event) {
+    event.preventDefault();
+    deferredPwaInstallPrompt = event;
+    syncPwaInstallButton();
+  });
+  window.addEventListener("appinstalled", function () {
+    deferredPwaInstallPrompt = null;
+    syncPwaInstallButton();
+    setStatus("positive", "应用已安装");
+  });
+  window.matchMedia?.("(display-mode: standalone)")?.addEventListener?.("change", syncPwaInstallButton);
+}
+
 function revealPanel(panel, focusTarget) {
   if (!panel) return;
   panel.classList.remove("hidden");
@@ -1032,8 +1102,15 @@ async function pullFromCloud(options) {
     });
 
     if (localFingerprint !== remoteFingerprint) {
-      applyRemoteState(remote.data);
-      setCloudStatus("检测到云端有更新，已同步到本地");
+      const needsWriteBack = applyRemoteState(remote.data);
+      if (needsWriteBack) {
+        const pushed = await pushToCloud("reconcile");
+        setCloudStatus(pushed
+          ? "已合并本地与云端决策记录，并写回云端"
+          : "已合并到本地；云端写回失败，将在下次同步重试");
+      } else {
+        setCloudStatus("检测到云端有更新，已同步到本地");
+      }
     } else {
       setCloudStatus("云端与本地已一致");
     }
@@ -1053,11 +1130,14 @@ function applyRemoteState(remoteData) {
   state.usPeaks = remoteData.us_peaks && typeof remoteData.us_peaks === "object" ? remoteData.us_peaks : {};
   state.marketEvents = Array.isArray(remoteData.market_events) ? remoteData.market_events : [];
   state.observations = mergePersonalObservations(state.observations, remoteData.observations);
-  state.decisionLogs = mergeDecisionLogs(state.decisionLogs, remoteData.decision_logs);
+  const remoteDecisionLogs = Array.isArray(remoteData.decision_logs) ? remoteData.decision_logs : [];
+  state.decisionLogs = mergeDecisionLogs(state.decisionLogs, remoteDecisionLogs);
+  const needsWriteBack = needsDecisionLogWriteBack(remoteDecisionLogs, state.decisionLogs);
   persist({ skipCloudSync: true });
   renderGroupFilter();
   syncControls();
   render();
+  return needsWriteBack;
 }
 
 async function pushToCloud(reason) {
@@ -1195,13 +1275,16 @@ async function refreshUpcomingEarnings() {
   if (!els.upcomingEarningsBody || !els.upcomingEarningsHint) return;
   const earnings = state.upcomingEarnings;
   const requestId = ++earnings.requestId;
-  earnings.startDate = getNewYorkDate();
-  earnings.endDate = shiftMarketDate(earnings.startDate, 30);
+  const range = getEarningsViewRange(getNewYorkDate(), earnings.mode);
+  if (!range) return;
+  earnings.startDate = range.startDate;
+  earnings.endDate = range.endDate;
   earnings.loading = true;
   earnings.error = "";
   renderUpcomingEarnings();
   try {
     const query = new URLSearchParams({ start: earnings.startDate, end: earnings.endDate, limit: "16" });
+    if (normalizeEarningsViewMode(earnings.mode) === "reported") query.set("status", "reported");
     const response = await fetch("./api/nasdaq/earnings?" + query.toString());
     const payload = await response.json().catch(function () { return {}; });
     if (!response.ok) throw new Error(payload?.error || "读取官方财报日历失败");
@@ -1220,9 +1303,18 @@ async function refreshUpcomingEarnings() {
 function renderUpcomingEarnings() {
   if (!els.upcomingEarningsBody || !els.upcomingEarningsHint) return;
   const earnings = state.upcomingEarnings;
+  const mode = normalizeEarningsViewMode(earnings.mode);
+  const copy = getEarningsViewCopy(mode);
+  if (els.upcomingEarningsModes) {
+    els.upcomingEarningsModes.querySelectorAll("[data-earnings-mode]").forEach(function (button) {
+      const active = normalizeEarningsViewMode(button.getAttribute("data-earnings-mode")) === mode;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+  }
   if (earnings.loading && !earnings.events.length) {
-    els.upcomingEarningsHint.textContent = "正在读取未来 30 天已审核归档的公司 IR 事项…";
-    els.upcomingEarningsBody.innerHTML = '<article class="upcoming-earnings-empty"><strong>正在加载近期财报</strong><p>只显示已核对来源，不从新闻标题推测日期。</p></article>';
+    els.upcomingEarningsHint.textContent = copy.loadingHint;
+    els.upcomingEarningsBody.innerHTML = '<article class="upcoming-earnings-empty"><strong>正在加载' + escapeHtml(copy.label) + '财报</strong><p>只显示已核对来源，不从新闻标题推测日期。</p></article>';
     return;
   }
   if (earnings.error) {
@@ -1231,10 +1323,10 @@ function renderUpcomingEarnings() {
     return;
   }
 
-  const visible = earnings.events.slice(0, 8);
-  els.upcomingEarningsHint.textContent = "未来 30 天 · " + visible.length + " 项已审核公司 IR 事项；计划日期不等于业绩结果或交易结论。";
+  const visible = selectEarningsForView(earnings.events, mode, 8);
+  els.upcomingEarningsHint.textContent = copy.label + " · " + visible.length + " " + copy.hintSuffix;
   if (!visible.length) {
-    els.upcomingEarningsBody.innerHTML = '<article class="upcoming-earnings-empty"><strong>未来 30 天暂无已核对事项</strong><p>这只表示当前库中没有通过人工核对并归档的官方 IR 候选，不代表市场没有公司将披露财报。</p></article>';
+    els.upcomingEarningsBody.innerHTML = '<article class="upcoming-earnings-empty"><strong>' + escapeHtml(copy.emptyTitle) + '</strong><p>' + escapeHtml(copy.emptyBody) + "</p></article>";
     return;
   }
 
@@ -1243,10 +1335,15 @@ function renderUpcomingEarnings() {
   els.upcomingEarningsBody.innerHTML = visible.map(function (event) {
     const source = event?.source || {};
     const symbol = String(event?.symbol || "--");
-    const scheduled = event?.scheduledAt ? formatDualMarketTime(event.scheduledAt) : (sessionLabels[event?.session] || "时段未知");
+    const timing = getEarningsTimingPresentation(event);
+    const scheduled = timing.kind === "published_at"
+      ? "官方发布 " + formatDualMarketTime(timing.value)
+      : timing.kind === "scheduled_at"
+        ? formatDualMarketTime(timing.value)
+        : (sessionLabels[timing.value] || "时段未知");
     const fiscalPeriod = event?.fiscalPeriod ? " · " + String(event.fiscalPeriod) : "";
     const sourceLink = source.canonicalUrl
-      ? '<a href="' + escapeHtml(source.canonicalUrl) + '" target="_blank" rel="noreferrer">查看官方 IR</a>'
+      ? '<a href="' + escapeHtml(source.canonicalUrl) + '" target="_blank" rel="noreferrer">查看官方来源</a>'
       : '<span>来源链接待补充</span>';
     return [
       '<article class="upcoming-earnings-card">',
@@ -1387,8 +1484,12 @@ async function refreshMarketDayDetail(date) {
     if (requestId !== calendar.detailRequestId || date !== calendar.selectedDate) return;
     calendar.detail = payload;
     calendar.detailLoading = false;
+    calendar.similarityRequestId += 1;
+    calendar.similarity = null;
+    calendar.similarityError = "";
+    calendar.similarityLoading = false;
     renderMarketDayDetail();
-    void refreshSimilarDays(date);
+    if (canLoadSimilarDays(payload?.day)) void refreshSimilarDays(date);
   } catch (error) {
     if (requestId !== calendar.detailRequestId || date !== calendar.selectedDate) return;
     calendar.detailLoading = false;
@@ -1776,6 +1877,8 @@ function renderResearchQuality() {
   const integrations = quality.integrations || {};
   const derivedData = quality.derivedData || {};
   const ndxConstituents = quality.ndxConstituents || {};
+  const captureInputs = quality.captureInputs || {};
+  const nextSteps = Array.isArray(quality.nextSteps) ? quality.nextSteps : [];
   const ledgerReady = operations.taskLedgerState === "recording";
   els.researchQualityHint.textContent = "只汇总真实已归档材料与待办事项：它不是数据质量认证，也不构成预测或交易建议。";
   els.researchQualityBody.innerHTML = [
@@ -1788,21 +1891,82 @@ function renderResearchQuality() {
     '<div class="research-quality-notes">',
     '<article class="research-quality-ledger"><span>TASK LEDGER</span><strong class="' + (ledgerReady ? "is-ready" : "") + '">' + (ledgerReady ? "Recording real stages" : "Waiting for next close") + '</strong><p>' + (ledgerReady ? Number(operations.taskRunCount || 0) + " 条真实阶段运行已追加，不会从旧日志合成。" : "下一次完整收盘采集后才会写入真实阶段记录，历史运行不会被猜测性补齐。") + '</p></article>',
     renderResearchIntegrationReadiness(integrations),
+    renderResearchCaptureInputFreshness(captureInputs),
     renderResearchNdxConstituentFreshness(ndxConstituents),
     renderResearchDerivedDataFreshness(derivedData),
+    renderResearchQualityNextSteps(nextSteps),
     '<article class="research-quality-limitations"><span>LIMITATIONS</span><ul>' + (Array.isArray(quality.limitations) ? quality.limitations.slice(0, 3) : []).map(function (item) { return "<li>" + escapeHtml(String(item)) + "</li>"; }).join("") + '</ul></article>',
     '</div>'
   ].join("");
+}
+
+function renderResearchQualityNextSteps(steps) {
+  const labels = {
+    review_latest_capture: {
+      type: "受保护诊断",
+      title: "核对最近一次收盘采集",
+      detail: "有事实输入阶段失败。仅在受保护的运行诊断中查看脱敏状态后，再决定是否手动重跑。"
+    },
+    preview_derived_rebuild: {
+      type: "仅预览",
+      title: "预览 QQQ 派生数据重建",
+      detail: "特征、未来标签或相似日与最新行情不同步。先在受控终端运行无写入预览，确认范围后才可显式批准写入。"
+    },
+    review_ndx_official_snapshot: {
+      type: "官方证据",
+      title: "复核 NDX 官方成分快照",
+      detail: "当前快照不是新鲜状态。需要完整的 Nasdaq 官方名单和人工差异审核，页面不会自动替换。"
+    },
+    review_earnings_calendar: {
+      type: "官方证据",
+      title: "复核公司 IR 财报日历",
+      detail: "日历还不能作为完整的特征输入。只接收已公布且带精确官方发布时间的事项，并需显式导入。"
+    },
+    review_event_evidence: {
+      type: "人工审核",
+      title: "处理事件证据待办",
+      detail: "存在待人工核对的事件。先审核来源和可知时间，不让未复核归因影响研究输入。"
+    }
+  };
+  const rows = steps.map(function (step) {
+    const item = labels[step?.id];
+    if (!item) return "";
+    return '<li><b class="is-' + escapeHtml(String(step?.kind || "manual")) + '">' + escapeHtml(item.type) + '</b><div><strong>' + escapeHtml(item.title) + '</strong><span>' + escapeHtml(item.detail) + '</span></div></li>';
+  }).filter(Boolean);
+  if (!rows.length) {
+    rows.push('<li class="is-clear"><div><strong>当前没有新增维护提示</strong><span>这个状态不等于数据已完整或结论成立；仍应按既有收盘流程和来源规则核对。</span></div></li>');
+  }
+  return '<article class="research-quality-next-steps"><span>NEXT SAFE CHECKS</span><p>只读提示，不会从网页触发模型、导入、重建或数据库写入。</p><ul>' + rows.join("") + "</ul></article>";
+}
+
+function renderResearchCaptureInputFreshness(captureInputs) {
+  const labels = { priceHistory: "QQQ 日线", secFilings: "SEC 披露", fredMacro: "FRED 宏观" };
+  const rows = Object.keys(labels).map(function (key) {
+    const status = String(captureInputs?.[key] || "unknown");
+    const style = status === "succeeded" ? "current" : status === "failed" ? "stale" : status;
+    return '<div><span>' + escapeHtml(labels[key]) + '</span><b class="is-' + escapeHtml(style) + '">' + escapeHtml(captureInputStatusLabel(status)) + '</b><small>' + escapeHtml(captureInputs?.marketDate ? formatMarketDate(captureInputs.marketDate) : "尚无收盘运行") + "</small></div>";
+  }).join("");
+  const captureStatus = String(captureInputs?.status || "awaiting_capture");
+  const finishedAt = captureInputs?.finishedAt ? formatDualMarketTime(captureInputs.finishedAt) : "尚无完成时间";
+  return '<article class="research-quality-derived research-quality-capture"><span>LAST CAPTURE INPUTS</span><p>展示最近一次收盘采集各事实输入的实际结果；“已配置”不等于这一次已成功写入。</p><section>' + rows + '</section><small class="research-quality-capture-note">运行：' + escapeHtml(captureInputStatusLabel(captureStatus)) + " · " + escapeHtml(finishedAt) + "</small></article>";
+}
+
+function captureInputStatusLabel(status) {
+  return ({ succeeded: "已成功", partial: "部分完成", failed: "失败", skipped: "已跳过", disabled: "已关闭", pending: "等待中", running: "运行中", awaiting_capture: "尚无运行", unavailable: "暂不可用", unknown: "未记录" })[status] || "未记录";
 }
 
 function renderResearchNdxConstituentFreshness(freshness) {
   const status = String(freshness?.status || "awaiting_snapshot");
   const ageDays = Number(freshness?.ageDays);
   const effectiveDate = freshness?.effectiveDate;
+  const sourceUrl = String(freshness?.sourceUrl || "");
   const asOfDate = freshness?.asOfDate;
   const count = Number(freshness?.constituentCount || 0);
   const ageText = Number.isFinite(ageDays) ? ageDays + " 天前" : "尚无可比较日期";
-  return '<article class="research-quality-derived research-quality-ndx"><span>NDX CONSTITUENT FRESHNESS</span><p>只提示最近已审核官方快照距参考日的时间，不会自动下载、替换成分或把旧权重伪装为当前数据。</p><section><div><span>最近官方快照</span><b class="is-' + escapeHtml(status) + '">' + escapeHtml(ndxFreshnessLabel(status)) + '</b><small>' + escapeHtml(effectiveDate ? formatMarketDate(effectiveDate) + " · " + count + " 个证券 · " + ageText + "（参考 " + formatMarketDate(asOfDate) + "）" : "尚未归档可用官方快照") + "</small></div></section></article>";
+  const sourceLink = /^https:\/\//i.test(sourceUrl)
+    ? '<a class="research-quality-source" href="' + escapeHtml(sourceUrl) + '" target="_blank" rel="noreferrer">官方来源</a>'
+    : "";
+  return '<article class="research-quality-derived research-quality-ndx"><span>NDX CONSTITUENT FRESHNESS</span><p>只提示最近已审核官方快照距参考日的时间，不会自动下载、替换成分或把旧权重伪装为当前数据。</p><section><div><span>最近官方快照</span><b class="is-' + escapeHtml(status) + '">' + escapeHtml(ndxFreshnessLabel(status)) + '</b><small>' + escapeHtml(effectiveDate ? formatMarketDate(effectiveDate) + " · " + count + " 个证券 · " + ageText + "（参考 " + formatMarketDate(asOfDate) + "）" : "尚未归档可用官方快照") + sourceLink + "</small></div></section></article>";
 }
 
 function ndxFreshnessLabel(status) {
@@ -1836,6 +2000,7 @@ function renderResearchQualityMetric(label, value, note, tone) {
 function renderResearchIntegrationReadiness(integrations) {
   const labels = {
     marketCollection: "市场收盘采集",
+    earningsCalendar: "公司 IR 财报",
     secFilings: "SEC 公司披露",
     fredMacro: "FRED 宏观观测",
     modelNarrative: "模型研究摘要",
@@ -1849,7 +2014,7 @@ function renderResearchIntegrationReadiness(integrations) {
 }
 
 function integrationReadinessLabel(status) {
-  return ({ ready: "就绪", disabled: "已关闭", data_approval_required: "待确认出站", needs_configuration: "待配置" })[status] || "待配置";
+  return ({ ready: "特征就绪", calendar_only: "仅日历", awaiting_import: "待导入", needs_database_setup: "待建表", disabled: "已关闭", data_approval_required: "待确认出站", needs_configuration: "待配置" })[status] || "待配置";
 }
 
 const researchTaskLabels = {
@@ -2958,6 +3123,13 @@ function formatShareCount(value) {
   return amount >= 100 ? amount.toFixed(0) : amount.toFixed(2);
 }
 
+function formatSignedShareCount(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return "--";
+  const formatted = formatShareCount(Math.abs(amount));
+  return amount > 0 ? "+" + formatted : amount < 0 ? "-" + formatted : formatted;
+}
+
 function getBenchmarkChangePercent() {
   const quote = state.quotes[NASDAQ_BENCHMARK_SYMBOL];
   return quote && typeof quote.changePercent === "number" ? quote.changePercent : null;
@@ -3764,7 +3936,8 @@ const DECISION_OUTCOME_LABELS = {
 function renderDecisionLog() {
   if (!els.decisionLogBody || !els.decisionLogHint) return;
 
-  const logs = state.decisionLogs.slice(0, 12);
+  const logs = getActiveDecisionLogs(state.decisionLogs).slice(0, 12);
+  renderDecisionReview();
   els.decisionLogHint.textContent = logs.length
     ? "只保存你已经做过的决定与理由，随账号云同步；系统不生成任何买卖建议。"
     : "在上方表单或某条观察记录上记录你的实际决定与理由，之后可补录结果复盘。";
@@ -3782,6 +3955,51 @@ function renderDecisionLog() {
   els.decisionLogBody.innerHTML = logs.map(renderDecisionLogCard).join("");
 }
 
+function renderDecisionReview() {
+  if (!els.decisionReviewBody) return;
+  const review = buildDecisionReview(state.decisionLogs);
+  if (!review.total) {
+    els.decisionReviewBody.innerHTML = "";
+    return;
+  }
+  const actionSummary = review.actions.slice(0, 4).map(function (item) {
+    return escapeHtml(DECISION_ACTION_LABELS[item.key] || item.key) + " " + item.total + " 条";
+  }).join(" · ");
+  const symbolSummary = review.symbols.slice(0, 3).map(function (item) {
+    return '<li><strong>' + escapeHtml(item.key) + "</strong><span>" + item.total + " 条记录 · 已复盘 " + item.reviewed + "</span></li>";
+  }).join("");
+  els.decisionReviewBody.innerHTML = [
+    '<section class="decision-review" aria-label="个人复盘统计">',
+    '<div class="decision-review-head"><div><p class="eyebrow">PERSONAL REVIEW</p><h3>个人复盘概览</h3></div><p>仅汇总你亲自补录的记录，不评价策略，也不生成下一步动作。</p></div>',
+    '<div class="decision-review-metrics">',
+    renderDecisionReviewMetric("已记录", review.total),
+    renderDecisionReviewMetric("待复盘", review.outcomes.pending),
+    renderDecisionReviewMetric("已补录结果", review.reviewed),
+    renderDecisionReviewMetric("结果符合", review.outcomes.worked),
+    "</div>",
+    '<div class="decision-review-foot"><p><strong>记录动作：</strong>' + actionSummary + "</p>",
+    symbolSummary ? '<ul class="decision-review-symbols">' + symbolSummary + "</ul>" : "",
+    "</div>",
+    renderDecisionComparisonSummary(review.comparisons),
+    "</section>"
+  ].join("");
+}
+
+function renderDecisionReviewMetric(label, value) {
+  return '<div class="decision-review-metric"><span>' + escapeHtml(label) + "</span><strong>" + escapeHtml(String(value)) + "</strong></div>";
+}
+
+function renderDecisionComparisonSummary(comparisons) {
+  const value = comparisons || {};
+  if (!value.completed) return '<p class="decision-review-context muted">补录结果后，如记录时与补录时都留有快照，这里会显示前后价格和持仓的事实对照。</p>';
+  if (!value.snapshotComparable) return '<p class="decision-review-context muted">已有 ' + Number(value.completed) + ' 条补录结果，但尚无前后都完整的快照可做事实对照。旧记录不会被猜测性回填。</p>';
+  const priceText = value.priceComparable
+    ? '价格对照 ' + Number(value.priceComparable) + ' 条（后价上涨 ' + Number(value.priceUp) + ' / 下跌 ' + Number(value.priceDown) + ' / 不变 ' + Number(value.priceFlat) + '）'
+    : "暂无前后价格对照";
+  const sharesText = value.sharesComparable ? '持仓对照 ' + Number(value.sharesComparable) + " 条" : "暂无前后持仓对照";
+  return '<p class="decision-review-context"><strong>前后快照：</strong>' + escapeHtml(priceText + " · " + sharesText) + "。仅描述记录事实，不评价策略。</p>";
+}
+
 function renderDecisionLogCard(entry) {
   const actionLabel = DECISION_ACTION_LABELS[entry.action] || entry.action;
   const tone = DECISION_ACTION_TONE[entry.action] || "neutral";
@@ -3797,6 +4015,9 @@ function renderDecisionLogCard(entry) {
   const outcomeNote = entry.outcomeNote
     ? '<p class="decision-log-outcome-note">' + escapeHtml(entry.outcomeNote) + "</p>"
     : "";
+  const decisionContext = renderDecisionSnapshot(entry.snapshot, "记录时");
+  const outcomeContext = entry.outcome !== "pending" ? renderDecisionSnapshot(entry.outcomeSnapshot, "补录时") : "";
+  const snapshotComparison = renderDecisionSnapshotComparison(entry);
 
   return [
     '<article class="decision-log-card ' + tone + '" data-decision-id="' + escapeHtml(entry.id) + '">',
@@ -3804,11 +4025,45 @@ function renderDecisionLogCard(entry) {
     '<p class="decision-log-name">' + escapeHtml(entry.displayName || entry.symbol) + "</p>",
     rationale,
     linked,
+    decisionContext,
     '<div class="decision-log-outcome outcome-' + escapeHtml(entry.outcome) + '"><span>结果：' + escapeHtml(outcomeLabel) + "</span></div>",
     outcomeNote,
+    outcomeContext,
+    snapshotComparison,
     '<div class="decision-log-foot"><time datetime="' + escapeHtml(entry.updatedAt) + '">' + escapeHtml(formatMarketDate(entry.marketDate)) + " · " + escapeHtml(timeText) + '</time><span class="decision-log-actions"><button type="button" class="btn btn-ghost" data-decision-outcome="' + escapeHtml(entry.id) + '">补录结果</button><button type="button" class="btn btn-ghost" data-analyze-symbol="' + escapeHtml(entry.symbol) + '">查看分析</button><button type="button" class="btn btn-ghost" data-decision-delete="' + escapeHtml(entry.id) + '">删除</button></span></div>',
     "</article>"
   ].join("");
+}
+
+function renderDecisionSnapshotComparison(entry) {
+  const comparison = buildDecisionSnapshotComparison(entry);
+  if (!comparison) return "";
+  const details = [];
+  if (comparison.price) {
+    const percent = Number.isFinite(Number(comparison.price.changePercent))
+      ? "（" + formatSigned(comparison.price.changePercent) + "%）"
+      : "";
+    details.push("价格 " + formatMoney(comparison.price.from) + " → " + formatMoney(comparison.price.to) + " · " + formatMoneySigned(comparison.price.change) + percent);
+  }
+  if (comparison.shares) details.push("股数 " + formatShareCount(comparison.shares.from) + " → " + formatShareCount(comparison.shares.to) + " · " + formatSignedShareCount(comparison.shares.change));
+  if (comparison.costBasis) details.push("成本 " + formatMoney(comparison.costBasis.from) + " → " + formatMoney(comparison.costBasis.to));
+  if (!details.length) return "";
+  return '<p class="decision-log-context decision-log-comparison"><strong>前后事实：</strong>' + escapeHtml(details.join(" ｜ ")) + "</p>";
+}
+
+function renderDecisionSnapshot(snapshot, label) {
+  if (!snapshot || typeof snapshot !== "object") {
+    return label === "记录时" ? '<p class="decision-log-context muted">这条记录没有可用的价格或持仓快照。</p>' : "";
+  }
+  const details = [];
+  if (Number.isFinite(Number(snapshot.price))) details.push("价格 " + formatNumber(snapshot.price));
+  if (Number.isFinite(Number(snapshot.changePercent))) details.push("日变 " + formatSigned(snapshot.changePercent) + "%");
+  if (Number.isFinite(Number(snapshot.peakPrice))) details.push("峰值 " + formatNumber(snapshot.peakPrice));
+  if (Number.isFinite(Number(snapshot.shares))) details.push("股数 " + formatShareCount(snapshot.shares));
+  if (Number.isFinite(Number(snapshot.costBasis))) details.push("成本 " + formatMoney(snapshot.costBasis));
+  if (snapshot.holdingType) details.push(describeHoldingType(snapshot.holdingType));
+  if (!details.length) return "";
+  return '<p class="decision-log-context"><strong>' + escapeHtml(label) + "：</strong>" + escapeHtml(details.join(" · ")) + "</p>";
 }
 
 function findDisplayName(symbol) {
@@ -3846,7 +4101,8 @@ function handleDecisionLogSubmit(event) {
     rationale: els.decisionRationaleInput?.value || "",
     linkedObservationId: els.decisionLinkedInput?.value || "",
     createdAt: now.toISOString(),
-    updatedAt: now.toISOString()
+    updatedAt: now.toISOString(),
+    snapshot: buildCurrentDecisionSnapshot(symbol, now)
   });
   if (!entry) {
     setDecisionLogHint("提交内容无法保存，请检查标的与动作。");
@@ -3867,17 +4123,19 @@ function setDecisionLogHint(message) {
 function removeDecisionLog(id) {
   const key = String(id || "");
   if (!key) return;
-  const next = state.decisionLogs.filter(function (entry) { return entry.id !== key; });
-  if (next.length === state.decisionLogs.length) return;
+  const entry = getActiveDecisionLogs(state.decisionLogs).find(function (item) { return item.id === key; });
+  if (!entry) return;
   if (typeof window !== "undefined" && typeof window.confirm === "function" && !window.confirm("删除这条决策记录？")) return;
-  state.decisionLogs = normalizeDecisionLogs(next);
+  const tombstone = deleteDecisionLog(entry, new Date());
+  if (!tombstone) return;
+  state.decisionLogs = mergeDecisionLogs(state.decisionLogs, [tombstone]);
   persist();
   renderDecisionLog();
 }
 
 function recordDecisionOutcome(id) {
   const key = String(id || "");
-  const entry = state.decisionLogs.find(function (item) { return item.id === key; });
+  const entry = getActiveDecisionLogs(state.decisionLogs).find(function (item) { return item.id === key; });
   if (!entry) return;
 
   const outcomeText = typeof window !== "undefined" && typeof window.prompt === "function"
@@ -3896,11 +4154,36 @@ function recordDecisionOutcome(id) {
     if (noteText !== null) outcomeNote = noteText;
   }
 
-  const updated = applyOutcome(entry, { outcome, outcomeNote, now: new Date().toISOString() });
+  const now = new Date();
+  const updated = applyOutcome(entry, {
+    outcome,
+    outcomeNote,
+    now: now.toISOString(),
+    outcomeSnapshot: buildCurrentDecisionSnapshot(entry.symbol, now)
+  });
   if (!updated) return;
   state.decisionLogs = mergeDecisionLogs(state.decisionLogs, [updated]);
   persist();
   renderDecisionLog();
+}
+
+function buildCurrentDecisionSnapshot(symbol, now = new Date()) {
+  const key = String(symbol || "").trim().toUpperCase();
+  const item = (state.items || []).find(function (entry) { return entry.symbol === key; }) || null;
+  const quote = state.quotes[key] || null;
+  const peak = state.usPeaks[key] || null;
+  return {
+    capturedAt: now.toISOString(),
+    marketDate: getNewYorkDate(now),
+    price: quote?.price,
+    changePercent: quote?.changePercent,
+    peakPrice: peak?.peakPrice,
+    peakAt: peak?.peakAt,
+    targetPrice: item?.targetPrice,
+    costBasis: item?.costBasis,
+    shares: item?.shares,
+    holdingType: item?.holdingType
+  };
 }
 
 function renderMarketEvents() {
@@ -4187,6 +4470,7 @@ function renderCalendarDay(day) {
   const statusLabels = {
     trading: "交易日",
     weekend: "周末",
+    "market-holiday": "NYSE 全天休市",
     "closed-or-missing": "未确认休市 / 缺失",
     upcoming: "未来"
   };
@@ -4223,6 +4507,7 @@ function renderMarketDayDetail() {
   const statusLabels = {
     trading: "交易日",
     weekend: "周末",
+    "market-holiday": "NYSE 全天休市",
     "closed-or-missing": "未确认休市或行情缺失",
     upcoming: "未来日期"
   };
@@ -4235,7 +4520,7 @@ function renderMarketDayDetail() {
     '<div><span class="calendar-detail-kicker">DAY BRIEF · NEW YORK</span><h3>' + escapeHtml(formatMarketDate(day.date)) + '</h3></div>',
     '<span class="calendar-status-chip ' + escapeHtml(day.status) + '">' + escapeHtml(statusLabels[day.status] || day.status) + "</span>",
     "</div>",
-    qqq ? renderDayMarketMetrics(qqq, day.eventSummary) : '<div class="day-no-session"><strong>没有确认的 QQQ 交易数据</strong><p>周末会明确标记；工作日缺失不会被自动宣称为法定休市。</p></div>',
+    qqq ? renderDayMarketMetrics(qqq, day.eventSummary) : renderDayNoMarketData(day),
     renderDayEarningsEvents(earningsEvents),
     events.length ? '<div class="day-timeline"><div class="day-section-title"><strong>事件时间线</strong><span>' + events.length + " 条</span></div>" + events.map(renderUnifiedDayEvent).join("") + "</div>" : '<div class="day-empty-block"><strong>暂无结构化事件</strong><p>价格存在不代表已经找到可靠原因；系统不会无证据补写归因。</p></div>',
     renderResearchOutcome(outcome),
@@ -4243,6 +4528,29 @@ function renderMarketDayDetail() {
     renderNdxSnapshotSummary(detail.ndxSnapshot),
     "<p class=\"calendar-time-note\">市场日期按美东归属；事件时间同时显示美东和北京时间。事后标签不会作为当天判断输入。</p>"
   ].join("");
+}
+
+function renderDayNoMarketData(day) {
+  const copy = {
+    weekend: {
+      title: "周末没有 QQQ 常规交易数据",
+      detail: "周末不期待常规收盘行情；事件仍会按美东市场日期单独列出。"
+    },
+    "market-holiday": {
+      title: "NYSE 已公布全天休市",
+      detail: "该日期来自项目内 2026–2028 年官方全天休市日历，因此不期待 QQQ 收盘行情；提前收盘不属于此状态。"
+    },
+    upcoming: {
+      title: "未来日期尚无收盘行情",
+      detail: "未来日期可显示已归档日历事项，但不会把未发生的行情或结果当成数据缺失。"
+    },
+    "closed-or-missing": {
+      title: "没有确认的 QQQ 交易数据",
+      detail: "这是过去的非周末工作日，但当前没有价格记录；未覆盖年份或未知日期不会被自动宣称为法定休市。"
+    }
+  };
+  const item = copy[day?.status] || copy["closed-or-missing"];
+  return '<div class="day-no-session"><strong>' + escapeHtml(item.title) + '</strong><p>' + escapeHtml(item.detail) + "</p></div>";
 }
 
 function renderDayEarningsEvents(events) {
@@ -4264,6 +4572,10 @@ function renderDayEarningsEvents(events) {
 
 function renderSimilarDays() {
   const calendar = state.marketCalendar;
+  const day = calendar.detail?.day;
+  if (day && !canLoadSimilarDays(day)) {
+    return '<div class="similar-days is-unavailable"><div class="day-section-title"><strong>历史相似日</strong><span>RESEARCH ONLY</span></div><p>' + escapeHtml(getSimilarDaysUnavailableMessage(day)) + "</p></div>";
+  }
   if (calendar.similarityLoading) {
     return '<div class="similar-days"><div class="day-section-title"><strong>历史相似日</strong><span>RESEARCH ONLY</span></div><p>正在读取严格按当时可知信息生成的历史样本…</p></div>';
   }
@@ -4282,7 +4594,7 @@ function renderSimilarDays() {
   return [
     '<div class="similar-days">',
     '<div class="day-section-title"><strong>历史相似日</strong><span>RESEARCH ONLY</span></div>',
-    '<p>使用目标日之前的价格、风险与成交量状态拟合；候选日的后续表现仅作历史研究，不构成预测。</p>',
+    '<p>使用目标日之前的价格、风险、成交活跃度与当时已知事件计数拟合；候选日的后续表现仅作历史研究，不构成预测。</p>',
     renderSimilarDayDistribution(result.summary),
     '<div class="similar-day-list">',
     matches.map(function (match) {
@@ -4294,10 +4606,14 @@ function renderSimilarDays() {
       const outcome20dText = Number.isFinite(outcome20d) ? formatSigned(outcome20d) + "%" : "待成熟";
       const tone5d = outcome5d > 0 ? "positive" : outcome5d < 0 ? "negative" : "neutral";
       const tone20d = outcome20d > 0 ? "positive" : outcome20d < 0 ? "negative" : "neutral";
+      const componentText = getSimilarMatchComponents(match).map(function (component) {
+        return component.label + " " + Number(component.score).toFixed(0);
+      }).join(" · ");
       return [
         '<article class="similar-day-card">',
         '<div class="similar-day-head"><span>#' + Number(match.rank || 0) + " · " + escapeHtml(formatMarketDate(match.candidate_market_date)) + '</span><strong>' + escapeHtml(scoreText) + "</strong></div>",
         '<div class="similar-day-outcomes"><span>后 5 日 <b class="' + tone5d + '">' + escapeHtml(outcome5dText) + '</b></span><span>后 20 日 <b class="' + tone20d + '">' + escapeHtml(outcome20dText) + "</b></span></div>",
+        componentText ? '<p class="similar-day-components">匹配：' + escapeHtml(componentText) + "</p>" : "",
         '</article>'
       ].join("");
     }).join(""),

@@ -1,0 +1,59 @@
+{
+  "events": [
+    {
+      "symbol": "AAPL",
+      "marketDate": "2026-07-30",
+      "scheduledAt": null,
+      "session": "after_market",
+      "status": "reported",
+      "fiscalPeriod": "FY2026 Q3",
+      "sourceUrl": "https://www.apple.com/newsroom/2026/07/apple-reports-third-quarter-results/",
+      "provider": "Apple Newsroom",
+      "sourceTitle": "Apple reports third quarter results"
+    },
+    {
+      "symbol": "META",
+      "marketDate": "2026-07-29",
+      "scheduledAt": null,
+      "session": "after_market",
+      "status": "reported",
+      "fiscalPeriod": "Q2 2026",
+      "sourceUrl": "https://investor.atmeta.com/investor-news/press-release-details/2026/Meta-Reports-Second-Quarter-2026-Results/default.aspx",
+      "provider": "Meta Investor Relations",
+      "sourceTitle": "Meta Reports Second Quarter 2026 Results"
+    },
+    {
+      "symbol": "TSLA",
+      "marketDate": "2026-07-22",
+      "scheduledAt": null,
+      "session": "after_market",
+      "status": "reported",
+      "fiscalPeriod": "Q2 2026",
+      "sourceUrl": "https://ir.tesla.com/press-release/tesla-releases-second-quarter-2026-financial-results",
+      "provider": "Tesla Investor Relations",
+      "sourceTitle": "Tesla Releases Second Quarter 2026 Financial Results"
+    },
+    {
+      "symbol": "MSFT",
+      "marketDate": "2026-07-29",
+      "scheduledAt": null,
+      "session": "after_market",
+      "status": "reported",
+      "fiscalPeriod": "FY2026 Q4",
+      "sourceUrl": "https://www.microsoft.com/en-us/Investor/earnings/FY-2026-Q4/press-release-webcast",
+      "provider": "Microsoft Investor Relations",
+      "sourceTitle": "Microsoft FY 2026 Q4 earnings release and webcast"
+    },
+    {
+      "symbol": "AMZN",
+      "marketDate": "2026-07-30",
+      "scheduledAt": null,
+      "session": "unknown",
+      "status": "reported",
+      "fiscalPeriod": "Q2 2026",
+      "sourceUrl": "https://ir.aboutamazon.com/news-release/news-release-details/2026/Amazon-com-Announces-Second-Quarter-Results/default.aspx",
+      "provider": "Amazon Investor Relations",
+      "sourceTitle": "Amazon.com Announces Second Quarter Results"
+    }
+  ]
+}

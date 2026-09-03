@@ -10,6 +10,7 @@
     "events:review": "node scripts/review-unified-events.js",
     "agents:replay": "node scripts/replay-event-agents.js",
     "features:qqq": "node scripts/rebuild-daily-features.js QQQ",
+    "research:rebuild-derived": "node scripts/rebuild-derived-data.js QQQ",
     "ndx:discover": "node scripts/discover-ndx-candidates.js",
     "ndx:import": "node scripts/import-ndx-snapshot.js",
     "ndx:review": "node scripts/review-ndx-snapshot.js",

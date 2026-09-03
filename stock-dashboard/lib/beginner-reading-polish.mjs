@@ -3,7 +3,8 @@ import {
   BEGINNER_READING_VERSION,
   assertSafeBeginnerReadingText,
   buildBeginnerReading,
-  containsBannedBeginnerReading
+  containsBannedBeginnerReading,
+  isNoiseOnlySection
 } from "./beginner-reading.mjs";
 
 const require = createRequire(import.meta.url);
@@ -22,6 +23,8 @@ const MIN_INTERPRET_PARAGRAPHS = 2;
 const MAX_INTERPRET_PARAGRAPHS = 3;
 const MAX_INTERPRET_PARAGRAPH_CHARS = 280;
 const META_LAYOUT_PATTERN = /第[一二三四五]格|五个小格子|五个格子|五个小格|把市场拆成/;
+const FORWARD_LOOKING_PATTERN = /(?:接下来|后市|下一步|下个交易日|未来(?:几日|一段时间|走势|表现)?|随后).{0,20}(?:可能|会|将|仍|继续|走强|走弱|震荡|上涨|下跌|反弹|回调)/;
+const ACTIONABLE_ADVICE_PATTERN = /(?:建议|应当|应该|不妨|宜|最好)\s*(?:保持|观望|等待|留意|关注|谨慎|操作|买入|卖出|持有)/;
 const DISCIPLINE_LABELS = ["回撤纪律", "目标已到", "临近目标", "相对 QQQ 偏弱", "当日波动较大"];
 const TICKER_ALLOWLIST_EXTRA = new Set(["FY", "IR", "ETF"]);
 const POLISH_PROVIDER = "DeepSeek";
@@ -175,6 +178,30 @@ function templatePlainText(template) {
   }).join("\n") + " " + String(template?.marketDate || "");
 }
 
+// The AI is only allowed to discuss facts that are actually visible in the
+// guided reading. Keep the full template for the fallback UI, but remove pure
+// empty-state sections from both the model packet and its validation source.
+function visibleInterpretationTemplate(template) {
+  const source = template && typeof template === "object" ? template : {};
+  const sections = Array.isArray(source.sections) ? source.sections : [];
+  return {
+    ...source,
+    sections: sections.filter(function (sectionItem) {
+      return !isNoiseOnlySection(sectionItem);
+    })
+  };
+}
+
+function containsHiddenEmptyStateReference(text, template) {
+  const hiddenIds = new Set((Array.isArray(template?.sections) ? template.sections : [])
+    .filter(isNoiseOnlySection)
+    .map(function (sectionItem) { return sectionItem.id; }));
+  const value = String(text || "");
+  if (hiddenIds.has("news_calendar") && /新闻|资讯|财报/.test(value)) return true;
+  if (hiddenIds.has("leaders") && /核心成分|权重股|相对\s*QQQ/.test(value)) return true;
+  return false;
+}
+
 function collectDates(text) {
   return new Set(String(text || "").match(/\d{4}-\d{2}-\d{2}/g) || []);
 }
@@ -213,8 +240,12 @@ export function validateBeginnerReadingInterpretation(template, payload, facts) 
     return { valid: false, errors: Array.from(new Set(errors.concat(["missing_interpretation"]))), paragraphs: [] };
   }
   if (containsBannedBeginnerReading(text)) errors.push("prohibited_language");
+  if (FORWARD_LOOKING_PATTERN.test(text)) errors.push("forward_looking_claim");
+  if (ACTIONABLE_ADVICE_PATTERN.test(text)) errors.push("actionable_advice");
   if (META_LAYOUT_PATTERN.test(text)) errors.push("layout_tour");
-  const sourceText = templatePlainText(template);
+  const visibleTemplate = visibleInterpretationTemplate(template);
+  const sourceText = templatePlainText(visibleTemplate);
+  if (containsHiddenEmptyStateReference(text, template)) errors.push("hidden_empty_state");
   const allowedPercents = collectPercents(sourceText);
   collectPercents(text).forEach(function (value) {
     if (!allowedPercents.has(value)) errors.push("invented_percent");
@@ -223,7 +254,7 @@ export function validateBeginnerReadingInterpretation(template, payload, facts) 
   collectDates(text).forEach(function (value) {
     if (!allowedDates.has(value)) errors.push("invented_date");
   });
-  const tickers = allowedTickers(template);
+  const tickers = allowedTickers(visibleTemplate);
   collectTickers(text).forEach(function (token) {
     if (!tickers.has(token)) errors.push("unknown_ticker");
   });
@@ -249,6 +280,7 @@ export function validatePolishedReading(template, payload, facts) {
 }
 
 export function buildBeginnerReadingPolishRequest(template, facts, config) {
+  const visibleTemplate = visibleInterpretationTemplate(template);
   return applyJsonModeRequestDefaults({
     model: config.model,
     temperature: 0.2,
@@ -260,13 +292,13 @@ export function buildBeginnerReadingPolishRequest(template, facts, config) {
           "Return exactly one JSON object and no markdown.",
           "You are a patient investing tutor writing for a complete beginner. Read today's facts and explain what they MEAN, in plain Chinese.",
           "Output {paragraphs: string[]} with 2 or 3 short Chinese paragraphs, each under 280 characters.",
-          "SKIP every empty section entirely — if there is no news, no earnings, no comparable quotes, no discipline trigger, say NOTHING about it. Use the space for what IS there.",
-          "Open with ONE main takeaway sentence that weaves together the strongest signals from all non-empty sections (e.g. 今天温和收涨、但历史上这类日子短期偏强中期转弱，要注意颠簸). Then expand in the remaining paragraphs.",
-          "Do NOT just restate the numbers. Translate each number into everyday meaning: turn a small positive percent into 温和收涨, a large one into 明显走强; when short-term up-rate is high but long-term is lower, name it 短强中弱的分化信号; when a drawdown figure exists, remind that even in up cases history saw a meaningful pullback of that size.",
+          "SKIP every empty section entirely — they are not included in the facts below. Use the space for what IS there.",
+          "Open with ONE main takeaway sentence that weaves together the strongest visible facts. Then expand in the remaining paragraphs.",
+          "Do NOT just restate the numbers. Translate each number into everyday meaning: turn a small positive percent into 温和收涨, a large one into 明显走强; when short-term and long-term historical rates differ, state that difference as a historical observation; when a drawdown figure exists, explain that it records a past pullback.",
           "You may reference a percentage ONLY if that exact percentage already appears in the template; never introduce a number of your own, and never do arithmetic (no differences, sums, or derived rates). Do NOT approximate or round a template number (never write 约6% for a -5.98% figure) — either quote it exactly as written, or describe it in words with no number at all (e.g. 明显的回撤 / 一定幅度的回落).",
-          "Always frame history as a reference, never a promise. If sample count is small, flag it once as 样本太少、结论不牢 and move on.",
+          "Always frame history as a reference, never a promise. If sample count is small, flag it once as 样本太少、结论不牢 and move on. Stay descriptive: do not write an outlook, a next-step expectation, or what the reader should do.",
           "Talk about what today means, not the page layout. Do not say 格子, 五段, 第一格, 卡片, or 拆成.",
-          "Any ticker, percent, date, or discipline label you mention must already appear in the template. Do not invent numbers, and do not give buy/sell/hold advice or probabilities of what will happen next."
+          "Any ticker, percent, date, or discipline label you mention must already appear in the template. Do not invent numbers, and do not give buy/sell/hold advice, general action advice, or probabilities of what will happen next."
         ].join(" ")
       },
       {
@@ -274,9 +306,9 @@ export function buildBeginnerReadingPolishRequest(template, facts, config) {
         content: JSON.stringify({
           task: "Explain today's facts to a beginner so they understand what it means. Output {paragraphs:[]} only.",
           version: BEGINNER_READING_VERSION,
-          marketDate: template.marketDate,
-          mode: template.mode,
-          sections: template.sections
+          marketDate: visibleTemplate.marketDate,
+          mode: visibleTemplate.mode,
+          sections: visibleTemplate.sections
         })
       }
     ]

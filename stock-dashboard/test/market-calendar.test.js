@@ -9,6 +9,7 @@ const {
   previousWeekdayDate,
   volatilityLevel
 } = require("../lib/market-calendar");
+const { isKnownNyseFullClosure } = require("../lib/nyse-trading-calendar");
 
 test("calendar input validation handles real dates and leap months", function () {
   assert.deepEqual(monthBounds("2024-02"), { start: "2024-02-01", end: "2024-02-29" });
@@ -70,6 +71,32 @@ test("calendar separates trading, weekend, missing and upcoming dates", function
   assert.deepEqual(days[2].eventSummary.symbols, ["QQQ", "NVDA"]);
   assert.equal(days[2].researchOutcome.return1dPercent, 1.2);
   assert.equal(days[2].researchOutcome.return3dPercent, null);
+});
+
+test("calendar marks only covered official full closures as market holidays", function () {
+  const days = buildCalendarDays({
+    start: "2026-09-07",
+    end: "2026-09-08",
+    today: "2026-09-08",
+    prices: [],
+    labels: [],
+    events: [],
+    earnings: []
+  });
+  assert.equal(isKnownNyseFullClosure("2026-09-07"), true);
+  assert.equal(days[0].status, "market-holiday");
+  assert.equal(days[1].status, "closed-or-missing");
+
+  const uncovered = buildCalendarDays({
+    start: "2025-09-01",
+    end: "2025-09-01",
+    today: "2025-09-02",
+    prices: [],
+    labels: [],
+    events: [],
+    earnings: []
+  });
+  assert.equal(uncovered[0].status, "closed-or-missing");
 });
 
 test("future prices do not alter an earlier day's trailing state", function () {

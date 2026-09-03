@@ -1,5 +1,3 @@
-const { normalizeDate } = require("./market-calendar");
-
 // Full-day closures transcribed from NYSE's published 2026-2028 calendar.
 // Early-close sessions remain expected trading days because they still produce a close.
 const NYSE_TRADING_CALENDAR_VERSION = "nyse-full-closures-2026-2028-v1";
@@ -19,14 +17,28 @@ const FULL_CLOSURES_BY_YEAR = Object.freeze({
   ])
 });
 
+function normalizeTradingDate(value) {
+  const date = String(value || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Invalid calendar date");
+  if (new Date(date + "T12:00:00.000Z").toISOString().slice(0, 10) !== date) {
+    throw new Error("Invalid calendar date");
+  }
+  return date;
+}
+
+function isKnownNyseFullClosure(value) {
+  const date = normalizeTradingDate(value);
+  return Boolean(FULL_CLOSURES_BY_YEAR[date.slice(0, 4)]?.includes(date));
+}
+
 function shiftDate(value, days) {
-  const date = new Date(normalizeDate(value) + "T12:00:00.000Z");
+  const date = new Date(normalizeTradingDate(value) + "T12:00:00.000Z");
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
 }
 
 function weekStartForDate(value) {
-  const date = new Date(normalizeDate(value) + "T00:00:00Z");
+  const date = new Date(normalizeTradingDate(value) + "T00:00:00Z");
   date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
   return date.toISOString().slice(0, 10);
 }
@@ -69,6 +81,7 @@ module.exports = {
   NYSE_TRADING_CALENDAR_SOURCE,
   NYSE_TRADING_CALENDAR_VERSION,
   getNyseTradingWeek,
+  isKnownNyseFullClosure,
   weekdayDatesForWeek,
   weekStartForDate
 };

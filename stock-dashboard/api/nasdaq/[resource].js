@@ -163,6 +163,7 @@ const resources = {
       const result = await getEarningsEvents({
         startDate: req.query?.start,
         endDate: req.query?.end,
+        status: req.query?.status,
         limit: req.query?.limit
       });
       res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=900");
@@ -170,6 +171,10 @@ const resources = {
     } catch (error) {
       if (/Invalid earnings (start date|end date|market date|date range)/.test(error?.message || "")) {
         sendInvalidQuery(res, "Invalid earnings date range; expected YYYY-MM-DD");
+        return;
+      }
+      if (/Invalid earnings status/.test(error?.message || "")) {
+        sendInvalidQuery(res, "Invalid earnings status; expected scheduled, reported, or cancelled");
         return;
       }
       sendFailure(res, "Failed to load earnings calendar", error);

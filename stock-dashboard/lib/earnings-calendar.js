@@ -39,6 +39,11 @@ function normalizeStatus(value) {
   return status;
 }
 
+function exactTimestampOrNull(value) {
+  const timestamp = new Date(value || "").getTime();
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;
+}
+
 function nullableNumber(value, field) {
   if (value === null || value === undefined || value === "") return null;
   const number = Number(value);
@@ -120,6 +125,28 @@ function buildEarningsImportRecords(input, now = new Date()) {
   };
 }
 
+function buildEarningsImportPreview(records) {
+  const events = Array.isArray(records?.events) ? records.events : [];
+  const statuses = events.reduce(function (counts, event) {
+    const status = normalizeStatus(event?.status);
+    counts[status] = (counts[status] || 0) + 1;
+    return counts;
+  }, {});
+  const featureEligibleCount = events.filter(function (event) {
+    return event.status === "reported" && Boolean(exactTimestampOrNull(event.sourcePublishedAt));
+  }).length;
+  return {
+    version: EARNINGS_CALENDAR_VERSION,
+    candidateCount: events.length,
+    sourceCount: Array.isArray(records?.sources) ? records.sources.length : 0,
+    symbols: Array.from(new Set(events.map(function (event) { return event.symbol; }))).sort(),
+    statuses,
+    featureEligibleCount,
+    calendarOnlyCount: Math.max(0, events.length - featureEligibleCount),
+    requiresExplicitApproval: true
+  };
+}
+
 async function upsertReturning(config, table, conflictColumns, rows, client = requestSupabase) {
   if (!rows.length) return [];
   const persisted = [];
@@ -177,19 +204,28 @@ function normalizeLimit(value, fallback = 100) {
   return Number.isInteger(number) && number > 0 ? Math.min(number, 250) : fallback;
 }
 
-async function getEarningsEvents(options = {}, config = getSupabaseConfig(), client = requestSupabase) {
+function normalizeStatusFilter(value) {
+  if (value === null || value === undefined || value === "") return null;
+  return normalizeStatus(value);
+}
+
+async function getEarningsEvents(options = {}, config, client = requestSupabase) {
   const startDate = normalizeMarketDate(options.startDate || options.start || new Date().toISOString().slice(0, 10), "start date");
   const endDate = normalizeMarketDate(options.endDate || options.end || startDate, "end date");
+  const status = normalizeStatusFilter(options.status);
   if (startDate > endDate) throw new Error("Invalid earnings date range");
-  const rows = await client(config,
+  const resolvedConfig = config || getSupabaseConfig();
+  const rows = await client(resolvedConfig,
     "/rest/v1/earnings_events?select=event_key,market_date,scheduled_at,available_at,session,event_status,fiscal_period,eps_estimate,eps_actual,revenue_estimate,revenue_actual,collector_version,instruments(symbol,display_name),sources(provider,title,canonical_url,published_at)"
       + "&market_date=gte." + startDate
       + "&market_date=lte." + endDate
+      + (status ? "&event_status=eq." + encodeURIComponent(status) : "")
       + "&order=market_date.asc,scheduled_at.asc.nullslast,event_key.asc&limit=" + normalizeLimit(options.limit)
   );
   return {
     startDate,
     endDate,
+    status,
     events: (Array.isArray(rows) ? rows : []).map(function (row) {
       return {
         eventKey: row.event_key,
@@ -217,14 +253,48 @@ async function getEarningsEvents(options = {}, config = getSupabaseConfig(), cli
   };
 }
 
+// Calendar ingestion and historical research have different time contracts.
+// A candidate may be safely shown on a calendar with an unknown release time,
+// but it must not enter a dated feature row unless the cited official source
+// provides an exact publication timestamp. In particular, captured_at is not
+// an acceptable substitute: it records when our system saw the page, not when
+// the market could have known the fact.
+function buildReportedEarningsFeatureEvent(event) {
+  const status = String(event?.status || event?.event_status || "").trim().toLowerCase();
+  const symbol = String(event?.symbol || "").trim().toUpperCase();
+  const marketDate = String(event?.marketDate || event?.market_date || "").trim();
+  const sourcePublishedAt = exactTimestampOrNull(event?.source?.publishedAt || event?.source_published_at || event?.sourcePublishedAt);
+  if (status !== "reported" || !symbol || !marketDate || !sourcePublishedAt) return null;
+  const sourceUrl = String(event?.source?.canonicalUrl || event?.source?.canonical_url || event?.sourceUrl || "").trim();
+  return {
+    event_key: "earnings_calendar:" + String(event?.eventKey || event?.event_key || stableEarningsEventKey(symbol, sourceUrl || symbol)),
+    market_date: marketDate,
+    available_at: sourcePublishedAt,
+    event_type: "earnings_reported",
+    impact_level: "unknown",
+    tickers: [symbol]
+  };
+}
+
+async function getReportedEarningsFeatureEvents(options = {}, config = getSupabaseConfig(), client = requestSupabase) {
+  // Keep scheduled and cancelled calendar records out of the feature query itself.
+  // The mapper below retains the status check as a second boundary for malformed rows.
+  const calendar = await getEarningsEvents({ ...options, status: "reported" }, config, client);
+  return calendar.events.map(buildReportedEarningsFeatureEvent).filter(Boolean);
+}
+
 module.exports = {
   ALLOWED_SESSIONS,
   ALLOWED_STATUSES,
   EARNINGS_CALENDAR_VERSION,
   buildEarningsImportRecords,
+  buildEarningsImportPreview,
+  buildReportedEarningsFeatureEvent,
   getEarningsEvents,
+  getReportedEarningsFeatureEvents,
   normalizeEarningsCandidate,
   normalizeMarketDate,
+  normalizeStatusFilter,
   persistEarningsImport,
   stableEarningsEventKey
 };
