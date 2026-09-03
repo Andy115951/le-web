@@ -408,11 +408,17 @@ function buildDailyMarketEventsUrl(symbols, benchmarkChange) {
 function bindEvents() {
   if (els.installAppBtn) {
     els.installAppBtn.addEventListener("click", async function () {
-      const result = await requestPwaInstall(deferredPwaInstallPrompt);
-      deferredPwaInstallPrompt = null;
-      syncPwaInstallButton();
-      if (result.status === "accepted") setStatus("positive", "应用已安装");
-      if (result.status === "dismissed") setStatus("neutral", "已取消安装，可稍后再试");
+      try {
+        const result = await requestPwaInstall(deferredPwaInstallPrompt);
+        deferredPwaInstallPrompt = null;
+        syncPwaInstallButton();
+        if (result.status === "accepted") setStatus("positive", "应用已安装");
+        if (result.status === "dismissed") setStatus("neutral", "已取消安装，可稍后再试");
+      } catch (error) {
+        deferredPwaInstallPrompt = null;
+        syncPwaInstallButton();
+        setStatus("negative", "安装失败：" + (error?.message || "未知错误"));
+      }
     });
   }
 
@@ -1081,8 +1087,15 @@ async function pullFromCloud(options) {
   }
 
   if (options?.overrideLocal !== false) {
-    applyRemoteState(remote.data);
-    setCloudStatus("已从云端拉取并覆盖本地");
+    const needsWriteBack = applyRemoteState(remote.data);
+    if (needsWriteBack) {
+      const pushed = await pushToCloud("reconcile");
+      setCloudStatus(pushed
+        ? "已从云端拉取并覆盖本地，并把本地删除写回云端"
+        : "已从云端拉取并覆盖本地；云端写回失败，将在下次同步重试");
+    } else {
+      setCloudStatus("已从云端拉取并覆盖本地");
+    }
   } else {
     const localFingerprint = JSON.stringify({
       items: state.items,
@@ -4055,12 +4068,17 @@ function renderDecisionSnapshot(snapshot, label) {
   if (!snapshot || typeof snapshot !== "object") {
     return label === "记录时" ? '<p class="decision-log-context muted">这条记录没有可用的价格或持仓快照。</p>' : "";
   }
+  // Guard against null/undefined/"" — Number(null) and Number("") are 0, which
+  // Number.isFinite accepts, so an un-captured field would render as a fake 0.
+  const hasNumber = function (value) {
+    return value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+  };
   const details = [];
-  if (Number.isFinite(Number(snapshot.price))) details.push("价格 " + formatNumber(snapshot.price));
-  if (Number.isFinite(Number(snapshot.changePercent))) details.push("日变 " + formatSigned(snapshot.changePercent) + "%");
-  if (Number.isFinite(Number(snapshot.peakPrice))) details.push("峰值 " + formatNumber(snapshot.peakPrice));
-  if (Number.isFinite(Number(snapshot.shares))) details.push("股数 " + formatShareCount(snapshot.shares));
-  if (Number.isFinite(Number(snapshot.costBasis))) details.push("成本 " + formatMoney(snapshot.costBasis));
+  if (hasNumber(snapshot.price)) details.push("价格 " + formatNumber(snapshot.price));
+  if (hasNumber(snapshot.changePercent)) details.push("日变 " + formatSigned(snapshot.changePercent) + "%");
+  if (hasNumber(snapshot.peakPrice)) details.push("峰值 " + formatNumber(snapshot.peakPrice));
+  if (hasNumber(snapshot.shares)) details.push("股数 " + formatShareCount(snapshot.shares));
+  if (hasNumber(snapshot.costBasis)) details.push("成本 " + formatMoney(snapshot.costBasis));
   if (snapshot.holdingType) details.push(describeHoldingType(snapshot.holdingType));
   if (!details.length) return "";
   return '<p class="decision-log-context"><strong>' + escapeHtml(label) + "：</strong>" + escapeHtml(details.join(" · ")) + "</p>";
