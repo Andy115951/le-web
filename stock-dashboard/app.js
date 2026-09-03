@@ -121,6 +121,7 @@ const els = {
   refreshEventReviewBtn: document.getElementById("refreshEventReviewBtn"),
   eventReviewHint: document.getElementById("eventReviewHint"),
   eventReviewBody: document.getElementById("eventReviewBody"),
+  eventReviewPagination: document.getElementById("eventReviewPagination"),
   refreshDailyReportsBtn: document.getElementById("refreshDailyReportsBtn"),
   dailyReportsHint: document.getElementById("dailyReportsHint"),
   dailyReportsBody: document.getElementById("dailyReportsBody"),
@@ -248,7 +249,7 @@ const state = {
     calendarDate: ""
   },
   researchTasks: { runs: [], loading: false, error: "" },
-  eventReview: { queue: null, filter: "needs_attention", loading: false, error: "" },
+  eventReview: { queue: null, filter: "needs_attention", page: 1, pageSize: 12, loading: false, error: "" },
   dailyReports: { reports: [], loading: false, error: "" },
   weeklyReports: { reports: [], loading: false, error: "" },
   targetHits: new Set(),
@@ -554,9 +555,28 @@ function bindEvents() {
   document.querySelectorAll("[data-event-review-filter]").forEach(function (button) {
     button.addEventListener("click", function () {
       state.eventReview.filter = button.getAttribute("data-event-review-filter") || "needs_attention";
+      state.eventReview.page = 1;
       renderEventReview();
     });
   });
+  if (els.eventReviewPagination) {
+    els.eventReviewPagination.addEventListener("click", function (event) {
+      const button = event.target.closest("[data-event-review-page]");
+      const page = Number(button?.getAttribute("data-event-review-page"));
+      if (!Number.isInteger(page) || page < 1) return;
+      state.eventReview.page = page;
+      renderEventReview();
+    });
+  }
+  if (els.eventReviewBody) {
+    els.eventReviewBody.addEventListener("click", function (event) {
+      const button = event.target.closest("[data-copy-review-command]");
+      if (!button) return;
+      const eventKey = button.getAttribute("data-event-review-key") || "";
+      if (!eventKey) return;
+      void copyEventReviewCommand(eventKey, button);
+    });
+  }
   if (els.refreshDailyReportsBtn) els.refreshDailyReportsBtn.addEventListener("click", function () { void refreshDailyReports(); });
   if (els.refreshWeeklyReportsBtn) els.refreshWeeklyReportsBtn.addEventListener("click", function () { void refreshWeeklyReports(); });
   if (els.modelReviewBody) {
@@ -2161,13 +2181,46 @@ function renderEventReview() {
   }
   const queue = eventReview.queue || {};
   const allItems = Array.isArray(queue.items) ? queue.items : [];
-  const items = eventReview.filter === "all" ? allItems : allItems.filter(function (item) { return item.queueState === eventReview.filter; });
-  els.eventReviewHint.textContent = "近 " + Number(queue.days || 30) + " 日：" + Number(queue.needsAttentionCount || 0) + " 条需核对，" + Number(queue.unreviewedCount || 0) + " 条未审核。审核决定只可通过本地受控命令写入。";
+  const priorityEventKeys = Array.isArray(queue.priorityEventKeys) ? queue.priorityEventKeys : [];
+  const itemByKey = new Map(allItems.map(function (item) { return [item?.eventKey, item]; }));
+  const items = eventReview.filter === "all"
+    ? allItems
+    : eventReview.filter === "priority"
+      ? priorityEventKeys.map(function (eventKey) { return itemByKey.get(eventKey); }).filter(Boolean)
+      : allItems.filter(function (item) { return item.queueState === eventReview.filter; });
+  const priorityNote = eventReview.filter === "priority"
+    ? "当前仅显示按规则风险优先排序的最多 " + priorityEventKeys.length + " 条。"
+    : "审核决定只可通过本地受控命令写入。";
+  els.eventReviewHint.textContent = "近 " + Number(queue.days || 30) + " 日：" + Number(queue.needsAttentionCount || 0) + " 条需核对，" + Number(queue.unreviewedCount || 0) + " 条未审核。" + priorityNote;
   if (!items.length) {
     els.eventReviewBody.innerHTML = '<div class="event-review-empty"><strong>当前筛选没有待展示事件</strong><span>未发现符合该状态的公开市场归因记录。</span></div>';
+    if (els.eventReviewPagination) els.eventReviewPagination.innerHTML = "";
     return;
   }
-  els.eventReviewBody.innerHTML = items.slice(0, 12).map(renderEventReviewItem).join("");
+  const pageSize = Math.max(1, Number(eventReview.pageSize) || 12);
+  const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
+  const page = Math.min(pageCount, Math.max(1, Number(eventReview.page) || 1));
+  eventReview.page = page;
+  const start = (page - 1) * pageSize;
+  els.eventReviewBody.innerHTML = renderEventReviewTriage(queue.triage) + items.slice(start, start + pageSize).map(renderEventReviewItem).join("");
+  if (els.eventReviewPagination) {
+    const previous = page > 1 ? '<button type="button" data-event-review-page="' + (page - 1) + '">上一页</button>' : "";
+    const next = page < pageCount ? '<button type="button" data-event-review-page="' + (page + 1) + '">下一页</button>' : "";
+    els.eventReviewPagination.innerHTML = '<span>显示 ' + (start + 1) + "–" + Math.min(start + pageSize, items.length) + " / " + items.length + "</span>" + previous + '<b>第 ' + page + " / " + pageCount + " 页</b>" + next;
+  }
+}
+
+function renderEventReviewTriage(triage) {
+  const flags = Array.isArray(triage?.byFlag) ? triage.byFlag : [];
+  const types = Array.isArray(triage?.byEventType) ? triage.byEventType : [];
+  if (!flags.length && !types.length) return "";
+  const flagRows = flags.map(function (item) {
+    return '<span class="is-' + escapeHtml(String(item?.severity || "medium")) + '">' + escapeHtml(String(item?.code || "review_flag")) + " · " + Number(item?.count || 0) + "</span>";
+  }).join("") || "<span>暂无风险标记</span>";
+  const typeRows = types.map(function (item) {
+    return "<span>" + escapeHtml(String(item?.eventType || "unknown")) + " · " + Number(item?.count || 0) + "</span>";
+  }).join("") || "<span>暂无事件类型</span>";
+  return '<section class="event-review-triage"><div><strong>优先风险标记</strong><p>' + flagRows + '</p></div><div><strong>待核对事件类型</strong><p>' + typeRows + "</p></div></section>";
 }
 
 function renderEventReviewItem(item) {
@@ -2175,16 +2228,69 @@ function renderEventReviewItem(item) {
   const flags = Array.isArray(classification.flags) ? classification.flags : [];
   const sources = Array.isArray(item?.sources) ? item.sources : [];
   const primary = sources.find(function (source) { return source?.relationType === "primary"; }) || sources[0] || null;
+  const primaryUrl = safeExternalHref(primary?.url);
   const stateLabel = ({ needs_attention: "需核对", unreviewed: "未审核", accepted: "已接受", rejected: "已拒绝" })[item?.queueState] || "未知";
+  const eventKey = String(item?.eventKey || "");
+  const commandTemplate = eventKey
+    ? '<button type="button" class="event-review-copy" data-copy-review-command data-event-review-key="' + escapeHtml(eventKey) + '">复制审核命令</button>'
+    : "";
   return [
     '<article class="event-review-item">',
     '<div class="event-review-item-head"><div><b class="is-' + escapeHtml(String(item?.queueState || "unknown")) + '">' + escapeHtml(stateLabel) + '</b><span>' + escapeHtml(formatMarketDate(item?.marketDate)) + " · " + escapeHtml(String(item?.eventType || "unknown")) + '</span></div><strong>' + (Number.isFinite(Number(item?.confidence)) ? Math.round(Number(item.confidence) * 100) + "%" : "--") + " 置信度</strong></div>",
     '<h3>' + escapeHtml(String(item?.title || "未命名事件")) + '</h3>',
     flags.length ? '<div class="event-review-flags">' + flags.map(function (flag) { return '<span class="is-' + escapeHtml(String(flag?.severity || "medium")) + '">' + escapeHtml(String(flag?.code || "review_flag")) + "</span>"; }).join("") + "</div>" : "",
-    '<div class="event-review-source">' + (primary ? '<span>' + escapeHtml(String(primary.provider || "来源")) + '</span><a href="' + escapeHtml(String(primary.url || "#")) + '" target="_blank" rel="noreferrer">查看原始来源</a>' : "<span>缺少可用来源</span>") + "</div>",
-    '<small>本地审核：<code>npm run events:review -- decide ' + escapeHtml(String(item?.eventKey || "<event-key>")) + ' accepted &lt;reviewer&gt; "&lt;note&gt;"</code></small>',
+    '<div class="event-review-source">' + (primary ? '<span>' + escapeHtml(String(primary.provider || "来源")) + '</span>' + (primaryUrl ? '<a href="' + escapeHtml(primaryUrl) + '" target="_blank" rel="noreferrer">查看原始来源</a>' : "<em>来源链接不可用</em>") : "<span>缺少可用来源</span>") + "</div>",
+    '<div class="event-review-command"><small>结论只能由本机受控 CLI 追加；复制后补齐结论、审核人和备注。</small>' + commandTemplate + "</div>",
     "</article>"
   ].join("");
+}
+
+function shellQuote(value) {
+  return "'" + String(value || "").replace(/'/g, "'\\\"'\\\"'") + "'";
+}
+
+function safeExternalHref(value) {
+  try {
+    const url = new URL(String(value || ""));
+    return url.protocol === "https:" || url.protocol === "http:" ? url.href : "";
+  } catch (_) {
+    return "";
+  }
+}
+
+function buildEventReviewCommand(eventKey) {
+  return "npm run events:review -- decide " + shellQuote(eventKey) + " <accepted|rejected|needs_attention> <reviewer> " + shellQuote("review note");
+}
+
+async function copyEventReviewCommand(eventKey, button) {
+  const command = buildEventReviewCommand(eventKey);
+  const originalLabel = button.textContent;
+  let copied = false;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(command);
+      copied = true;
+    }
+  } catch (_) {
+    copied = false;
+  }
+  if (!copied) {
+    const textarea = document.createElement("textarea");
+    textarea.value = command;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.append(textarea);
+    textarea.select();
+    try {
+      copied = document.execCommand("copy");
+    } catch (_) {
+      copied = false;
+    }
+    textarea.remove();
+  }
+  button.textContent = copied ? "已复制，去终端执行" : "复制失败，请手动查看命令";
+  window.setTimeout(function () { button.textContent = originalLabel; }, 1800);
 }
 
 async function refreshDailyReports() {
@@ -2709,7 +2815,14 @@ function renderCurrentMarketScenario() {
   const return5d = outcomes.return5d || {};
   const return20d = outcomes.return20d || {};
   const drawdown20d = outcomes.maxDrawdown20d || {};
+  const reading = value.reading || {};
   const sampleNote = sample.isSmallSample ? "小样本，仅作线索" : "已成熟历史样本";
+  const readingObservations = Array.isArray(reading.observations) ? reading.observations : [];
+  const readingMarkup = reading.headline
+    ? '<section class="current-scenario-reading"><strong>如何阅读</strong><p>' + escapeHtml(String(reading.headline)) + "</p>"
+      + (readingObservations.length ? "<ul>" + readingObservations.map(function (observation) { return "<li>" + escapeHtml(String(observation)) + "</li>"; }).join("") + "</ul>" : "")
+      + (reading.caution ? "<small>" + escapeHtml(String(reading.caution)) + "</small>" : "") + "</section>"
+    : "";
   els.currentScenarioBody.innerHTML = [
     '<div class="current-scenario-meta"><span>截至 ' + escapeHtml(formatMarketDate(value?.asOf?.marketDate)) + '</span><span>' + Number(sample.candidateCount || 0) + " / " + Number(sample.maximumCandidateCount || 5) + " 个样本</span></div>",
     '<div class="current-scenario-grid">',
@@ -2717,6 +2830,7 @@ function renderCurrentMarketScenario() {
     '<article><span>历史后 20 日</span><strong class="' + tone(return20d.medianPercent) + '">' + escapeHtml(formatPercent(return20d.medianPercent)) + '</strong><small>正收益频率 ' + escapeHtml(formatRate(return20d.positiveRatePercent)) + "</small></article>",
     '<article><span>历史 20 日回撤</span><strong class="' + tone(drawdown20d.medianPercent) + '">' + escapeHtml(formatPercent(drawdown20d.medianPercent)) + '</strong><small>样本最差 ' + escapeHtml(formatPercent(drawdown20d.worstPercent)) + "</small></article>",
     "</div>",
+    readingMarkup,
     '<p class="current-scenario-note">' + escapeHtml(sampleNote) + "。这是相似历史状态的描述统计，不是当前预测、概率或交易指令。</p>"
   ].join("");
 }

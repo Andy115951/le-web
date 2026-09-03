@@ -12,7 +12,7 @@ npm test
 git status --short
 ```
 
-已完成并经过本地 `262/262` 测试验证的重点：
+已完成并经过本地 `269/269` 测试验证的重点：
 
 - 研究覆盖面板：显示最近收盘输入的最小安全状态、派生数据新鲜度、财报就绪度和 NDX 官方 HTTPS 来源链接
 - 派生数据维护：`npm run research:rebuild-derived` 默认只预览；只有显式附加 `-- --approve` 才会按特征、标签、相似日顺序写入数据库
@@ -39,7 +39,7 @@ git status --short
   - `FRED_API_KEY`：采集验证通过，12 条宏观观测写入成功
   - `SEC_USER_AGENT`：采集验证通过，3 条 filings 写入成功
 - Vercel 生产环境已补充 `FRED_API_KEY` 和 `SEC_USER_AGENT`，已重新部署
-- 测试 262/262 全绿，代码零 npm 依赖，无需 `npm install`
+- 测试 269/269 全绿，代码零 npm 依赖，无需 `npm install`
 - 服务端归档代码已迁移到新版 `SUPABASE_SECRET_KEY`
 
 当前 Mac 开发机已经完成：
@@ -93,6 +93,7 @@ git status --short
 - [x] `2026-08-24` 生产打开 `DEEPSEEK_BEGINNER_READING_ENABLED`；`DEEPSEEK_RESEARCH_ENABLED` 与 `DEEPSEEK_RESEARCH_DATA_APPROVED` 保持 false，探针开关保持关闭
 - [x] `2026-09-02` 只读生产核查：最近一次 `2026-09-01` 收盘任务的市场采集、事件归因/标签、研究快照、日报/周报和到期评估均为 `succeeded`，模型复盘按配置保持 `disabled`；生产累计 15 份研究快照、11 份日报和 4 份周报。同期 QQQ 日线已到 `2026-09-01`，但特征、标签、相似日仍停在 `2026-08-28`，需在受控环境按既有顺序重建，网页和 Cron 不会自动执行全量派生重算。NDX 最近官方快照仍为 `2026-05-01`（124 天前），继续保持 `stale`，不得用观察篮子替代当前完整成分
 - [x] `2026-09-03` 只读生产核查：`2026-09-02` 的市场采集、归因、标签、研究快照、日报、周报与到期评估均为 `succeeded`，模型复盘保持 `disabled`；生产累计 16 份研究快照、12 份日报和 4 份周报。QQQ 日线已到 `2026-09-02`，但特征、标签、相似日仍停在 `2026-08-28`，需在受控环境先预览再明确批准重建。NDX 快照仍为 `2026-05-01`（125 天前），归因审核队列显示 253 项待人工核对；这些都是维护待办，不是交易结论。生产端仍为 `research-quality-v3`，本地 `research-quality-v5` 与 `NEXT SAFE CHECKS` 需部署后才会可见
+- [x] `2026-09-03` 本地财报候选 dry-run：`core-q2-2026-reported.json` 的 AAPL / AMZN / META / MSFT / TSLA 共 5 条都是 `reported`，但 `featureEligibleCount=0`、`calendarOnlyCount=5`。原因是候选没有精确官方 `sourcePublishedAt`；不允许用采集时间补齐，也未执行 `--approve` 写入
 
 页面、API、事件规则和数据库开发现在都可进行；当前未完成项不会阻塞下一批代码开发。
 
@@ -611,7 +612,7 @@ GET /api/nasdaq/events?days=30|90|180
 GET /api/nasdaq/review-queue?days=30
 ```
 
-看板“归因审核”使用同一只读接口，默认筛选 `needs_attention`，可切换 `unreviewed` 与全部事件。卡片只显示状态、规则标记、置信度和规范化原始来源链接；不会显示审核人或备注，也不能在浏览器中提交结论。当前远程已有 14 条低置信度启发式市场归因待核对，这是预期的保守规则输出，而不是模型判断。
+看板“归因审核”使用同一只读接口，默认筛选 `needs_attention`，可切换“优先核对”（与本地 `focus` 相同的风险排序、最多 20 条）、`unreviewed` 与全部事件。卡片只显示状态、规则标记、置信度和规范化原始来源链接；可复制不含身份与备注的本地审核命令模板，但不会显示审核人或备注，也不能在浏览器中提交结论。待核对数量会随采集与人工结论变化，应以接口或本地摘要的实时输出为准；它是保守规则输出，不是模型判断。
 
 本地人工审核使用服务端 `.env.local`，不提供浏览器写入接口：
 
@@ -622,6 +623,15 @@ set +a
 
 # 查看 30 / 90 / 180 天事件及待复核原因
 npm run events:review -- list 30
+
+# 只查看积压规模和脱敏分流，不输出单条事件或来源
+npm run events:review -- summary 30
+
+# 按高风险标记优先列出最多 12 条可人工核对项；不写数据库
+npm run events:review -- focus 30
+
+# 指定最多 1–20 条，仍然只是本地只读输出
+npm run events:review -- focus 30 20
 
 # 追加审核结论，不改写原始事件
 npm run events:review -- decide 'market-move:2026-08-11:NVDA:v1' needs_attention apple 'Check the cited evidence before using this attribution.'
@@ -1090,6 +1100,8 @@ GET /api/nasdaq/daily-reports?limit=7
 GET /api/nasdaq/research-tasks?limit=20
 ```
 
+归因审核队列会在 30 日窗口内把 `needs_attention` 项按风险标记和事件类型做受限计数分流，并提供本地分页浏览；网页的“优先核对”只显示最多 20 条、按同一确定性风险规则排序的候选，终端 `events:review focus` 使用同一排序。它不公开新增来源详情、不修改审核状态，也不提供网页审核按钮。审核写入仍只能走既有的本地受控命令，分页只是避免积压超过 12 条时被静默隐藏。
+
 #### 8.2.16 研究覆盖面板
 
 `GET /api/nasdaq/research-quality` 是只读聚合层，固定使用已有研究健康状态、最近 30 份日报、动态周报、近 30 日归因审核队列和最近 50 条任务账本，返回 `research-quality-v5`。它只提供以下可解释的观察值：已归档快照/日报/周报数量、已成熟和待成熟的 20 交易日结果数量、需人工核对与未审核事件数量，以及每个阶段的最新安全状态。
@@ -1097,6 +1109,16 @@ GET /api/nasdaq/research-tasks?limit=20
 页面“研究覆盖”只展示这些聚合计数与限制说明。它不会调用模型、不会写入 Supabase、不会公开任务原始错误、审核人、审核备注或完整研究输入，也不会把“有多少材料”表述为数据已完整、归因已正确、预测成立或可以执行交易。
 
 当前生产环境已配置 `SEC_USER_AGENT` 与 `FRED_API_KEY`，Windows 本机已验证手动采集写入。`2026-08-31` 复核确认生产收盘 Cron 已在自动写入两者：`nasdaq_market_event_history`、`price_bars_daily`、SEC filings、`research_packet_snapshots` 均新鲜至最近交易日 `2026-08-28`，FRED 观测至 `2026-08-26`（FRED 源本身发布滞后，属正常）。可用 `npm run coverage:check` 一次性核对各数据源最新写入日期（只读，不触发模型或写库）。模型网关参数已配置，生产 `DEEPSEEK_MODEL` 为 `deepseek-v4-flash`；`DEEPSEEK_RESEARCH_ENABLED`、`DEEPSEEK_RESEARCH_DATA_APPROVED` 与 `DEEPSEEK_GATEWAY_COMPATIBILITY_ENABLED` 保持 `false`，模型摘要不会运行。`deepseek-v3.2` 与 `deepseek-v4-flash` 的无项目数据探针均已 `accepted`，不表示研究数据获准出站。历史运行不做推测性回填。
+
+`2026-09-03` 的官方 NDX 来源只读核查见 [data/ndx/source-checks/2026-09-03.md](data/ndx/source-checks/2026-09-03.md)：Nasdaq NDX 概览页当时显示 `102` 个成分，足以证明现有 `2026-05-01` 快照不能再当作当前覆盖；但未登录权重页未提供完整可审计的名单和权重。因此没有创建候选、没有导入，也不能从成分数、前十或局部页面推断完整快照。
+
+可重复运行同一只读核查：
+
+```bash
+npm run ndx:source-check
+```
+
+它最多读取 Nasdaq 的概览页和权重页各一次，只返回显示日期、成分数和“是否仍需授权完整导出”的安全状态；不打印 HTML、不下载导出、不创建候选、不写 Supabase，也不调用模型。即使页面似乎可用，`candidateCreationAllowed` 也固定为 `false`，维护者仍必须手动保存完整官方导出、填写日期/发布时间，再走候选差异审核。
 
 覆盖面板中的“研究集成准备度”会把内置市场采集固定标为 `ready`，并按当前服务端环境分别显示 SEC、FRED、模型摘要和无项目数据网关探针状态。公司 IR 财报额外区分 `awaiting_import`（尚无已审核日历记录）、`calendar_only`（日历可用但尚无带精确官方发布时间的已公布事项）、`ready`（至少一条事项可安全进入日度特征）和 `needs_database_setup`（部署尚未应用财报表）；它不会把候选文件、采集时间或计划事项伪装成可回测输入。模型摘要会精确区分 `needs_configuration`（缺少网关参数）、`disabled`（已配置但功能开关关闭）、`data_approval_required`（功能已打开但尚未批准把研究快照发送给第三方）和 `ready`。网关探针只显示 `needs_configuration / disabled / ready`，它不表示研究数据获准出站。这是为多端协作准备的安全检查，不会返回 `SEC_USER_AGENT`、`FRED_API_KEY`、`DEEPSEEK_API_KEY`、联系人、环境变量值或具体配置失败原因；状态为待配置时，按第 6 节和第 13 节在本机 `.env.local` 与 Vercel Production 分别补齐变量后重新部署即可。
 
@@ -1348,6 +1370,8 @@ GET /api/nasdaq/current-scenario
 UI 将它称为“候选结果分布”。正收益频率必须标记为历史频率，不得改写成预测概率；候选少于 5 个时必须展示小样本提示。缺失或未成熟数据不补零。
 
 首页“当前历史情景”通过 `GET /api/nasdaq/current-scenario` 读取同一份最新 QQQ 物化结果，但仅返回目标市场日期、方法版本、最多 5 个候选的聚合统计和边界说明，不返回候选日期、分项分数、原始数据库字段或个人数据。接口和首页均不触发重建、Cron、模型调用或对第三方的数据传输。它始终以“历史经验分布”呈现：历史正收益频率不是当前预测概率，历史中位收益也不是收益预期或交易指令。
+
+接口同时用固定模板生成 `reading`：只按已有的样本量、历史正收益频率、中位收益和历史回撤范围组织中文说明，并固定附带“小样本/历史描述/非预测”的边界。它没有 LLM、模型请求、额外数据源、持仓字段或数据库写入；缺失值不会补零，样本不足时只返回明确的空状态说明。路线图里的“LLM 根据数字生成情景文字”仍未开启，需单独定义出站审批、输入契约、审计和验证后再做。
 
 当前真实回填基线：
 

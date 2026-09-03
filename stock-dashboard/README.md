@@ -60,11 +60,12 @@
 - 标签查询接口：`GET /api/nasdaq/labels?symbol=QQQ&limit=1254`，明确标记为研究专用
 - 统一事件与来源层：`sources / events / event_sources / event_entities`，支持 URL 去重、证据关系和标的关系
 - 统一事件接口：`GET /api/nasdaq/events?days=30|90|180`
-- 事件人工复核：追加式 `event_review_decisions` 审计记录、确定性待复核规则和只读队列；看板“归因审核”可筛选待核对项并直达原始来源，决定仍通过受控 CLI 写入，不会覆盖原始事件
+- 事件人工复核：追加式 `event_review_decisions` 审计记录、确定性待复核规则和只读队列；看板“归因审核”可筛选待核对项、优先核对最多 20 条高风险候选、按高频风险标记/事件类型分流并分页浏览，并可复制不含身份和备注的本地审核命令模板；本地 `events:review focus` 可输出同一排序，决定仍通过受控 CLI 写入，不会覆盖原始事件
 - 待复核队列接口：`GET /api/nasdaq/review-queue?days=30|90|180`
 - NDX 历史成分与权重快照：首个完整官方快照含 101 个证券，生效日 `2026-05-01`，权重合计 `99.96%`
 - 成分查询接口：`GET /api/nasdaq/constituents?asOf=YYYY-MM-DD`
 - NDX 候选快照审核：先发现候选、生成并检查差异报告，再以显式 `--approve` 导入；导入后会保存加入、移除和权重变化事件
+- NDX 官方来源检查：`npm run ndx:source-check` 只读核对概览/权重页是否仍缺完整导出；它不抓取成分、不创建候选也不写入
 - NDX 成分新鲜度：研究覆盖面板按官方快照距参考日 `<=45 / 46–90 / >90` 天显示新鲜、待检查或滞后，并提供已审核的 HTTPS 官方来源链接；只提示维护，不自动替换成分
 - 核心成分总览会同步显示 NDX 快照新鲜度；快照滞后时明确说明核心观察篮子不等于完整当前成分，避免将旧权重误作实时指数成分
 - NDX 成分变更可读化：动态日历单日详情会展示该已审核快照相对前一份快照的加入、移除和权重调整；首份快照会明确说明尚无比较基线，不从新闻或当前名单猜测历史变更
@@ -73,7 +74,7 @@
 - 已公布财报的特征输入：特征重建在查询层与转换层都只接受 `reported` 事项；仅当官方来源给出精确 `sourcePublishedAt` 时，才会按该时间归属到首个可知交易日。采集时间和仅日历事项不会用于历史回填
 - 研究覆盖中的“公司 IR 财报”状态会明确区分：`仅日历`（可展示但没有可安全进入历史特征的精确官方时间）与 `特征就绪`（至少一条 `reported` 事项带精确官方发布时间）；它只反映数据边界，不解释涨跌或给出操作建议
 - 研究覆盖中的“最近采集输入”会以最小字段查询显示 QQQ 日线、SEC 披露、FRED 宏观在最近一次收盘运行中的实际状态；它只读受限阶段状态，区分“环境已配置”和“本次已成功”，不读取错误原文或用户数据
-- 财报查询接口：`GET /api/nasdaq/earnings?start=YYYY-MM-DD&end=YYYY-MM-DD&status=reported`；`status` 可省略或为 `scheduled / reported / cancelled`，无效状态会被拒绝。动态日历会显示已审核归档的财报事项。`data/earnings/candidates/core-q2-2026-reported.json` 已保存五家核心公司的官方结果页核对候选，但尚未执行显式导入，不能视为线上日历数据
+- 财报查询接口：`GET /api/nasdaq/earnings?start=YYYY-MM-DD&end=YYYY-MM-DD&status=reported`；`status` 可省略或为 `scheduled / reported / cancelled`，无效状态会被拒绝。动态日历会显示已审核归档的财报事项。`data/earnings/candidates/core-q2-2026-reported.json` 已保存五家核心公司的官方结果页核对候选；`2026-09-03` 本地 dry-run 确认其均为 `reported`，但五条均缺精确 `sourcePublishedAt`，所以 `featureEligibleCount=0`、只能作为日历候选。它们尚未执行显式导入，不能视为线上日历数据
 - 财报候选导入安全边界：`npm run earnings:import -- <candidate.json>` 默认只在本地验证并预览数量、标的、状态与特征资格；只有追加 `--approve` 才读取服务端配置并写入 Supabase
 - 首页近期官方财报：展示未来 30 天内已审核归档的公司 IR 事项、盘前/盘后时段和原始来源链接；空结果不会被解释为“没有公司将发布财报”
 - 首页财报切换：可在“即将公布”和“最近已公布”之间切换；最近结果只显示 `reported` 状态并按日期倒序，预定事项不会混入历史结果视图
@@ -93,6 +94,7 @@
 - 相似日调用边界：只有已确认有 QQQ 收盘状态的交易日才请求相似日；周末、已知全天休市、未来日期和工作日缺失数据只解释不可匹配原因，不用空数据构造样本
 - 相似日结果分布：对当前候选集计算 5/20 日历史胜率、中位收益、四分位范围和 20 日回撤，不把小样本写成预测概率
 - 首页当前历史情景：自动读取最新已物化的 QQQ 相似日，展示最多 5 个成熟历史候选的 5/20 日经验分布与回撤范围；它不调用 AI、不读取个人持仓，也不将历史正收益频率写成当前预测概率
+- 当前历史情景解读：同一只读统计会生成固定中文模板，解释历史样本量、历史正收益频率与回撤范围；不调用 LLM、不增加事实、不生成交易结论
 - 冻结 walk-forward 评估基线：提交了 `QQQ` 16 折扩展式时间切分，训练到验证间隔离 20 个交易日结果期；`GET /api/nasdaq/evaluation-splits` 提供后续概率模型共用的只读边界
 - 概率对照基线：在冻结切分上生成“永远看涨”和训练期条件动量报告，包含准确率、平衡准确率和 Brier 分数；`GET /api/nasdaq/evaluation-baselines` 仅供研究评估，不是当前预测
 - Logistic Regression 候选：基于训练期标准化与 L2 正则完成首份概率/校准报告；当前没有胜过弱对照，因此标记为 `research_only_not_selected`，`GET /api/nasdaq/evaluation-logistic` 只用于复核

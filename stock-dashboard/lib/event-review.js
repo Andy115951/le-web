@@ -77,13 +77,84 @@ function buildEventReviewQueue(events, latestReviews, days, latestLabels) {
           : classification.requiresReview ? "needs_attention" : "unreviewed"
     };
   });
+  const needsAttentionItems = queue.filter(function (item) { return item.queueState === "needs_attention"; });
+  const priorityEventKeys = buildEventReviewFocus(needsAttentionItems, 20).items.map(function (item) { return item.eventKey; });
   return {
     version: EVENT_REVIEW_VERSION,
     days: normalizedDays,
     totalCount: queue.length,
-    needsAttentionCount: queue.filter(function (item) { return item.queueState === "needs_attention"; }).length,
+    needsAttentionCount: needsAttentionItems.length,
     unreviewedCount: queue.filter(function (item) { return !item.latestReview; }).length,
+    triage: buildEventReviewTriage(needsAttentionItems),
+    priorityEventKeys,
     items: queue
+  };
+}
+
+function buildEventReviewTriage(items) {
+  const byFlag = new Map();
+  const byEventType = new Map();
+  (items || []).forEach(function (item) {
+    const eventType = boundedText(item?.eventType, 80) || "unknown";
+    byEventType.set(eventType, (byEventType.get(eventType) || 0) + 1);
+    (item?.classification?.flags || []).forEach(function (flag) {
+      const code = boundedText(flag?.code, 80) || "review_flag";
+      const severity = boundedText(flag?.severity, 20) || "medium";
+      const key = severity + ":" + code;
+      const current = byFlag.get(key) || { code, severity, count: 0 };
+      current.count += 1;
+      byFlag.set(key, current);
+    });
+  });
+  const order = function (left, right) {
+    return right.count - left.count || String(left.code || left.eventType).localeCompare(String(right.code || right.eventType));
+  };
+  return {
+    attentionCount: Array.isArray(items) ? items.length : 0,
+    byFlag: Array.from(byFlag.values()).sort(order).slice(0, 6),
+    byEventType: Array.from(byEventType.entries()).map(function ([eventType, count]) {
+      return { eventType, count };
+    }).sort(order).slice(0, 6)
+  };
+}
+
+function reviewPriorityScore(item) {
+  const severityWeight = { high: 100, medium: 10, low: 1 };
+  return (item?.classification?.flags || []).reduce(function (score, flag) {
+    return score + (severityWeight[boundedText(flag?.severity, 20).toLowerCase()] || 0);
+  }, 0);
+}
+
+function buildEventReviewFocus(items, limit) {
+  const requestedLimit = Number(limit);
+  const maximumCount = Number.isInteger(requestedLimit) ? Math.min(20, Math.max(1, requestedLimit)) : 12;
+  const candidates = (items || []).filter(function (item) { return item?.queueState === "needs_attention"; });
+  const focused = candidates.slice().sort(function (left, right) {
+    return reviewPriorityScore(right) - reviewPriorityScore(left)
+      || String(right?.marketDate || "").localeCompare(String(left?.marketDate || ""))
+      || String(left?.eventKey || "").localeCompare(String(right?.eventKey || ""));
+  }).slice(0, maximumCount).map(function (item) {
+    const primary = (item.sources || []).find(function (source) { return source?.relationType === "primary"; }) || null;
+    return {
+      eventKey: item.eventKey,
+      marketDate: item.marketDate,
+      eventType: item.eventType,
+      title: item.title,
+      confidence: item.confidence,
+      flags: (item.classification?.flags || []).map(function (flag) {
+        return { code: boundedText(flag?.code, 80) || "review_flag", severity: boundedText(flag?.severity, 20) || "medium" };
+      }),
+      primarySource: primary ? {
+        provider: boundedText(primary.provider, 80),
+        title: boundedText(primary.title, 240),
+        url: boundedText(primary.url, 2000)
+      } : null
+    };
+  });
+  return {
+    totalCandidates: candidates.length,
+    maximumCount,
+    items: focused
   };
 }
 
@@ -148,7 +219,9 @@ module.exports = {
   EVENT_REVIEW_VERSION,
   REVIEW_STATUSES,
   applyReviewDecisionsToEvents,
+  buildEventReviewFocus,
   buildEventReviewQueue,
+  buildEventReviewTriage,
   classifyEventForReview,
   getEventReviewQueue,
   getLatestReviewDecisions,
