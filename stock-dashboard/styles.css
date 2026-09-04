@@ -2427,6 +2427,29 @@ body {
 .replay-json pre { max-height: 360px; margin: 0; padding: 0 11px 12px; overflow: auto; color: #c7d6ee; font-family: "SFMono-Regular", Consolas, monospace; font-size: 0.6rem; line-height: 1.48; white-space: pre-wrap; word-break: break-word; }
 .replay-note { margin: 11px 0 0; color: #8499b8; font-size: 0.58rem; line-height: 1.5; }
 
+/* Collapsible replay blocks (events, similar-day matches) */
+.replay-block-collapsible { cursor: default; }
+.replay-block-collapsible > summary { list-style: none; cursor: pointer; }
+.replay-block-collapsible > summary::-webkit-details-marker { display: none; }
+.replay-block-collapsible > summary .replay-block-head { margin-bottom: 0; }
+.replay-block-collapsible > summary .replay-block-head::after {
+  content: "▶";
+  margin-left: auto;
+  color: #6b83a8;
+  font-size: 0.55rem;
+  transition: transform 120ms ease;
+}
+.replay-block-collapsible[open] > summary .replay-block-head::after { transform: rotate(90deg); }
+.replay-block-collapsible > summary .replay-block-head strong::before {
+  content: "展开查看 ";
+  color: #7a93b8;
+  font-size: 0.68rem;
+  font-weight: 400;
+}
+.replay-block-collapsible[open] > summary .replay-block-head strong::before { content: ""; }
+.replay-block-collapsible .replay-event-list,
+.replay-block-collapsible .replay-match-list { margin-top: 9px; }
+
 .model-review { order: 7; margin-bottom: 18px; }
 .research-health { order: 7; margin-bottom: 18px; padding: 20px; }
 .research-health-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }

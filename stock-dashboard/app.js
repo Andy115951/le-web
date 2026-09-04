@@ -1805,26 +1805,26 @@ function renderReplaySourceSummary(summary) {
 }
 
 function renderReplayEvents(events) {
-  if (!events.length) return '<section class="replay-block"><div class="replay-block-head"><strong>可引用事件</strong><span>0 条</span></div><p>该快照没有在研究时间窗口内可引用的结构化事件。</p></section>';
+  if (!events.length) return "";
   return [
-    '<section class="replay-block"><div class="replay-block-head"><strong>可引用事件</strong><span>' + events.length + " 条</span></div><div class=\"replay-event-list\">",
+    '<details class="replay-block replay-block-collapsible"><summary><div class="replay-block-head"><strong>可引用事件</strong><span>' + events.length + " 条</span></div></summary><div class=\"replay-event-list\">",
     events.map(function (event) {
       const review = event.review || {};
       const sources = Array.isArray(event.sources) ? event.sources : [];
       return '<article class="replay-event"><div><b>' + escapeHtml(event.eventType || "unknown") + '</b><strong>' + escapeHtml(event.title || event.eventKey || "Untitled event") + '</strong></div><p>' + escapeHtml(event.summary || "") + '</p><small>审核：' + escapeHtml(review.status || (review.requiresAttention ? "needs_attention" : "unreviewed")) + " · 来源 " + sources.length + "</small></article>";
     }).join(""),
-    "</div></section>"
+    "</div></details>"
   ].join("");
 }
 
 function renderReplayMatches(matches) {
-  if (!matches.length) return '<section class="replay-block"><div class="replay-block-head"><strong>历史相似日</strong><span>0 条</span></div><p>该市场日没有已成熟且去重后的相似日候选。</p></section>';
+  if (!matches.length) return "";
   return [
-    '<section class="replay-block"><div class="replay-block-head"><strong>历史相似日</strong><span>RESEARCH ONLY</span></div><div class="replay-match-list">',
+    '<details class="replay-block replay-block-collapsible"><summary><div class="replay-block-head"><strong>历史相似日</strong><span>RESEARCH ONLY</span></div></summary><div class="replay-match-list">',
     matches.slice(0, 5).map(function (match) {
       return '<div><span>#' + Number(match.rank || 0) + " · " + escapeHtml(formatMarketDate(match.candidateMarketDate)) + '</span><strong>' + (Number.isFinite(Number(match.similarityScore)) ? Number(match.similarityScore).toFixed(0) + " 分" : "--") + "</strong></div>";
     }).join(""),
-    "</div></section>"
+    "</div></details>"
   ].join("");
 }
 
