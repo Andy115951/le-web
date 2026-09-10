@@ -10,7 +10,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { SettingsDefaultsForm } from "@/components/settings/settings-defaults-form";
-import { getAiProviderLabel } from "@/lib/ai";
 
 export default async function SettingsPage() {
   const user = await getCurrentUser();
@@ -59,29 +58,14 @@ export default async function SettingsPage() {
 }
 
 function AiProviderSection() {
-  const provider = getAiProviderLabel();
-  const isGateway = provider === "gateway";
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">AI</CardTitle>
-        <CardDescription>
-          当前：{isGateway ? "gateway（Vercel AI Gateway）" : "mock（本地模板解读）"}
-        </CardDescription>
+        <CardTitle className="text-base">关于解读</CardTitle>
+        <CardDescription>娱乐与自我反思</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-2 text-sm text-muted-foreground">
-        <p>
-          通过环境变量切换：<code className="text-foreground">AI_PROVIDER=mock</code>{" "}
-          或 <code className="text-foreground">AI_PROVIDER=gateway</code>。
-        </p>
-        <p>
-          Gateway 可选{" "}
-          <code className="text-foreground">AI_GATEWAY_MODEL</code>（默认{" "}
-          <code className="text-foreground">openai/gpt-5.4-mini</code>
-          ）；本地可设{" "}
-          <code className="text-foreground">AI_GATEWAY_API_KEY</code>，生产环境可用
-          Vercel OIDC。Gateway 失败时会回退到 mock，避免解读硬崩。
-        </p>
+      <CardContent className="text-sm text-muted-foreground">
+        解读由顾问生成，仅供参考，不构成确定预言。牌阵是当下的一面镜子，决定仍在你手里。
       </CardContent>
     </Card>
   );
