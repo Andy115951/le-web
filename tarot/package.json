@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^2.0.127",
     "@supabase/supabase-js": "^2.116.0",
     "ai": "^7.0.97",
     "bcryptjs": "^3.0.3",

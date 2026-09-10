@@ -4,7 +4,7 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-/** Yield text in small pieces so mock/gateway fallbacks feel streamed. */
+/** Yield text in small pieces so mock/deepseek fallbacks feel streamed. */
 export async function* chunkText(
   text: string,
   options?: StreamOptions,

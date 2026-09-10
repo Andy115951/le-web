@@ -1,6 +1,6 @@
-# Tarot Plan（冻结 v1.4 · 2026-09-10）
+# Tarot Plan（冻结 v1.5 · 2026-09-10）
 
-> 实现状态：P0–P12 已落地（牌库、仪式动画、解读/追问、历史重命名/软删、额度与登录、插画风牌面 + 牌背、流式 UI、基础无障碍、分享牌阵文字摘要、设置关于抛光、烛光分享 PNG）。AI 默认 mock，gateway 已接线（`AI_PROVIDER=gateway`）。Vercel↔GitHub 自动部署已接通。剩余主要为精美写实卡面素材。产品决策仍按下表冻结。
+> 实现状态：P0–P13 已落地（牌库、仪式动画、解读/追问、历史重命名/软删、额度与登录、插画风牌面 + 牌背、流式 UI、基础无障碍、分享牌阵文字摘要、设置关于抛光、烛光分享 PNG、DeepSeek 提供商）。AI 默认 mock；`AI_PROVIDER=deepseek`（legacy `gateway`）对齐 stock-dashboard OpenAI 兼容接口，不再用 Vercel AI Gateway。生产需 `DEEPSEEK_API_KEY`。Vercel↔GitHub 自动部署已接通。剩余主要为精美写实卡面素材。产品决策仍按下表冻结。
 
 ## 0. 产品名
 
@@ -22,7 +22,7 @@
 | 目录 | `tarot/` |
 | Vercel | 独立项目，Root Directory = `tarot` |
 | Supabase | 复用 `le's Project`，表前缀 `tarot_` |
-| 技术（实现向） | Next.js App Router + Tailwind + **shadcn**（基础控件）+ AI SDK（gateway / mock，含 streamText）；仪式/牌面自定义；认证对齐 quadrant-todo |
+| 技术（实现向） | Next.js App Router + Tailwind + **shadcn**（基础控件）+ AI SDK（deepseek / mock，含 streamText）；仪式/牌面自定义；认证对齐 quadrant-todo |
 
 ## 3. 已冻结的产品决策
 
@@ -95,7 +95,7 @@
 ### 3.12 P7 流式 UI（已定）
 
 - 协议：NDJSON 行事件 `delta` / `done` / `error`
-- gateway：`streamText`；mock：分片模拟；`instant=1` 或 reduced-motion 时瞬时吐出
+- deepseek：`streamText`；mock：分片模拟；`instant=1` 或 reduced-motion 时瞬时吐出
 - 落库仍在流结束后写入完整助手消息；客户端以 `done.messages` 为准
 
 ### 3.13 P8 插画牌面（已定）
@@ -131,9 +131,16 @@
 - 优先：Web Share 带文件（`canShare({ files })`）；否则触发下载
 - 文字「分享牌阵」路径保留；写实位图牌面仍不在本阶段
 
+### 3.18 P13 DeepSeek 提供商（已定）
+
+- `AI_PROVIDER=mock`（默认）| `deepseek`；legacy `gateway` 映射到 deepseek
+- 使用 `@ai-sdk/openai` `createOpenAI` 指向 DeepSeek OpenAI 兼容接口（与 stock-dashboard 同款 env）
+- Env：`DEEPSEEK_API_KEY`（必填才启用）、`DEEPSEEK_API_URL`（默认官方 chat/completions）、`DEEPSEEK_MODEL`（默认 `deepseek-v4-flash`）
+- 解读/追问仍走 `generateText` / `streamText`；失败回退 mock；不再依赖 Vercel AI Gateway / `AI_GATEWAY_*`
+
 ## 4. MVP 范围
 
-含：场景起卦、文本仪式（三速）、简要/详细解读、自由追问、新占卜按钮与软提示、历史卡片（重命名/软删）、访客/登录额度、用户名密码登录、深色烛光 UI、插画风牌面示意、AI mock + gateway 接线、流式解读/追问 UI、基础无障碍与空状态抛光、分享牌阵纯文本摘要、烛光分享 PNG。
+含：场景起卦、文本仪式（三速）、简要/详细解读、自由追问、新占卜按钮与软提示、历史卡片（重命名/软删）、访客/登录额度、用户名密码登录、深色烛光 UI、插画风牌面示意、AI mock + deepseek 接线、流式解读/追问 UI、基础无障碍与空状态抛光、分享牌阵纯文本摘要、烛光分享 PNG。
 
 不含（写实卡面等仍后置）：付费、OAuth/手机号、精美写实卡面素材、凯尔特十字等复杂牌阵。
 
@@ -154,6 +161,7 @@
 | P10 | 无障碍基础 + UX 微文案抛光 | 已完成 |
 | P11 | 分享牌阵摘要 + 设置关于抛光 | 已完成 |
 | P12 | 烛光分享 PNG（canvas 下载 / Web Share 文件） | 已完成 |
+| P13 | DeepSeek 提供商（替换 Vercel AI Gateway） | 已完成 |
 
 ## 6. 详细设计
 

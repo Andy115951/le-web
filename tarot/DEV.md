@@ -1,6 +1,6 @@
-# leweb · tarot — 开发文档（冻结产品决策 v1.4 · 2026-09-10）
+# leweb · tarot — 开发文档（冻结产品决策 v1.5 · 2026-09-10）
 
-> 状态：**P0–P12 已实现**。AI 默认 `AI_PROVIDER=mock`；`AI_PROVIDER=gateway` 时走 Vercel AI Gateway（`ai` SDK `generateText` / `streamText` + `provider/model` 字符串），失败回退 mock。P6：仪式烛光/洗牌/逐张翻牌动画。P7：解读与追问 NDJSON 流式 UI。P8：插画风牌面（花色配色 / 正逆位角标 / 双层边框角饰 + `TarotCardBack`）。P9：历史重命名 + 软删。P10：无障碍基础（skip link、仪式 live region、牌面 aria、历史对话框焦点）+ 空状态/错误烛光微文案。P11：分享牌阵文字摘要（clipboard / Web Share）+ 设置页关于区块抛光。P12：客户端 canvas 生成烛光分享 PNG（可下载；支持时 Web Share 文件）。剩余：精美写实卡面素材。Vercel↔GitHub 自动部署已接通。
+> 状态：**P0–P13 已实现**。AI 默认 `AI_PROVIDER=mock`；`AI_PROVIDER=deepseek`（legacy 别名 `gateway`）走 DeepSeek OpenAI 兼容接口（对齐 stock-dashboard：`DEEPSEEK_API_KEY` / `DEEPSEEK_API_URL` / `DEEPSEEK_MODEL`），失败回退 mock。P13 起不再使用 Vercel AI Gateway。P6：仪式烛光/洗牌/逐张翻牌动画。P7：解读与追问 NDJSON 流式 UI。P8：插画风牌面（花色配色 / 正逆位角标 / 双层边框角饰 + `TarotCardBack`）。P9：历史重命名 + 软删。P10：无障碍基础（skip link、仪式 live region、牌面 aria、历史对话框焦点）+ 空状态/错误烛光微文案。P11：分享牌阵文字摘要（clipboard / Web Share）+ 设置页关于区块抛光。P12：客户端 canvas 生成烛光分享 PNG（可下载；支持时 Web Share 文件）。P13：DeepSeek 提供商（`src/lib/ai/deepseek.ts`）。剩余：精美写实卡面素材；生产需配置 `DEEPSEEK_API_KEY` 才会真正走模型（否则回退 mock）。Vercel↔GitHub 自动部署已接通。
 > 仓库路径：`Andy115951/le-web/tarot/`
 
 ---
@@ -32,14 +32,15 @@
 | 访客历史 | 登录后自动合并 |
 | 前端 UI | Next.js + Tailwind + shadcn（基础控件）；仪式/牌面自定义 |
 | 启动/空状态微文案 | **已定稿**，见 COPY.md「启动 / 空状态」 |
-| AI | mock 默认；gateway 已接线（`src/lib/ai/`）；非流式 JSON 仍可用作兼容 |
+| AI | mock 默认；deepseek 已接线（`src/lib/ai/`，对齐 stock-dashboard）；非流式 JSON 仍可用作兼容 |
 | P6 动画 | CSS 优先；仪式光晕/洗牌/翻牌；示意卡面；尊重 reduced-motion |
-| P7 流式 | 解读/追问 NDJSON（`delta`/`done`/`error`）；gateway 用 `streamText`；mock 分片模拟；reduced-motion 瞬时吐出 |
+| P7 流式 | 解读/追问 NDJSON（`delta`/`done`/`error`）；deepseek 用 `streamText`；mock 分片模拟；reduced-motion 瞬时吐出 |
 | P8 插画牌面 | 花色配色、正逆位角标、双层边框角饰、`TarotCardBack`；仍非写实素材 |
 | P9 历史管理 | 重命名（PATCH）+ 软删（DELETE）；场景徽章；确认删除 |
 | P10 a11y/UX | skip link；仪式/牌面 aria；历史焦点管理；错误与空状态烛光语气 |
 | P11 分享 + 设置 | 解读页「分享牌阵」；设置关于 Candle Taro / 额度说明抛光 |
 | P12 分享图 | 客户端 canvas 1080×1350 PNG；「保存分享图」下载 / 可分享文件；隐私同文字摘要 |
+| P13 DeepSeek | `AI_PROVIDER=deepseek`（`gateway` 别名）；`@ai-sdk/openai` + DeepSeek；失败回退 mock |
 
 ### 待续讨论（仍可再抠）
 
@@ -69,14 +70,14 @@
 Next.js (App Router) + Tailwind + shadcn in le-web/tarot
   → Vercel（独立项目，root = tarot）
   → Supabase Postgres（tarot_* 表）
-  → AI：Vercel AI Gateway + AI SDK generateText/streamText（AI_PROVIDER=gateway）
+  → AI：DeepSeek OpenAI 兼容 + AI SDK generateText/streamText（AI_PROVIDER=deepseek）
   → Auth：username/password + httpOnly session（对齐 quadrant-todo）
   → 仪式区/牌面：自定义组件（不用 shadcn 默认皮肤硬套）
 ```
 
 抽牌：服务端 `crypto.getRandomValues` + Fisher–Yates；结果写入 DB 后再返回前端。
 
-AI 接线：`src/lib/ai/index.ts` 按 `AI_PROVIDER` 选 mock / gateway；gateway 用 `AI_GATEWAY_MODEL`（默认 `openai/gpt-5.4-mini`）；生产可用 Vercel OIDC，本地可选 `AI_GATEWAY_API_KEY`。流式协议见 `src/lib/ai/ndjson-stream.ts`；客户端 `reading-client.tsx` 消费 NDJSON。
+AI 接线：`src/lib/ai/index.ts` 按 `AI_PROVIDER` 选 mock / deepseek（`gateway` 为 legacy 别名）；deepseek 读 `DEEPSEEK_API_KEY`、`DEEPSEEK_API_URL`（默认 `https://api.deepseek.com/chat/completions`）、`DEEPSEEK_MODEL`（默认 `deepseek-v4-flash`）。流式协议见 `src/lib/ai/ndjson-stream.ts`；客户端 `reading-client.tsx` 消费 NDJSON。
 
 ### 数据表草案
 
@@ -87,7 +88,7 @@ AI 接线：`src/lib/ai/index.ts` 按 `AI_PROVIDER` 选 mock / gateway；gateway
 
 ## 4. 实现阶段
 
-见 `PLAN.md` §5。P0–P12 已落地。关键 UI：`src/components/reading/ritual-stage.tsx`、`tarot-card-face.tsx`（含 `TarotCardBack`）、`reading-client.tsx`、`share-reading-button.tsx`、`src/lib/share-reading.ts`、`src/lib/share-reading-image.ts`、`src/components/history/history-card.tsx`、`src/components/app-shell.tsx`（skip link）；动画样式在 `src/app/globals.css`。
+见 `PLAN.md` §5。P0–P13 已落地。关键：`src/lib/ai/deepseek.ts`、`src/lib/ai/index.ts`；UI：`src/components/reading/ritual-stage.tsx`、`tarot-card-face.tsx`（含 `TarotCardBack`）、`reading-client.tsx`、`share-reading-button.tsx`、`src/lib/share-reading.ts`、`src/lib/share-reading-image.ts`、`src/components/history/history-card.tsx`、`src/components/app-shell.tsx`（skip link）；动画样式在 `src/app/globals.css`。
 
 ## 5. 风险
 

@@ -1,4 +1,4 @@
-import { gatewayAI } from "@/lib/ai/gateway";
+import { deepseekAI } from "@/lib/ai/deepseek";
 import { mockAI } from "@/lib/ai/mock";
 import type {
   FollowUpInput,
@@ -7,13 +7,13 @@ import type {
   TarotAI,
 } from "@/lib/ai/types";
 
-function withMockFallback(primary: TarotAI): TarotAI {
+function withMockFallback(primary: TarotAI, label: string): TarotAI {
   return {
     async interpret(input: InterpretInput) {
       try {
         return await primary.interpret(input);
       } catch (err) {
-        console.error("[ai] gateway interpret failed; falling back to mock", err);
+        console.error(`[ai] ${label} interpret failed; falling back to mock`, err);
         return mockAI.interpret(input);
       }
     },
@@ -21,7 +21,7 @@ function withMockFallback(primary: TarotAI): TarotAI {
       try {
         return await primary.followUp(input);
       } catch (err) {
-        console.error("[ai] gateway followUp failed; falling back to mock", err);
+        console.error(`[ai] ${label} followUp failed; falling back to mock`, err);
         return mockAI.followUp(input);
       }
     },
@@ -32,19 +32,11 @@ function withMockFallback(primary: TarotAI): TarotAI {
           yielded = true;
           yield part;
         }
-        if (!yielded) {
-          yield* mockAI.interpretStream(input, options);
-        }
+        if (!yielded) yield* mockAI.interpretStream(input, options);
       } catch (err) {
-        console.error(
-          "[ai] gateway interpretStream failed; falling back to mock",
-          err,
-        );
-        if (!yielded) {
-          yield* mockAI.interpretStream(input, options);
-        } else {
-          throw err;
-        }
+        console.error(`[ai] ${label} interpretStream failed; falling back to mock`, err);
+        if (!yielded) yield* mockAI.interpretStream(input, options);
+        else throw err;
       }
     },
     async *followUpStream(input: FollowUpInput, options?: StreamOptions) {
@@ -54,33 +46,32 @@ function withMockFallback(primary: TarotAI): TarotAI {
           yielded = true;
           yield part;
         }
-        if (!yielded) {
-          yield* mockAI.followUpStream(input, options);
-        }
+        if (!yielded) yield* mockAI.followUpStream(input, options);
       } catch (err) {
-        console.error(
-          "[ai] gateway followUpStream failed; falling back to mock",
-          err,
-        );
-        if (!yielded) {
-          yield* mockAI.followUpStream(input, options);
-        } else {
-          throw err;
-        }
+        console.error(`[ai] ${label} followUpStream failed; falling back to mock`, err);
+        if (!yielded) yield* mockAI.followUpStream(input, options);
+        else throw err;
       }
     },
   };
 }
 
-/** mock (default) | gateway — gateway failures fall back to mock */
+/**
+ * mock (default) | deepseek — OpenAI-compatible DeepSeek (same pattern as stock-dashboard).
+ * Legacy alias: gateway → deepseek (no longer uses Vercel AI Gateway).
+ */
 export function getTarotAI(): TarotAI {
   const provider = (process.env.AI_PROVIDER || "mock").toLowerCase();
-  if (provider === "gateway") return withMockFallback(gatewayAI);
+  if (provider === "deepseek" || provider === "gateway") {
+    return withMockFallback(deepseekAI, "deepseek");
+  }
   return mockAI;
 }
 
 export function getAiProviderLabel(): string {
-  return (process.env.AI_PROVIDER || "mock").toLowerCase();
+  const provider = (process.env.AI_PROVIDER || "mock").toLowerCase();
+  if (provider === "gateway") return "deepseek";
+  return provider;
 }
 
 export type {
