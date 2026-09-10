@@ -1,3 +1,7 @@
+import Link from "next/link";
+import { ensureAnonymousId, getCurrentUser } from "@/lib/auth/session";
+import { QUOTAS, getUsage } from "@/lib/store/readings";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -6,40 +10,53 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const user = await getCurrentUser();
+  const anon = await ensureAnonymousId();
+  const subject = user ? `user:${user.id}` : `anon:${anon}`;
+  const usage = await getUsage(subject);
+  const quota = user ? QUOTAS.user : QUOTAS.guest;
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">设置</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          默认解读档、仪式速度等将在此保存（P5 前用本地占位）
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground">账号与今日额度</p>
       </div>
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">默认解读</CardTitle>
-          <CardDescription>简要 / 详细</CardDescription>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          即将接入
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">默认仪式速度</CardTitle>
-          <CardDescription>慢 / 常 / 快（不可跳过）</CardDescription>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          即将接入
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
           <CardTitle className="text-base">账号</CardTitle>
-          <CardDescription>用户名密码登录 · 访客额度</CardDescription>
+          <CardDescription>
+            {user ? `已登录：${user.username}` : "当前为访客"}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {user ? null : (
+            <Button asChild>
+              <Link href="/login">登录 / 注册</Link>
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">今日额度</CardTitle>
+          <CardDescription>
+            新占卜 {usage.readings}/{quota.readings} · 追问 {usage.messages}/
+            {quota.messages}
+          </CardDescription>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
-          即将接入（P5）
+          访客 1/5；登录后 10/100。默认解读档与仪式速度可在每局临时修改。
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">AI</CardTitle>
+          <CardDescription>当前为 mock，接口已留好</CardDescription>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground">
+          `AI_PROVIDER=mock` · 日后切换 Gateway 即可
         </CardContent>
       </Card>
     </div>

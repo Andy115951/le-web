@@ -41,6 +41,8 @@ export function NewReadingForm({
   const [spread, setSpread] = useState<SpreadType>(scene.defaultSpread);
   const [detail, setDetail] = useState<DetailLevel>("brief");
   const [speed, setSpeed] = useState<RitualSpeed>("normal");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   function onPickScene(id: SceneId) {
     const next = ALL.find((s) => s.id === id) ?? CUSTOM_SCENE;
@@ -49,20 +51,32 @@ export function NewReadingForm({
     setSpread(next.defaultSpread);
   }
 
-  function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const q = question.trim();
     if (q.length < 4) return;
-    // P0: stub reading id; real create API in P1
-    const id = `draft-${Date.now()}`;
-    const params = new URLSearchParams({
-      scene: sceneId,
-      q,
-      spread,
-      detail,
-      speed,
-    });
-    router.push(`/reading/${id}?${params.toString()}`);
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/readings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question: q,
+          scene: sceneId,
+          spreadType: spread,
+          detailLevel: detail,
+          ritualSpeed: speed,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "起卦失败");
+      router.push(`/reading/${data.reading.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "起卦失败");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -96,41 +110,21 @@ export function NewReadingForm({
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">本次选项</CardTitle>
-          <CardDescription>可临时覆盖设置里的默认值</CardDescription>
+          <CardDescription>可临时覆盖默认</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>牌阵</Label>
             <div className="flex gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant={spread === "three_card" ? "default" : "outline"}
-                onClick={() => setSpread("three_card")}
-              >
-                三牌
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={spread === "single" ? "default" : "outline"}
-                onClick={() => setSpread("single")}
-              >
-                单牌
-              </Button>
+              <Button type="button" size="sm" variant={spread === "three_card" ? "default" : "outline"} onClick={() => setSpread("three_card")}>三牌</Button>
+              <Button type="button" size="sm" variant={spread === "single" ? "default" : "outline"} onClick={() => setSpread("single")}>单牌</Button>
             </div>
           </div>
           <div className="space-y-2">
             <Label>解读</Label>
             <div className="flex gap-2">
               {(["brief", "detailed"] as DetailLevel[]).map((d) => (
-                <Button
-                  key={d}
-                  type="button"
-                  size="sm"
-                  variant={detail === d ? "default" : "outline"}
-                  onClick={() => setDetail(d)}
-                >
+                <Button key={d} type="button" size="sm" variant={detail === d ? "default" : "outline"} onClick={() => setDetail(d)}>
                   {d === "brief" ? "简要" : "详细"}
                 </Button>
               ))}
@@ -139,31 +133,20 @@ export function NewReadingForm({
           <div className="space-y-2">
             <Label>仪式速度</Label>
             <div className="flex gap-2">
-              {(
-                [
-                  ["slow", "慢"],
-                  ["normal", "常"],
-                  ["fast", "快"],
-                ] as const
-              ).map(([v, label]) => (
-                <Button
-                  key={v}
-                  type="button"
-                  size="sm"
-                  variant={speed === v ? "default" : "outline"}
-                  onClick={() => setSpeed(v)}
-                >
+              {([["slow", "慢"], ["normal", "常"], ["fast", "快"]] as const).map(([v, label]) => (
+                <Button key={v} type="button" size="sm" variant={speed === v ? "default" : "outline"} onClick={() => setSpeed(v)}>
                   {label}
                 </Button>
               ))}
             </div>
           </div>
-          <Badge variant="secondary">默认牌阵来自场景：{scene.label}</Badge>
+          <Badge variant="secondary">场景：{scene.label}</Badge>
         </CardContent>
       </Card>
 
-      <Button type="submit" size="lg" className="w-full sm:w-auto">
-        确认起卦
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      <Button type="submit" size="lg" disabled={loading} className="w-full sm:w-auto">
+        {loading ? "起卦中…" : "确认起卦"}
       </Button>
     </form>
   );
