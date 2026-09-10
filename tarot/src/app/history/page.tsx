@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ensureAnonymousId, getCurrentUser } from "@/lib/auth/session";
 import { listReadings } from "@/lib/store/readings";
 import { getCard } from "@/data/deck";
+import { CUSTOM_SCENE, SCENES } from "@/data/scenes";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -10,7 +11,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { HistoryCard } from "@/components/history/history-card";
+
+function sceneLabel(scene: string) {
+  if (scene === "custom") return CUSTOM_SCENE.label;
+  return SCENES.find((s) => s.id === scene)?.label ?? scene;
+}
 
 export default async function HistoryPage() {
   const user = await getCurrentUser();
@@ -54,23 +60,18 @@ export default async function HistoryPage() {
               .map((c) => getCard(c.cardId)?.nameZh ?? c.cardId)
               .join(" / ");
             return (
-              <Link key={r.id} href={`/reading/${r.id}`}>
-                <Card className="transition-colors hover:border-primary/40">
-                  <CardHeader className="space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <CardTitle className="text-base">{r.title || r.question}</CardTitle>
-                      <Badge variant="outline">
-                        {r.spreadType === "single" ? "单牌" : "三牌"}
-                      </Badge>
-                    </div>
-                    <CardDescription>
-                      {names}
-                      <span className="mx-2">·</span>
-                      {new Date(r.updatedAt).toLocaleString("zh-CN")}
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-              </Link>
+              <HistoryCard
+                key={r.id}
+                reading={{
+                  id: r.id,
+                  title: r.title,
+                  question: r.question,
+                  sceneLabel: sceneLabel(r.scene),
+                  spreadLabel: r.spreadType === "single" ? "单牌" : "三牌",
+                  cardNames: names,
+                  updatedAt: r.updatedAt,
+                }}
+              />
             );
           })}
         </div>

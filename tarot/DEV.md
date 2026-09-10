@@ -1,6 +1,6 @@
-# leweb · tarot — 开发文档（冻结产品决策 v1.0 · 2026-09-10）
+# leweb · tarot — 开发文档（冻结产品决策 v1.1 · 2026-09-10）
 
-> 状态：**P0–P8 已实现**。AI 默认 `AI_PROVIDER=mock`；`AI_PROVIDER=gateway` 时走 Vercel AI Gateway（`ai` SDK `generateText` / `streamText` + `provider/model` 字符串），失败回退 mock。P6：仪式烛光/洗牌/逐张翻牌动画。P7：解读与追问 NDJSON 流式 UI。P8：插画风牌面（花色配色 / 正逆位角标 / 双层边框角饰 + `TarotCardBack`）。剩余：精美写实卡面素材、GitHub ↔ Vercel 自动部署（若仍未接通）。
+> 状态：**P0–P9 已实现**。AI 默认 `AI_PROVIDER=mock`；`AI_PROVIDER=gateway` 时走 Vercel AI Gateway（`ai` SDK `generateText` / `streamText` + `provider/model` 字符串），失败回退 mock。P6：仪式烛光/洗牌/逐张翻牌动画。P7：解读与追问 NDJSON 流式 UI。P8：插画风牌面（花色配色 / 正逆位角标 / 双层边框角饰 + `TarotCardBack`）。P9：历史重命名 + 软删。剩余：精美写实卡面素材、GitHub ↔ Vercel 自动部署（若仍未接通）。
 > 仓库路径：`Andy115951/le-web/tarot/`
 
 ---
@@ -36,6 +36,7 @@
 | P6 动画 | CSS 优先；仪式光晕/洗牌/翻牌；示意卡面；尊重 reduced-motion |
 | P7 流式 | 解读/追问 NDJSON（`delta`/`done`/`error`）；gateway 用 `streamText`；mock 分片模拟；reduced-motion 瞬时吐出 |
 | P8 插画牌面 | 花色配色、正逆位角标、双层边框角饰、`TarotCardBack`；仍非写实素材 |
+| P9 历史管理 | 重命名（PATCH）+ 软删（DELETE）；场景徽章；确认删除 |
 
 ### 待续讨论（仍可再抠）
 
@@ -84,7 +85,7 @@ AI 接线：`src/lib/ai/index.ts` 按 `AI_PROVIDER` 选 mock / gateway；gateway
 
 ## 4. 实现阶段
 
-见 `PLAN.md` §5。P0–P8 已落地。关键 UI：`src/components/reading/ritual-stage.tsx`、`tarot-card-face.tsx`（含 `TarotCardBack`）、`reading-client.tsx`；动画样式在 `src/app/globals.css`。
+见 `PLAN.md` §5。P0–P9 已落地。关键 UI：`src/components/reading/ritual-stage.tsx`、`tarot-card-face.tsx`（含 `TarotCardBack`）、`reading-client.tsx`、`src/components/history/history-card.tsx`；动画样式在 `src/app/globals.css`。
 
 ## 5. 风险
 
