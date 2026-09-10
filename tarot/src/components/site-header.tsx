@@ -12,7 +12,10 @@ export async function SiteHeader() {
         <Link href="/" className="font-medium tracking-wide text-primary">
           {PRODUCT_NAME}
         </Link>
-        <nav className="flex items-center gap-2" aria-label="主导航">
+        <nav className="flex items-center gap-1 sm:gap-2" aria-label="主导航">
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/cards">牌义</Link>
+          </Button>
           <Button asChild variant="ghost" size="sm">
             <Link href="/history">历史</Link>
           </Button>

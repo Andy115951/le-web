@@ -1,6 +1,6 @@
-# Tarot Plan（冻结 v1.6 · 2026-09-10）
+# Tarot Plan（冻结 v1.7 · 2026-09-10）
 
-> 实现状态：P0–P15 已落地（牌库、仪式动画、解读/追问、历史重命名/软删、额度与登录、插画风牌面 + 牌背、流式 UI、基础无障碍、分享牌阵文字摘要、设置关于抛光、烛光分享 PNG、DeepSeek 提供商（含 thinking 关闭）、额度感知 UX + 软提示重抽）。AI 默认 mock；`AI_PROVIDER=deepseek`（legacy `gateway`）对齐 stock-dashboard OpenAI 兼容接口，不再用 Vercel AI Gateway。生产需 `DEEPSEEK_API_KEY`。Vercel↔GitHub 自动部署已接通。剩余主要为精美写实卡面素材。产品决策仍按下表冻结。
+> 实现状态：P0–P16 已落地（牌库、仪式动画、解读/追问、历史重命名/软删、额度与登录、插画风牌面 + 牌背、流式 UI、基础无障碍、分享牌阵文字摘要、设置关于抛光、烛光分享 PNG、DeepSeek 提供商（含 thinking 关闭）、额度感知 UX + 软提示重抽、牌义图鉴）。AI 默认 mock；`AI_PROVIDER=deepseek`（legacy `gateway`）对齐 stock-dashboard OpenAI 兼容接口，不再用 Vercel AI Gateway。生产需 `DEEPSEEK_API_KEY`。Vercel↔GitHub 自动部署已接通。剩余主要为精美写实卡面素材。产品决策仍按下表冻结。
 
 ## 0. 产品名
 
@@ -145,9 +145,21 @@
 - 解读页：顾问文案提到「新占卜/再起一卦」或用户追问 ≥2 次后，展示可关闭的软提示 chip（不强制）
 - 写实位图牌面仍不在本阶段
 
+### 3.20 P15 DeepSeek thinking.disabled（已定）
+
+- DeepSeek 请求默认附带 `thinking.disabled`（对齐 stock-dashboard），避免模型返回空 `content`
+- 不改变 mock / deepseek 切换与失败回退策略
+
+### 3.21 P16 牌义图鉴（已定）
+
+- 主导航增加「牌义」；路由 `/cards`（列表）与 `/cards/[id]`（详情），id 来自 `src/data/deck.ts`
+- 列表：筛选 chips「全部 / 大阿尔卡纳 / 权杖 / 圣杯 / 宝剑 / 星币」；客户端按中英文牌名搜索；网格展示 compact `TarotCardFace` + 名称
+- 详情：大号 `TarotCardFace`、正/逆位切换、关键词与正逆位牌义（复用牌库字段）、烛光微文案（禁止绝对预言）、软 CTA「去占卜」
+- 不上写实位图；a11y：标签、焦点、尊重 reduced-motion；深色烛光主题
+
 ## 4. MVP 范围
 
-含：场景起卦、文本仪式（三速）、简要/详细解读、自由追问、新占卜按钮与软提示、历史卡片（重命名/软删）、访客/登录额度、用户名密码登录、深色烛光 UI、插画风牌面示意、AI mock + deepseek 接线、流式解读/追问 UI、基础无障碍与空状态抛光、分享牌阵纯文本摘要、烛光分享 PNG、额度感知 UX。
+含：场景起卦、文本仪式（三速）、简要/详细解读、自由追问、新占卜按钮与软提示、历史卡片（重命名/软删）、访客/登录额度、用户名密码登录、深色烛光 UI、插画风牌面示意、AI mock + deepseek 接线、流式解读/追问 UI、基础无障碍与空状态抛光、分享牌阵纯文本摘要、烛光分享 PNG、额度感知 UX、牌义图鉴。
 
 不含（写实卡面等仍后置）：付费、OAuth/手机号、精美写实卡面素材、凯尔特十字等复杂牌阵。
 
@@ -170,6 +182,8 @@
 | P12 | 烛光分享 PNG（canvas 下载 / Web Share 文件） | 已完成 |
 | P13 | DeepSeek 提供商（替换 Vercel AI Gateway） | 已完成 |
 | P14 | 额度感知 UX + 解读页软提示重抽 | 已完成 |
+| P15 | DeepSeek `thinking.disabled`（避免空回复） | 已完成 |
+| P16 | 牌义图鉴（列表筛选/搜索 + 正逆位详情） | 已完成 |
 
 ## 6. 详细设计
 
