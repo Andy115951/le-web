@@ -19,7 +19,7 @@ export default function HomePage() {
           {PRODUCT_NAME}
         </h1>
         <p className="mx-auto max-w-md text-muted-foreground">
-          选一个场景，静心起卦。仪式、解读与追问，都在同一烛光里。
+          烛火未熄。选一个场景，把问题轻轻放下；牌阵会替你照见当下。
         </p>
         <div className="flex justify-center gap-3 pt-2">
           <Button asChild size="lg">

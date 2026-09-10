@@ -36,9 +36,9 @@ export default async function HistoryPage() {
       {readings.length === 0 ? (
         <Card className="border-dashed">
           <CardHeader>
-            <CardTitle className="text-base">还没有占卜记录</CardTitle>
+            <CardTitle className="text-base">烛火还安静着</CardTitle>
             <CardDescription>
-              点亮一盏烛火，写下你的问题；完成后，解读会出现在这里。
+              还没有留下占卜记录。点亮一盏烛火，把问题轻轻放下；解读会出现在这里。
             </CardDescription>
           </CardHeader>
           <CardContent>

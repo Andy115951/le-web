@@ -1,6 +1,6 @@
-# leweb · tarot — 开发文档（冻结产品决策 v0.6 · 2026-09-10）
+# leweb · tarot — 开发文档（冻结产品决策 v0.7 · 2026-09-10）
 
-> 状态：产品决策已冻结（见下「决策记录」）。实现未开始；本文供后续开发对照。
+> 状态：**P0–P5 已实现**。AI 默认 `AI_PROVIDER=mock`；`AI_PROVIDER=gateway` 时走 Vercel AI Gateway（`ai` SDK `generateText` + `provider/model` 字符串），失败回退 mock。剩余：P6 动画、卡面美化、可选流式 UI、GitHub ↔ Vercel 自动部署（若仍未接通）。
 > 仓库路径：`Andy115951/le-web/tarot/`
 
 ---
@@ -31,11 +31,14 @@
 | 语气 | 六档调性已定稿，见 COPY.md |
 | 访客历史 | 登录后自动合并 |
 | 前端 UI | Next.js + Tailwind + shadcn（基础控件）；仪式/牌面自定义 |
+| 启动/空状态微文案 | **已定稿**，见 COPY.md「启动 / 空状态」 |
+| AI | mock 默认；gateway 已接线（`src/lib/ai/`）；非流式 JSON 即可 |
 
 ### 待续讨论（仍可再抠）
 
 - 精美卡面方案（P6+）
-- 启动页/空状态微文案
+- 可选流式解读 UI
+- GitHub auto-deploy（Vercel Login Connection）
 
 ---
 
@@ -49,7 +52,7 @@
 ```text
 选场景/自定义 → 编辑问题 →（可选改牌阵/解读档/仪式速度）→ 确认起卦
   → 服务端抽牌落库 → 仪式阶段（慢/常/快）→ 揭示牌面
-  → 流式解读 → ready_for_followup → 追问…
+  → 解读（当前非流式）→ ready_for_followup → 追问…
   → 可「新占卜」或接受「建议重抽」
 ```
 
@@ -61,12 +64,14 @@
 Next.js (App Router) + Tailwind + shadcn in le-web/tarot
   → Vercel（独立项目，root = tarot）
   → Supabase Postgres（tarot_* 表）
-  → AI：Vercel AI Gateway + AI SDK streamText
+  → AI：Vercel AI Gateway + AI SDK generateText（AI_PROVIDER=gateway）
   → Auth：username/password + httpOnly session（对齐 quadrant-todo）
   → 仪式区/牌面：自定义组件（不用 shadcn 默认皮肤硬套）
 ```
 
 抽牌：服务端 `crypto.getRandomValues` + Fisher–Yates；结果写入 DB 后再返回前端。
+
+AI 接线：`src/lib/ai/index.ts` 按 `AI_PROVIDER` 选 mock / gateway；gateway 用 `AI_GATEWAY_MODEL`（默认 `openai/gpt-5.4-mini`）；生产可用 Vercel OIDC，本地可选 `AI_GATEWAY_API_KEY`。
 
 ### 数据表草案
 
@@ -77,7 +82,7 @@ Next.js (App Router) + Tailwind + shadcn in le-web/tarot
 
 ## 4. 实现阶段
 
-见 `PLAN.md` §5。动画为 P6，不挡主链路。
+见 `PLAN.md` §5。动画为 P6，不挡主链路。P0–P5 已落地。
 
 ## 5. 风险
 
@@ -87,3 +92,4 @@ Next.js (App Router) + Tailwind + shadcn in le-web/tarot
 | 访客刷接口 | 签名 cookie + 日额度 + IP 限流 |
 | 神秘文案过度承诺 | 固定免责 + 句式约束 |
 | 与 monorepo 其他 app 耦合 | 独立 Vercel rootDirectory，表前缀隔离 |
+| Gateway 不可用 | 失败回退 mock，解读不硬崩 |

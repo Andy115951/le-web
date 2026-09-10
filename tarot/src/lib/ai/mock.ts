@@ -1,29 +1,10 @@
 import { getCard } from "@/data/deck";
-import { SCENES, CUSTOM_SCENE, TONE_BASELINE } from "@/data/scenes";
+import { TONE_BASELINE } from "@/data/scenes";
 import type { FollowUpInput, InterpretInput, TarotAI } from "@/lib/ai/types";
-
-function sceneTone(scene: string) {
-  const s = [...SCENES, CUSTOM_SCENE].find((x) => x.id === scene);
-  return s?.tonePrompt ?? CUSTOM_SCENE.tonePrompt;
-}
-
-function describeSpread(spreadResult: InterpretInput["spreadResult"]) {
-  return spreadResult.cards
-    .map((c) => {
-      const card = getCard(c.cardId);
-      const orient = c.reversed ? "逆位" : "正位";
-      const meaning = card
-        ? c.reversed
-          ? card.reversed
-          : card.upright
-        : "";
-      return `【${c.positionLabel}】${card?.nameZh ?? c.cardId}（${orient}）：${meaning}`;
-    })
-    .join("\n");
-}
+import { describeSpread, sceneTone } from "@/lib/ai/prompts";
 
 export const mockAI: TarotAI = {
-  async interpret(input) {
+  async interpret(input: InterpretInput) {
     const lines = describeSpread(input.spreadResult);
     const brief =
       input.detailLevel === "brief"
@@ -31,7 +12,7 @@ export const mockAI: TarotAI = {
         : `总览：关于「${input.question}」，这一局像一盏被风吹动的烛火——晃，但还在。\n\n分牌：\n${lines}\n\n综合叙事：先承认已经走过的部分，再把注意力收回你真正能移动的一步。语气上，${sceneTone(input.scene)}\n\n建议：选一个最小的行动（或一个明确的暂停），观察三天。\n\n（娱乐与自我反思用途；禁止绝对预言。）`;
     return brief;
   },
-  async followUp(input) {
+  async followUp(input: FollowUpInput) {
     const tip = input.spreadResult.cards[0]
       ? getCard(input.spreadResult.cards[0].cardId)?.nameZh
       : "本局牌面";
