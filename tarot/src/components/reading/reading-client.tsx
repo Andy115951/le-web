@@ -389,17 +389,37 @@ export function ReadingClient({
                   focus="messages"
                 />
                 <div className="flex flex-col gap-2 sm:flex-row">
-                  <Textarea
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    placeholder={
-                      messagesExhausted ? "今日追问额度已用尽…" : "继续追问…"
-                    }
-                    rows={2}
-                    className="resize-none"
-                    disabled={sending || interpreting || messagesExhausted}
-                    aria-label="追问内容"
-                  />
+                  <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    <Textarea
+                      value={draft}
+                      onChange={(e) => setDraft(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key !== "Enter") return;
+                        // IME composing (e.g. Pinyin) — let Enter confirm candidates
+                        if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+                        // Desktop only: Enter sends; Shift/Ctrl/Meta+Enter inserts newline
+                        if (e.shiftKey || e.ctrlKey || e.metaKey) return;
+                        const desktop =
+                          typeof window !== "undefined" &&
+                          window.matchMedia("(pointer: fine) and (hover: hover)")
+                            .matches;
+                        if (!desktop) return;
+                        e.preventDefault();
+                        if (sending || interpreting || messagesExhausted) return;
+                        void sendFollowUp();
+                      }}
+                      placeholder={
+                        messagesExhausted ? "今日追问额度已用尽…" : "继续追问…"
+                      }
+                      rows={2}
+                      className="resize-none"
+                      disabled={sending || interpreting || messagesExhausted}
+                      aria-label="追问内容"
+                    />
+                    <p className="hidden text-xs text-muted-foreground sm:block">
+                      Enter 发送 · Shift / Ctrl + Enter 换行
+                    </p>
+                  </div>
                   <Button
                     onClick={sendFollowUp}
                     disabled={sending || interpreting || messagesExhausted}
