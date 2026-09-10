@@ -1,6 +1,6 @@
-# leweb · tarot — 开发文档（冻结产品决策 v0.9 · 2026-09-10）
+# leweb · tarot — 开发文档（冻结产品决策 v1.0 · 2026-09-10）
 
-> 状态：**P0–P7 已实现**。AI 默认 `AI_PROVIDER=mock`；`AI_PROVIDER=gateway` 时走 Vercel AI Gateway（`ai` SDK `generateText` / `streamText` + `provider/model` 字符串），失败回退 mock。P6：仪式烛光/洗牌/逐张翻牌动画 + 示意卡面（`TarotCardFace`）。P7：解读与追问 NDJSON 流式 UI（`?stream=1`；`prefers-reduced-motion` → `instant=1`）。剩余：写实卡面、GitHub ↔ Vercel 自动部署（若仍未接通）。
+> 状态：**P0–P8 已实现**。AI 默认 `AI_PROVIDER=mock`；`AI_PROVIDER=gateway` 时走 Vercel AI Gateway（`ai` SDK `generateText` / `streamText` + `provider/model` 字符串），失败回退 mock。P6：仪式烛光/洗牌/逐张翻牌动画。P7：解读与追问 NDJSON 流式 UI。P8：插画风牌面（花色配色 / 正逆位角标 / 双层边框角饰 + `TarotCardBack`）。剩余：精美写实卡面素材、GitHub ↔ Vercel 自动部署（若仍未接通）。
 > 仓库路径：`Andy115951/le-web/tarot/`
 
 ---
@@ -25,7 +25,7 @@
 | 登录 | 用户名 + 密码（先做） |
 | 登录额度 | 10 卦/天 + ~100 追问 |
 | 文案 | 按场景切换语气；禁止绝对预言 |
-| 牌面 | MVP 简化示意；美化后置 |
+| 牌面 | P8 插画风示意（CSS/SVG）；精美写实仍后置 |
 | 产品名 | Candle Taro（禁「塔罗」二字） |
 | 示例问题 | 六场景已定稿，见 COPY.md |
 | 语气 | 六档调性已定稿，见 COPY.md |
@@ -35,10 +35,11 @@
 | AI | mock 默认；gateway 已接线（`src/lib/ai/`）；非流式 JSON 仍可用作兼容 |
 | P6 动画 | CSS 优先；仪式光晕/洗牌/翻牌；示意卡面；尊重 reduced-motion |
 | P7 流式 | 解读/追问 NDJSON（`delta`/`done`/`error`）；gateway 用 `streamText`；mock 分片模拟；reduced-motion 瞬时吐出 |
+| P8 插画牌面 | 花色配色、正逆位角标、双层边框角饰、`TarotCardBack`；仍非写实素材 |
 
 ### 待续讨论（仍可再抠）
 
-- 精美写实卡面方案
+- 精美写实卡面素材（位图/外购牌面）
 - GitHub auto-deploy（Vercel Login Connection）
 
 ---
@@ -83,7 +84,7 @@ AI 接线：`src/lib/ai/index.ts` 按 `AI_PROVIDER` 选 mock / gateway；gateway
 
 ## 4. 实现阶段
 
-见 `PLAN.md` §5。P0–P7 已落地。关键 UI：`src/components/reading/ritual-stage.tsx`、`tarot-card-face.tsx`、`reading-client.tsx`；动画样式在 `src/app/globals.css`。
+见 `PLAN.md` §5。P0–P8 已落地。关键 UI：`src/components/reading/ritual-stage.tsx`、`tarot-card-face.tsx`（含 `TarotCardBack`）、`reading-client.tsx`；动画样式在 `src/app/globals.css`。
 
 ## 5. 风险
 

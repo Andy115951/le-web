@@ -6,7 +6,7 @@ import type { SpreadResult } from "@/lib/types";
 import { getCard } from "@/data/deck";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { TarotCardFace } from "@/components/reading/tarot-card-face";
+import { TarotCardBack, TarotCardFace } from "@/components/reading/tarot-card-face";
 import { cn } from "@/lib/utils";
 
 const SPEEDS: Record<RitualSpeed, number> = {
@@ -87,7 +87,7 @@ export function RitualStage({
         )}
       >
         <div className="ritual-glow pointer-events-none absolute inset-0" aria-hidden />
-        <p className="relative text-sm tracking-[0.2em] text-primary/80">RITUAL</p>
+        <p className="relative text-sm tracking-[0.35em] text-primary/80">仪式</p>
         <p className="relative mt-3 text-lg text-foreground">
           {done ? "牌已显现" : STEPS[step]}
         </p>
@@ -141,7 +141,7 @@ export function RitualStage({
                     )}
                   >
                     <div className="tarot-flip-inner">
-                      <div className="tarot-flip-back rounded-lg border border-dashed border-primary/30 bg-background/50" />
+                      <div className="tarot-flip-back"><TarotCardBack /></div>
                       <div className="tarot-flip-front space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-lg font-medium text-primary">
