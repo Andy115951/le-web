@@ -1,3 +1,4 @@
+import { getCardArtSrc } from "@/data/card-art";
 import { getCard, type DeckCard, type Suit } from "@/data/deck";
 import { CUSTOM_SCENE, PRODUCT_NAME, SCENES } from "@/data/scenes";
 import type { Reading } from "@/lib/types";
@@ -37,6 +38,16 @@ function truncate(text: string, max: number): string {
   if (t.length <= max) return t;
   return `${t.slice(0, max - 1)}…`;
 }
+
+function loadImage(src: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
 
 function cardGlyph(card: DeckCard | undefined): string {
   if (!card) return "✧";
@@ -140,6 +151,7 @@ function drawMiniCard(
   card: DeckCard | undefined,
   reversed: boolean,
   positionLabel: string,
+  art?: HTMLImageElement | null,
 ) {
   const accent = accentFor(card);
   const name = card?.nameZh ?? "未知";
@@ -171,20 +183,40 @@ function drawMiniCard(
   ctx.textBaseline = "top";
   ctx.fillText(truncate(positionLabel, 10), x + w / 2, y + 22);
 
-  // Glyph ring
   const cx = x + w / 2;
-  const cy = y + h * 0.42;
-  ctx.beginPath();
-  ctx.arc(cx, cy, 36, 0, Math.PI * 2);
-  ctx.fillStyle = "rgba(18,14,10,0.7)";
-  ctx.fill();
-  ctx.strokeStyle = accent;
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  ctx.fillStyle = accent;
-  ctx.font = "28px Georgia, 'Times New Roman', serif";
-  ctx.textBaseline = "middle";
-  ctx.fillText(glyph, cx, cy + 1);
+
+  if (art) {
+    const inset = 14;
+    const artX = x + inset;
+    const artY = y + 48;
+    const artW = w - inset * 2;
+    const artH = h * 0.52;
+    ctx.save();
+    roundRect(ctx, artX, artY, artW, artH, 10);
+    ctx.clip();
+    if (reversed) {
+      ctx.translate(artX + artW / 2, artY + artH / 2);
+      ctx.rotate(Math.PI);
+      ctx.drawImage(art, -artW / 2, -artH / 2, artW, artH);
+    } else {
+      ctx.drawImage(art, artX, artY, artW, artH);
+    }
+    ctx.restore();
+  } else {
+    // Glyph ring fallback
+    const cy = y + h * 0.42;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 36, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(18,14,10,0.7)";
+    ctx.fill();
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.fillStyle = accent;
+    ctx.font = "28px Georgia, 'Times New Roman', serif";
+    ctx.textBaseline = "middle";
+    ctx.fillText(glyph, cx, cy + 1);
+  }
 
   // Name + orientation
   ctx.fillStyle = "#f3e7c7";
@@ -268,6 +300,13 @@ export async function renderReadingSharePng(reading: Reading): Promise<Blob> {
   const startX = (W - totalW) / 2;
   const cardY = metaY + 56;
 
+  const arts = await Promise.all(
+    cards.map(async (c) => {
+      const src = getCardArtSrc(c.cardId);
+      return src ? loadImage(src) : null;
+    }),
+  );
+
   cards.forEach((c, i) => {
     const deckCard = getCard(c.cardId);
     drawMiniCard(
@@ -279,6 +318,7 @@ export async function renderReadingSharePng(reading: Reading): Promise<Blob> {
       deckCard,
       c.reversed,
       c.positionLabel,
+      arts[i],
     );
   });
 

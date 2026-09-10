@@ -1,4 +1,5 @@
 import type { DeckCard, Suit } from "@/data/deck";
+import { getCardArtSrc } from "@/data/card-art";
 import { cn } from "@/lib/utils";
 
 const SUIT_META: Record<
@@ -173,6 +174,7 @@ export function TarotCardFace({
       : suit
         ? suit.labelZh
         : undefined;
+  const artSrc = getCardArtSrc(card?.id);
 
   const ariaName = `${label}，${reversed ? "逆位" : "正位"}${subLabel ? `，${subLabel}` : ""}`;
 
@@ -188,8 +190,26 @@ export function TarotCardFace({
         className,
       )}
     >
+      {artSrc ? (
+        // Hybrid: center illustration under the candlelight frame
+        <img
+          src={artSrc}
+          alt=""
+          draggable={false}
+          className={cn(
+            "pointer-events-none absolute inset-0 h-full w-full object-cover",
+            reversed && "rotate-180",
+          )}
+          aria-hidden
+        />
+      ) : (
+        <div
+          className="pointer-events-none absolute inset-0 opacity-50 [background:radial-gradient(ellipse_at_50%_18%,oklch(0.78_0.12_75/28%),transparent_58%)]"
+          aria-hidden
+        />
+      )}
       <div
-        className="pointer-events-none absolute inset-0 opacity-50 [background:radial-gradient(ellipse_at_50%_18%,oklch(0.78_0.12_75/28%),transparent_58%)]"
+        className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/85 via-background/15 to-background/35"
         aria-hidden
       />
       <div
@@ -213,25 +233,26 @@ export function TarotCardFace({
 
       <div
         className={cn(
-          "relative flex h-full flex-col items-center justify-center gap-1.5 px-2 text-center",
-          reversed && "rotate-180",
+          "relative z-10 flex h-full flex-col items-center justify-end gap-1 px-2 pb-2.5 text-center",
+          !artSrc && "justify-center gap-1.5",
+          reversed && !artSrc && "rotate-180",
         )}
       >
-        <OrnamentRing glyph={glyph} compact={compact} />
+        {!artSrc ? <OrnamentRing glyph={glyph} compact={compact} /> : null}
         <span
           className={cn(
-            "font-medium text-foreground",
+            "font-medium text-foreground drop-shadow-[0_1px_6px_rgba(0,0,0,0.65)]",
             compact ? "text-xs" : "text-sm",
           )}
         >
           {label}
         </span>
-        {!compact && subLabel && (
+        {!compact && !artSrc && subLabel && (
           <span className="text-[10px] tracking-[0.18em] text-muted-foreground">
             {subLabel}
           </span>
         )}
-        {!compact && card?.keywords?.length ? (
+        {!compact && !artSrc && card?.keywords?.length ? (
           <span className="max-w-[90%] truncate text-[10px] text-muted-foreground/90">
             {card.keywords.slice(0, 2).join(" · ")}
           </span>
