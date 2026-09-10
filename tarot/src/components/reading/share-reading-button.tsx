@@ -6,9 +6,14 @@ import {
   formatReadingShareText,
   shareReadingTitle,
 } from "@/lib/share-reading";
+import {
+  renderReadingSharePng,
+  shareImageFilename,
+} from "@/lib/share-reading-image";
 import { Button } from "@/components/ui/button";
 
 type ShareState = "idle" | "copied" | "shared" | "error";
+type ImageState = "idle" | "working" | "saved" | "shared" | "error";
 
 export function ShareReadingButton({
   reading,
@@ -18,8 +23,9 @@ export function ShareReadingButton({
   disabled?: boolean;
 }) {
   const [state, setState] = useState<ShareState>("idle");
+  const [imageState, setImageState] = useState<ImageState>("idle");
 
-  async function onShare() {
+  async function onShareText() {
     const text = formatReadingShareText(reading);
     const title = shareReadingTitle(reading);
 
@@ -34,11 +40,9 @@ export function ShareReadingButton({
           window.setTimeout(() => setState("idle"), 2000);
           return;
         } catch (err) {
-          // User cancelled share sheet — stay quiet
           if (err instanceof DOMException && err.name === "AbortError") {
             return;
           }
-          // Fall through to clipboard
         }
       }
 
@@ -53,7 +57,6 @@ export function ShareReadingButton({
         return;
       }
 
-      // Last resort: legacy execCommand
       const ta = document.createElement("textarea");
       ta.value = text;
       ta.setAttribute("readonly", "");
@@ -72,7 +75,59 @@ export function ShareReadingButton({
     }
   }
 
-  const label =
+  async function onShareImage() {
+    if (imageState === "working") return;
+    setImageState("working");
+    try {
+      const blob = await renderReadingSharePng(reading);
+      const file = new File([blob], shareImageFilename(reading), {
+        type: "image/png",
+      });
+      const title = shareReadingTitle(reading);
+
+      const canShareFiles =
+        typeof navigator !== "undefined" &&
+        typeof navigator.share === "function" &&
+        typeof navigator.canShare === "function" &&
+        navigator.canShare({ files: [file] });
+
+      if (canShareFiles) {
+        try {
+          await navigator.share({
+            title,
+            text: formatReadingShareText(reading),
+            files: [file],
+          });
+          setImageState("shared");
+          window.setTimeout(() => setImageState("idle"), 2000);
+          return;
+        } catch (err) {
+          if (err instanceof DOMException && err.name === "AbortError") {
+            setImageState("idle");
+            return;
+          }
+          // Fall through to download
+        }
+      }
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = file.name;
+      a.rel = "noopener";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+      setImageState("saved");
+      window.setTimeout(() => setImageState("idle"), 2000);
+    } catch {
+      setImageState("error");
+      window.setTimeout(() => setImageState("idle"), 2500);
+    }
+  }
+
+  const textLabel =
     state === "copied"
       ? "已复制"
       : state === "shared"
@@ -81,16 +136,39 @@ export function ShareReadingButton({
           ? "未能分享"
           : "分享牌阵";
 
+  const imageLabel =
+    imageState === "working"
+      ? "生成中…"
+      : imageState === "saved"
+        ? "已保存"
+        : imageState === "shared"
+          ? "已分享图"
+          : imageState === "error"
+            ? "未能出图"
+            : "保存分享图";
+
   return (
-    <Button
-      type="button"
-      size="sm"
-      variant="outline"
-      onClick={onShare}
-      disabled={disabled || state === "error"}
-      aria-label="分享本局牌阵摘要"
-    >
-      {label}
-    </Button>
+    <div className="flex flex-wrap items-center gap-2">
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        onClick={onShareText}
+        disabled={disabled || state === "error"}
+        aria-label="分享本局牌阵文字摘要"
+      >
+        {textLabel}
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant="secondary"
+        onClick={onShareImage}
+        disabled={disabled || imageState === "working" || imageState === "error"}
+        aria-label="生成并保存本局牌阵分享图"
+      >
+        {imageLabel}
+      </Button>
+    </div>
   );
 }
