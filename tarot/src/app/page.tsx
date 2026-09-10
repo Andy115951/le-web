@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PRODUCT_NAME, SCENES } from "@/data/scenes";
+import { DailyCardSection } from "@/components/home/daily-card";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -7,8 +7,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { PRODUCT_NAME, SCENES } from "@/data/scenes";
+import { getTodayDailyCard } from "@/lib/daily-card";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const daily = await getTodayDailyCard();
+
   return (
     <div className="space-y-10">
       <section className="space-y-4 text-center">
@@ -30,6 +34,8 @@ export default function HomePage() {
           </Button>
         </div>
       </section>
+
+      <DailyCardSection draw={daily} />
 
       <section className="grid gap-3 sm:grid-cols-2">
         {SCENES.map((scene) => (

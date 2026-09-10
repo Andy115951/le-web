@@ -22,10 +22,11 @@ export const TAROT_DECK: DeckCard[] = [
     "number": 0,
     "keywords": [
       "开始",
-      "跃入"
+      "跃入",
+      "信任"
     ],
-    "upright": "新旅程与开放心态",
-    "reversed": "莽撞或犹豫不决"
+    "upright": "带着轻盈迈出一步，未知本身也是礼物",
+    "reversed": "脚步太急或迟疑不前，需要先看清落点"
   },
   {
     "id": "major_01",
@@ -35,10 +36,11 @@ export const TAROT_DECK: DeckCard[] = [
     "number": 1,
     "keywords": [
       "意志",
-      "显化"
+      "显化",
+      "专注"
     ],
-    "upright": "资源在手，可以行动",
-    "reversed": "分散或操控"
+    "upright": "资源已在手边，把意图落成行动",
+    "reversed": "能量分散或用力过猛，先收回心神"
   },
   {
     "id": "major_02",
@@ -48,10 +50,11 @@ export const TAROT_DECK: DeckCard[] = [
     "number": 2,
     "keywords": [
       "直觉",
-      "静默"
+      "静默",
+      "内在"
     ],
-    "upright": "向内倾听未知",
-    "reversed": "秘密或封闭"
+    "upright": "向内倾听，答案在尚未说出口之处",
+    "reversed": "过度封闭或忽视直觉，信息被挡在门外"
   },
   {
     "id": "major_03",
@@ -61,10 +64,11 @@ export const TAROT_DECK: DeckCard[] = [
     "number": 3,
     "keywords": [
       "丰盛",
-      "滋养"
+      "滋养",
+      "创造"
     ],
-    "upright": "创造与关怀生长",
-    "reversed": "依赖或停滞"
+    "upright": "创造与关怀正在生长，允许柔软发生",
+    "reversed": "透支滋养或停滞不前，先照顾自己"
   },
   {
     "id": "major_04",
@@ -74,10 +78,11 @@ export const TAROT_DECK: DeckCard[] = [
     "number": 4,
     "keywords": [
       "秩序",
-      "边界"
+      "边界",
+      "稳定"
     ],
-    "upright": "结构与稳定的力量",
-    "reversed": "僵化或控制欲"
+    "upright": "用结构稳住局面，边界即保护",
+    "reversed": "僵化或控制欲上升，可松一点握拳"
   },
   {
     "id": "major_05",
@@ -87,10 +92,11 @@ export const TAROT_DECK: DeckCard[] = [
     "number": 5,
     "keywords": [
       "传统",
-      "指引"
+      "指引",
+      "信念"
     ],
-    "upright": "学习既有智慧",
-    "reversed": "盲从或教条"
+    "upright": "向既有智慧学习，找到可依靠的框架",
+    "reversed": "盲从教条，或拒绝一切外来指引"
   },
   {
     "id": "major_06",
@@ -100,10 +106,11 @@ export const TAROT_DECK: DeckCard[] = [
     "number": 6,
     "keywords": [
       "选择",
-      "联结"
+      "联结",
+      "价值"
     ],
-    "upright": "价值观对齐的选择",
-    "reversed": "摇摆或错配"
+    "upright": "选择对齐内心价值，关系需要诚实",
+    "reversed": "摇摆不定或价值错配，先问自己要什么"
   },
   {
     "id": "major_07",
@@ -113,10 +120,11 @@ export const TAROT_DECK: DeckCard[] = [
     "number": 7,
     "keywords": [
       "推进",
-      "意志"
+      "意志",
+      "方向"
     ],
-    "upright": "聚焦前进",
-    "reversed": "失控或对立内耗"
+    "upright": "收束对立力量，朝一个方向推进",
+    "reversed": "失控内耗或方向分裂，先统一缰绳"
   },
   {
     "id": "major_08",
@@ -126,10 +134,11 @@ export const TAROT_DECK: DeckCard[] = [
     "number": 8,
     "keywords": [
       "柔软",
-      "勇气"
+      "勇气",
+      "驯服"
     ],
-    "upright": "以柔克刚的勇气",
-    "reversed": "自我怀疑"
+    "upright": "以柔克刚，内在勇气比硬碰更有力",
+    "reversed": "自我怀疑或压抑本能，温柔也需要边界"
   },
   {
     "id": "major_09",
@@ -139,10 +148,11 @@ export const TAROT_DECK: DeckCard[] = [
     "number": 9,
     "keywords": [
       "独处",
-      "求索"
+      "寻光",
+      "内省"
     ],
-    "upright": "需要静思与明灯",
-    "reversed": "孤立或逃避"
+    "upright": "提灯向内走一段路，独处里有澄明",
+    "reversed": "过度孤立或逃避，灯也需要照向外"
   },
   {
     "id": "major_10",
@@ -151,11 +161,12 @@ export const TAROT_DECK: DeckCard[] = [
     "arcana": "major",
     "number": 10,
     "keywords": [
-      "转折",
-      "周期"
+      "流转",
+      "时机",
+      "变化"
     ],
-    "upright": "转机正在发生",
-    "reversed": "抗拒变化"
+    "upright": "周期在转动，顺势调整比硬扛更智慧",
+    "reversed": "抗拒变化或把偶然当成定数"
   },
   {
     "id": "major_11",
@@ -165,10 +176,11 @@ export const TAROT_DECK: DeckCard[] = [
     "number": 11,
     "keywords": [
       "公平",
-      "因果"
+      "因果",
+      "清明"
     ],
-    "upright": "诚实面对因果",
-    "reversed": "偏颇或推责"
+    "upright": "看清因果，做可坦然承担的决定",
+    "reversed": "偏颇自欺，或纠结于绝对对错"
   },
   {
     "id": "major_12",
@@ -178,10 +190,11 @@ export const TAROT_DECK: DeckCard[] = [
     "number": 12,
     "keywords": [
       "暂停",
-      "换视角"
+      "换视角",
+      "放下"
     ],
-    "upright": "停下以看见新角度",
-    "reversed": "无谓牺牲"
+    "upright": "悬停片刻换个角度看，放下才有新解",
+    "reversed": "无谓牺牲或停滞过久，该动时要动"
   },
   {
     "id": "major_13",
@@ -191,10 +204,11 @@ export const TAROT_DECK: DeckCard[] = [
     "number": 13,
     "keywords": [
       "结束",
-      "更生"
+      "转化",
+      "更新"
     ],
-    "upright": "旧阶段落幕，腾出空间",
-    "reversed": "抗拒结束"
+    "upright": "旧章节收束，腾出空间给新生",
+    "reversed": "死死抓住过期之物，转化被推迟"
   },
   {
     "id": "major_14",
@@ -204,10 +218,11 @@ export const TAROT_DECK: DeckCard[] = [
     "number": 14,
     "keywords": [
       "调和",
-      "节奏"
+      "耐心",
+      "中道"
     ],
-    "upright": "平衡与耐心融合",
-    "reversed": "失衡或极端"
+    "upright": "两端之间找到节奏，慢慢调和",
+    "reversed": "失衡极端，或急于一次调到完美"
   },
   {
     "id": "major_15",
@@ -217,10 +232,11 @@ export const TAROT_DECK: DeckCard[] = [
     "number": 15,
     "keywords": [
       "束缚",
-      "欲望"
+      "欲望",
+      "觉察"
     ],
-    "upright": "看见成瘾与依附",
-    "reversed": "沉溺其中"
+    "upright": "看清是什么在绑住你，欲望也可被命名",
+    "reversed": "沉溺借口，把锁链当成舒适区"
   },
   {
     "id": "major_16",
@@ -229,11 +245,12 @@ export const TAROT_DECK: DeckCard[] = [
     "arcana": "major",
     "number": 16,
     "keywords": [
-      "崩解",
-      "启示"
+      "震动",
+      "真相",
+      "重建"
     ],
-    "upright": "幻象被打破",
-    "reversed": "余震与混乱"
+    "upright": "旧结构震动露出真相，碎后可重建",
+    "reversed": "否认震动，或在废墟上硬撑原样"
   },
   {
     "id": "major_17",
@@ -243,10 +260,11 @@ export const TAROT_DECK: DeckCard[] = [
     "number": 17,
     "keywords": [
       "希望",
-      "疗愈"
+      "疗愈",
+      "清澈"
     ],
-    "upright": "信任与平静的指引",
-    "reversed": "失望或缥缈"
+    "upright": "风雨后留一束光，允许自己被希望托住",
+    "reversed": "失望抽空信心，记得星光仍在"
   },
   {
     "id": "major_18",
@@ -256,10 +274,11 @@ export const TAROT_DECK: DeckCard[] = [
     "number": 18,
     "keywords": [
       "迷雾",
-      "潜意识"
+      "潜意识",
+      "幻象"
     ],
-    "upright": "情绪与梦境需辨认",
-    "reversed": "恐惧放大"
+    "upright": "情绪与梦境在说话，慢步穿过迷雾",
+    "reversed": "被恐惧放大幻象，先分辨影与形"
   },
   {
     "id": "major_19",
@@ -268,11 +287,12 @@ export const TAROT_DECK: DeckCard[] = [
     "arcana": "major",
     "number": 19,
     "keywords": [
-      "清明",
-      "活力"
+      "明亮",
+      "活力",
+      "坦诚"
     ],
-    "upright": "清晰与温暖到来",
-    "reversed": "短暂眩光"
+    "upright": "坦诚与温暖照亮路，分享喜悦",
+    "reversed": "虚假乐观或灼伤自己，光也需节律"
   },
   {
     "id": "major_20",
@@ -281,11 +301,12 @@ export const TAROT_DECK: DeckCard[] = [
     "arcana": "major",
     "number": 20,
     "keywords": [
-      "唤醒",
-      "召唤"
+      "觉醒",
+      "召唤",
+      "回顾"
     ],
-    "upright": "回应内在召唤",
-    "reversed": "自我苛责"
+    "upright": "听见内在召唤，整合过去再出发",
+    "reversed": "苛责自己或对召唤充耳不闻"
   },
   {
     "id": "major_21",
@@ -295,10 +316,11 @@ export const TAROT_DECK: DeckCard[] = [
     "number": 21,
     "keywords": [
       "完成",
-      "整合"
+      "整合",
+      "圆融"
     ],
-    "upright": "圆满与整合",
-    "reversed": "尚未合拢的缺口"
+    "upright": "一段旅程圆满，整合所得再开新局",
+    "reversed": "差临门一脚，或拒绝为完成画句号"
   },
   {
     "id": "wands_ace",
@@ -308,11 +330,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "wands",
     "number": 1,
     "keywords": [
-      "权杖",
-      "Ace"
+      "火种",
+      "灵感",
+      "启动"
     ],
-    "upright": "权杖一正位：关注当下行动与处境的平衡",
-    "reversed": "权杖一逆位：需要调整节奏或视角"
+    "upright": "灵感与热情被点燃，可以开始一小步",
+    "reversed": "空有火花却未落地，或热情被浇灭"
   },
   {
     "id": "wands_two",
@@ -322,11 +345,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "wands",
     "number": 2,
     "keywords": [
-      "权杖",
-      "Two"
+      "规划",
+      "远望",
+      "抉择"
     ],
-    "upright": "权杖二正位：关注当下行动与处境的平衡",
-    "reversed": "权杖二逆位：需要调整节奏或视角"
+    "upright": "看见可能的道路，先在心里铺地图",
+    "reversed": "犹豫不决或计划空转，需要选定方向"
   },
   {
     "id": "wands_three",
@@ -336,11 +360,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "wands",
     "number": 3,
     "keywords": [
-      "权杖",
-      "Three"
+      "协作",
+      "远景",
+      "展开"
     ],
-    "upright": "权杖三正位：关注当下行动与处境的平衡",
-    "reversed": "权杖三逆位：需要调整节奏或视角"
+    "upright": "众人拾柴，事业与创意往外展开",
+    "reversed": "各自为政或视野短浅，协作被卡住"
   },
   {
     "id": "wands_four",
@@ -350,11 +375,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "wands",
     "number": 4,
     "keywords": [
-      "权杖",
-      "Four"
+      "安定",
+      "庆典",
+      "根基"
     ],
-    "upright": "权杖四正位：关注当下行动与处境的平衡",
-    "reversed": "权杖四逆位：需要调整节奏或视角"
+    "upright": "阶段性安顿与庆祝，让成果落地",
+    "reversed": "家或团队不稳，或庆典掩盖未竟之事"
   },
   {
     "id": "wands_five",
@@ -364,11 +390,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "wands",
     "number": 5,
     "keywords": [
-      "权杖",
-      "Five"
+      "摩擦",
+      "竞争",
+      "试炼"
     ],
-    "upright": "权杖五正位：关注当下行动与处境的平衡",
-    "reversed": "权杖五逆位：需要调整节奏或视角"
+    "upright": "意见碰撞在所难免，试炼里长本事",
+    "reversed": "无谓内耗升级，争的不是真正重要的"
   },
   {
     "id": "wands_six",
@@ -378,11 +405,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "wands",
     "number": 6,
     "keywords": [
-      "权杖",
-      "Six"
+      "认可",
+      "前进",
+      "凯旋"
     ],
-    "upright": "权杖六正位：关注当下行动与处境的平衡",
-    "reversed": "权杖六逆位：需要调整节奏或视角"
+    "upright": "努力被看见，带着认可继续前行",
+    "reversed": "虚荣分心，或迟迟等不到外面的掌声"
   },
   {
     "id": "wands_seven",
@@ -392,11 +420,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "wands",
     "number": 7,
     "keywords": [
-      "权杖",
-      "Seven"
+      "守住",
+      "勇气",
+      "立场"
     ],
-    "upright": "权杖七正位：关注当下行动与处境的平衡",
-    "reversed": "权杖七逆位：需要调整节奏或视角"
+    "upright": "在压力中守住自己的位置与信念",
+    "reversed": "寡不敌众感过强，或防守变成固执"
   },
   {
     "id": "wands_eight",
@@ -406,11 +435,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "wands",
     "number": 8,
     "keywords": [
-      "权杖",
-      "Eight"
+      "迅疾",
+      "消息",
+      "流动"
     ],
-    "upright": "权杖八正位：关注当下行动与处境的平衡",
-    "reversed": "权杖八逆位：需要调整节奏或视角"
+    "upright": "事情加速推进，讯息与行动一起来",
+    "reversed": "仓促散乱，或卡在等待里动弹不得"
   },
   {
     "id": "wands_nine",
@@ -420,11 +450,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "wands",
     "number": 9,
     "keywords": [
-      "权杖",
-      "Nine"
+      "坚韧",
+      "戒备",
+      "末段"
     ],
-    "upright": "权杖九正位：关注当下行动与处境的平衡",
-    "reversed": "权杖九逆位：需要调整节奏或视角"
+    "upright": "接近终点仍需警醒，留一点力气",
+    "reversed": "精疲力竭还硬撑，或过度戒备拒人"
   },
   {
     "id": "wands_ten",
@@ -434,11 +465,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "wands",
     "number": 10,
     "keywords": [
-      "权杖",
-      "Ten"
+      "重负",
+      "责任",
+      "卸下"
     ],
-    "upright": "权杖十正位：关注当下行动与处境的平衡",
-    "reversed": "权杖十逆位：需要调整节奏或视角"
+    "upright": "担子很沉，看清哪些该扛哪些可放",
+    "reversed": "被责任压垮，或把所有重担揽到自己"
   },
   {
     "id": "wands_page",
@@ -448,11 +480,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "wands",
     "number": 11,
     "keywords": [
-      "权杖",
-      "Page"
+      "学徒",
+      "消息",
+      "好奇"
     ],
-    "upright": "权杖侍从正位：关注当下行动与处境的平衡",
-    "reversed": "权杖侍从逆位：需要调整节奏或视角"
+    "upright": "权杖侍从带来新鲜热情与试探性行动",
+    "reversed": "三分钟热度，消息真假未辨"
   },
   {
     "id": "wands_knight",
@@ -462,11 +495,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "wands",
     "number": 12,
     "keywords": [
-      "权杖",
-      "Knight"
+      "冲锋",
+      "冒险",
+      "行动"
     ],
-    "upright": "权杖骑士正位：关注当下行动与处境的平衡",
-    "reversed": "权杖骑士逆位：需要调整节奏或视角"
+    "upright": "权杖骑士催你大胆前进，行动优先",
+    "reversed": "鲁莽冒进，方向未定就全力冲刺"
   },
   {
     "id": "wands_queen",
@@ -476,11 +510,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "wands",
     "number": 13,
     "keywords": [
-      "权杖",
-      "Queen"
+      "魅力",
+      "自信",
+      "感染"
     ],
-    "upright": "权杖王后正位：关注当下行动与处境的平衡",
-    "reversed": "权杖王后逆位：需要调整节奏或视角"
+    "upright": "权杖王后以自信点燃周围，魅力在场",
+    "reversed": "自我中心或虚荣，热情变成操控"
   },
   {
     "id": "wands_king",
@@ -490,11 +525,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "wands",
     "number": 14,
     "keywords": [
-      "权杖",
-      "King"
+      "远见",
+      "领导",
+      "成熟火"
     ],
-    "upright": "权杖国王正位：关注当下行动与处境的平衡",
-    "reversed": "权杖国王逆位：需要调整节奏或视角"
+    "upright": "权杖国王稳住大局，远见与责任并存",
+    "reversed": "专断独行，或空有愿景缺少落地"
   },
   {
     "id": "cups_ace",
@@ -504,11 +540,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "cups",
     "number": 1,
     "keywords": [
-      "圣杯",
-      "Ace"
+      "情感",
+      "新芽",
+      "敞开"
     ],
-    "upright": "圣杯一正位：关注当下行动与处境的平衡",
-    "reversed": "圣杯一逆位：需要调整节奏或视角"
+    "upright": "心口有柔软的新意，允许感受到来",
+    "reversed": "情感堵塞或虚假热情，心门半掩"
   },
   {
     "id": "cups_two",
@@ -518,11 +555,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "cups",
     "number": 2,
     "keywords": [
-      "圣杯",
-      "Two"
+      "互惠",
+      "伙伴",
+      "联结"
     ],
-    "upright": "圣杯二正位：关注当下行动与处境的平衡",
-    "reversed": "圣杯二逆位：需要调整节奏或视角"
+    "upright": "对等的心意交换，关系里有共鸣",
+    "reversed": "不平衡付出，或错把投射当连接"
   },
   {
     "id": "cups_three",
@@ -532,11 +570,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "cups",
     "number": 3,
     "keywords": [
-      "圣杯",
-      "Three"
+      "欢聚",
+      "分享",
+      "友谊"
     ],
-    "upright": "圣杯三正位：关注当下行动与处境的平衡",
-    "reversed": "圣杯三逆位：需要调整节奏或视角"
+    "upright": "与人同庆、共享喜悦，圈子在发光",
+    "reversed": "交际空转或圈子不合，欢聚变应酬"
   },
   {
     "id": "cups_four",
@@ -546,11 +585,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "cups",
     "number": 4,
     "keywords": [
-      "圣杯",
-      "Four"
+      "倦怠",
+      "错过",
+      "内观"
     ],
-    "upright": "圣杯四正位：关注当下行动与处境的平衡",
-    "reversed": "圣杯四逆位：需要调整节奏或视角"
+    "upright": "对外刺激提不起劲，也许该向内看",
+    "reversed": "沉溺冷漠，对送到眼前的机会视而不见"
   },
   {
     "id": "cups_five",
@@ -560,11 +600,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "cups",
     "number": 5,
     "keywords": [
-      "圣杯",
-      "Five"
+      "失落",
+      "哀悼",
+      "残余"
     ],
-    "upright": "圣杯五正位：关注当下行动与处境的平衡",
-    "reversed": "圣杯五逆位：需要调整节奏或视角"
+    "upright": "承认失去，也看见尚未洒尽的那一点",
+    "reversed": "沉溺悲伤无法起身，或否认真正的痛"
   },
   {
     "id": "cups_six",
@@ -574,11 +615,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "cups",
     "number": 6,
     "keywords": [
-      "圣杯",
-      "Six"
+      "怀旧",
+      "纯真",
+      "回望"
     ],
-    "upright": "圣杯六正位：关注当下行动与处境的平衡",
-    "reversed": "圣杯六逆位：需要调整节奏或视角"
+    "upright": "旧日温情带来安慰，也可滋养现在",
+    "reversed": "困在过去，或美化回忆逃避当下"
   },
   {
     "id": "cups_seven",
@@ -588,11 +630,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "cups",
     "number": 7,
     "keywords": [
-      "圣杯",
-      "Seven"
+      "幻想",
+      "选择",
+      "泡影"
     ],
-    "upright": "圣杯七正位：关注当下行动与处境的平衡",
-    "reversed": "圣杯七逆位：需要调整节奏或视角"
+    "upright": "愿望很多，先分清愿景与幻觉",
+    "reversed": "沉迷白日梦，现实选择被一拖再拖"
   },
   {
     "id": "cups_eight",
@@ -602,11 +645,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "cups",
     "number": 8,
     "keywords": [
-      "圣杯",
-      "Eight"
+      "抽离",
+      "寻深",
+      "放下"
     ],
-    "upright": "圣杯八正位：关注当下行动与处境的平衡",
-    "reversed": "圣杯八逆位：需要调整节奏或视角"
+    "upright": "离开不再滋养的局面，去寻更真的意义",
+    "reversed": "逃避承诺，或走了却心还留在原地"
   },
   {
     "id": "cups_nine",
@@ -616,11 +660,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "cups",
     "number": 9,
     "keywords": [
-      "圣杯",
-      "Nine"
+      "满足",
+      "愿望",
+      "自赏"
     ],
-    "upright": "圣杯九正位：关注当下行动与处境的平衡",
-    "reversed": "圣杯九逆位：需要调整节奏或视角"
+    "upright": "内心感到富足，允许自己享受成果",
+    "reversed": "自满封闭，或物质满足难填内在空"
   },
   {
     "id": "cups_ten",
@@ -630,11 +675,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "cups",
     "number": 10,
     "keywords": [
-      "圣杯",
-      "Ten"
+      "圆满",
+      "家和",
+      "共融"
     ],
-    "upright": "圣杯十正位：关注当下行动与处境的平衡",
-    "reversed": "圣杯十逆位：需要调整节奏或视角"
+    "upright": "情感圆融，家与关系里有安定感",
+    "reversed": "表面和谐下暗流，或完美家庭幻象破"
   },
   {
     "id": "cups_page",
@@ -644,11 +690,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "cups",
     "number": 11,
     "keywords": [
-      "圣杯",
-      "Page"
+      "敏感",
+      "新情",
+      "学习"
     ],
-    "upright": "圣杯侍从正位：关注当下行动与处境的平衡",
-    "reversed": "圣杯侍从逆位：需要调整节奏或视角"
+    "upright": "圣杯侍从打开感受，学习如何爱人",
+    "reversed": "情绪幼稚，或把幻想当感情事实"
   },
   {
     "id": "cups_knight",
@@ -658,11 +705,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "cups",
     "number": 12,
     "keywords": [
-      "圣杯",
-      "Knight"
+      "浪漫",
+      "追求",
+      "理想"
     ],
-    "upright": "圣杯骑士正位：关注当下行动与处境的平衡",
-    "reversed": "圣杯骑士逆位：需要调整节奏或视角"
+    "upright": "圣杯骑士带着理想靠近，情意真挚",
+    "reversed": "不切实际的浪漫，承诺大于行动"
   },
   {
     "id": "cups_queen",
@@ -672,11 +720,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "cups",
     "number": 13,
     "keywords": [
-      "圣杯",
-      "Queen"
+      "共情",
+      "涵容",
+      "直觉情"
     ],
-    "upright": "圣杯王后正位：关注当下行动与处境的平衡",
-    "reversed": "圣杯王后逆位：需要调整节奏或视角"
+    "upright": "圣杯王后深深接住情绪，直觉温柔",
+    "reversed": "情绪淹没边界，过度付出耗尽自己"
   },
   {
     "id": "cups_king",
@@ -686,11 +735,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "cups",
     "number": 14,
     "keywords": [
-      "圣杯",
-      "King"
+      "成熟情",
+      "稳定",
+      "智慧心"
     ],
-    "upright": "圣杯国王正位：关注当下行动与处境的平衡",
-    "reversed": "圣杯国王逆位：需要调整节奏或视角"
+    "upright": "圣杯国王情绪稳定，以智慧照顾关系",
+    "reversed": "情感压抑或冷感，用理性躲开真心"
   },
   {
     "id": "swords_ace",
@@ -700,11 +750,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "swords",
     "number": 1,
     "keywords": [
-      "宝剑",
-      "Ace"
+      "清明",
+      "决断",
+      "真理"
     ],
-    "upright": "宝剑一正位：关注当下行动与处境的平衡",
-    "reversed": "宝剑一逆位：需要调整节奏或视角"
+    "upright": "心智锋利，适合澄清事实与做决定",
+    "reversed": "言辞伤人，或真相被用来攻击"
   },
   {
     "id": "swords_two",
@@ -714,11 +765,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "swords",
     "number": 2,
     "keywords": [
-      "宝剑",
-      "Two"
+      "僵持",
+      "权衡",
+      "盲区"
     ],
-    "upright": "宝剑二正位：关注当下行动与处境的平衡",
-    "reversed": "宝剑二逆位：需要调整节奏或视角"
+    "upright": "两难之间需要停一停，信息还不全",
+    "reversed": "逃避选择，或假装平衡实则停滞"
   },
   {
     "id": "swords_three",
@@ -728,11 +780,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "swords",
     "number": 3,
     "keywords": [
-      "宝剑",
-      "Three"
+      "刺痛",
+      "哀伤",
+      "疗伤"
     ],
-    "upright": "宝剑三正位：关注当下行动与处境的平衡",
-    "reversed": "宝剑三逆位：需要调整节奏或视角"
+    "upright": "心被刺痛需要被看见，哀伤也是过程",
+    "reversed": "反复揭伤疤，或否认痛让伤口化脓"
   },
   {
     "id": "swords_four",
@@ -742,11 +795,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "swords",
     "number": 4,
     "keywords": [
-      "宝剑",
-      "Four"
+      "休整",
+      "静默",
+      "蓄力"
     ],
-    "upright": "宝剑四正位：关注当下行动与处境的平衡",
-    "reversed": "宝剑四逆位：需要调整节奏或视角"
+    "upright": "强制休息，让心智躺平片刻再战",
+    "reversed": "闲不下来，或休息变成长期逃避"
   },
   {
     "id": "swords_five",
@@ -756,11 +810,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "swords",
     "number": 5,
     "keywords": [
-      "宝剑",
-      "Five"
+      "胜负",
+      "屈辱",
+      "计较"
     ],
-    "upright": "宝剑五正位：关注当下行动与处境的平衡",
-    "reversed": "宝剑五逆位：需要调整节奏或视角"
+    "upright": "冲突里有人受伤，赢面也带着代价",
+    "reversed": "咄咄逼人，或沉溺失败者叙事"
   },
   {
     "id": "swords_six",
@@ -770,11 +825,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "swords",
     "number": 6,
     "keywords": [
-      "宝剑",
-      "Six"
+      "过渡",
+      "离开",
+      "平复"
     ],
-    "upright": "宝剑六正位：关注当下行动与处境的平衡",
-    "reversed": "宝剑六逆位：需要调整节奏或视角"
+    "upright": "乘流向更平静处，伤痛在路上慢慢淡",
+    "reversed": "拒绝离开困境，或旅程被焦虑拖住"
   },
   {
     "id": "swords_seven",
@@ -784,11 +840,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "swords",
     "number": 7,
     "keywords": [
-      "宝剑",
-      "Seven"
+      "策略",
+      "隐蔽",
+      "机变"
     ],
-    "upright": "宝剑七正位：关注当下行动与处境的平衡",
-    "reversed": "宝剑七逆位：需要调整节奏或视角"
+    "upright": "需要策略与低调，不是所有牌都摊开",
+    "reversed": "自欺欺人，或用不诚实手段求捷径"
   },
   {
     "id": "swords_eight",
@@ -798,11 +855,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "swords",
     "number": 8,
     "keywords": [
-      "宝剑",
-      "Eight"
+      "困住",
+      "念头",
+      "束缚"
     ],
-    "upright": "宝剑八正位：关注当下行动与处境的平衡",
-    "reversed": "宝剑八逆位：需要调整节奏或视角"
+    "upright": "感到被困，多半是念头织成的网",
+    "reversed": "受害者循环，或把限制当成无法打破"
   },
   {
     "id": "swords_nine",
@@ -812,11 +870,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "swords",
     "number": 9,
     "keywords": [
-      "宝剑",
-      "Nine"
+      "焦虑",
+      "夜念",
+      "压力"
     ],
-    "upright": "宝剑九正位：关注当下行动与处境的平衡",
-    "reversed": "宝剑九逆位：需要调整节奏或视角"
+    "upright": "夜里念头嘈杂，压力需要被说出",
+    "reversed": "被恐惧淹没，灾难化想象接管现实"
   },
   {
     "id": "swords_ten",
@@ -826,11 +885,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "swords",
     "number": 10,
     "keywords": [
-      "宝剑",
-      "Ten"
+      "触底",
+      "结束",
+      "黎明"
     ],
-    "upright": "宝剑十正位：关注当下行动与处境的平衡",
-    "reversed": "宝剑十逆位：需要调整节奏或视角"
+    "upright": "最痛的一章接近尾声，触底后可翻篇",
+    "reversed": "反复躺在谷底，拒绝任何重新开始"
   },
   {
     "id": "swords_page",
@@ -840,11 +900,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "swords",
     "number": 11,
     "keywords": [
-      "宝剑",
-      "Page"
+      "好奇",
+      "观察",
+      "新知"
     ],
-    "upright": "宝剑侍从正位：关注当下行动与处境的平衡",
-    "reversed": "宝剑侍从逆位：需要调整节奏或视角"
+    "upright": "宝剑侍从带着问题来，适合学习澄清",
+    "reversed": "言语尖刺或八卦，心智尚未成熟"
   },
   {
     "id": "swords_knight",
@@ -854,11 +915,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "swords",
     "number": 12,
     "keywords": [
-      "宝剑",
-      "Knight"
+      "直进",
+      "辩论",
+      "行动思"
     ],
-    "upright": "宝剑骑士正位：关注当下行动与处境的平衡",
-    "reversed": "宝剑骑士逆位：需要调整节奏或视角"
+    "upright": "宝剑骑士以锋芒推进，逻辑先行",
+    "reversed": "好斗伤人，真理变成武器"
   },
   {
     "id": "swords_queen",
@@ -868,11 +930,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "swords",
     "number": 13,
     "keywords": [
-      "宝剑",
-      "Queen"
+      "清明心",
+      "独立",
+      "洞见"
     ],
-    "upright": "宝剑王后正位：关注当下行动与处境的平衡",
-    "reversed": "宝剑王后逆位：需要调整节奏或视角"
+    "upright": "宝剑王后洞察人情，独立而清晰",
+    "reversed": "刻薄冷酷，用理智切断一切柔软"
   },
   {
     "id": "swords_king",
@@ -882,11 +945,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "swords",
     "number": 14,
     "keywords": [
-      "宝剑",
-      "King"
+      "权威思",
+      "公正",
+      "决断"
     ],
-    "upright": "宝剑国王正位：关注当下行动与处境的平衡",
-    "reversed": "宝剑国王逆位：需要调整节奏或视角"
+    "upright": "宝剑国王以公正裁决，权威来自清明",
+    "reversed": "僵硬独裁，或冷酷到失去人性温度"
   },
   {
     "id": "pentacles_ace",
@@ -896,11 +960,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "pentacles",
     "number": 1,
     "keywords": [
-      "星币",
-      "Ace"
+      "机会",
+      "种子",
+      "务实"
     ],
-    "upright": "星币一正位：关注当下行动与处境的平衡",
-    "reversed": "星币一逆位：需要调整节奏或视角"
+    "upright": "务实的新机会发芽，值得用心浇灌",
+    "reversed": "机会空转，或不切实际的金钱幻想"
   },
   {
     "id": "pentacles_two",
@@ -910,11 +975,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "pentacles",
     "number": 2,
     "keywords": [
-      "星币",
-      "Two"
+      "平衡",
+      "周转",
+      "灵活"
     ],
-    "upright": "星币二正位：关注当下行动与处境的平衡",
-    "reversed": "星币二逆位：需要调整节奏或视角"
+    "upright": "多方资源在跳接，灵活调整节奏",
+    "reversed": "手忙脚乱，或假装平衡实则失衡"
   },
   {
     "id": "pentacles_three",
@@ -924,11 +990,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "pentacles",
     "number": 3,
     "keywords": [
-      "星币",
-      "Three"
+      "手艺",
+      "协作",
+      "质量"
     ],
-    "upright": "星币三正位：关注当下行动与处境的平衡",
-    "reversed": "星币三逆位：需要调整节奏或视角"
+    "upright": "以匠心做事，团队与技艺互相成就",
+    "reversed": "敷衍了事，或合作里标准不一致"
   },
   {
     "id": "pentacles_four",
@@ -938,11 +1005,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "pentacles",
     "number": 4,
     "keywords": [
-      "星币",
-      "Four"
+      "持有",
+      "安全感",
+      "守成"
     ],
-    "upright": "星币四正位：关注当下行动与处境的平衡",
-    "reversed": "星币四逆位：需要调整节奏或视角"
+    "upright": "守住已有资源，安全感需要边界",
+    "reversed": "过度囤积吝啬，或安全感变成牢笼"
   },
   {
     "id": "pentacles_five",
@@ -952,11 +1020,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "pentacles",
     "number": 5,
     "keywords": [
-      "星币",
-      "Five"
+      "匮乏",
+      "孤立",
+      "求援"
     ],
-    "upright": "星币五正位：关注当下行动与处境的平衡",
-    "reversed": "星币五逆位：需要调整节奏或视角"
+    "upright": "感到短缺与寒冷，记得求助是勇气",
+    "reversed": "困在匮乏叙事，拒绝伸出的援手"
   },
   {
     "id": "pentacles_six",
@@ -966,11 +1035,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "pentacles",
     "number": 6,
     "keywords": [
-      "星币",
-      "Six"
+      "给予",
+      "流动",
+      "公平"
     ],
-    "upright": "星币六正位：关注当下行动与处境的平衡",
-    "reversed": "星币六逆位：需要调整节奏或视角"
+    "upright": "资源在流动，给予与接受都可发生",
+    "reversed": "施舍带控制，或付出失衡心生怨"
   },
   {
     "id": "pentacles_seven",
@@ -980,11 +1050,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "pentacles",
     "number": 7,
     "keywords": [
-      "星币",
-      "Seven"
+      "耕耘",
+      "等待",
+      "耐心"
     ],
-    "upright": "星币七正位：关注当下行动与处境的平衡",
-    "reversed": "星币七逆位：需要调整节奏或视角"
+    "upright": "成果尚在生长，耐心继续照料",
+    "reversed": "急于收割未成熟之物，或放弃耕耘"
   },
   {
     "id": "pentacles_eight",
@@ -994,11 +1065,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "pentacles",
     "number": 8,
     "keywords": [
-      "星币",
-      "Eight"
+      "专注",
+      "技艺",
+      "打磨"
     ],
-    "upright": "星币八正位：关注当下行动与处境的平衡",
-    "reversed": "星币八逆位：需要调整节奏或视角"
+    "upright": "沉浸打磨手艺，勤奋带来扎实感",
+    "reversed": "完美主义拖延，或机械劳作失去意义"
   },
   {
     "id": "pentacles_nine",
@@ -1008,11 +1080,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "pentacles",
     "number": 9,
     "keywords": [
-      "星币",
-      "Nine"
+      "自立",
+      "享受",
+      "成果"
     ],
-    "upright": "星币九正位：关注当下行动与处境的平衡",
-    "reversed": "星币九逆位：需要调整节奏或视角"
+    "upright": "靠自己站稳，也配得上享受成果",
+    "reversed": "孤立式自满，或物质精致难掩空虚"
   },
   {
     "id": "pentacles_ten",
@@ -1022,11 +1095,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "pentacles",
     "number": 10,
     "keywords": [
-      "星币",
-      "Ten"
+      "传承",
+      "家业",
+      "长久"
     ],
-    "upright": "星币十正位：关注当下行动与处境的平衡",
-    "reversed": "星币十逆位：需要调整节奏或视角"
+    "upright": "稳定与传承感浮现，财富连着关系",
+    "reversed": "家族或金钱纠葛，或表面富足根基松"
   },
   {
     "id": "pentacles_page",
@@ -1036,11 +1110,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "pentacles",
     "number": 11,
     "keywords": [
-      "星币",
-      "Page"
+      "学习",
+      "务实苗",
+      "机会"
     ],
-    "upright": "星币侍从正位：关注当下行动与处境的平衡",
-    "reversed": "星币侍从逆位：需要调整节奏或视角"
+    "upright": "星币侍从认真学手艺，务实机会初现",
+    "reversed": "懒散拖延，或机会来了却不当真"
   },
   {
     "id": "pentacles_knight",
@@ -1050,11 +1125,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "pentacles",
     "number": 12,
     "keywords": [
-      "星币",
-      "Knight"
+      "稳健",
+      "尽责",
+      "推进"
     ],
-    "upright": "星币骑士正位：关注当下行动与处境的平衡",
-    "reversed": "星币骑士逆位：需要调整节奏或视角"
+    "upright": "星币骑士按部就班推进，可靠可托",
+    "reversed": "过分迟缓，责任变成沉闷负担"
   },
   {
     "id": "pentacles_queen",
@@ -1064,11 +1140,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "pentacles",
     "number": 13,
     "keywords": [
-      "星币",
-      "Queen"
+      "滋养土",
+      "丰盛感",
+      "照料"
     ],
-    "upright": "星币王后正位：关注当下行动与处境的平衡",
-    "reversed": "星币王后逆位：需要调整节奏或视角"
+    "upright": "星币王后把生活照料妥帖，丰盛落地",
+    "reversed": "物质焦虑，或把价值全绑在拥有上"
   },
   {
     "id": "pentacles_king",
@@ -1078,11 +1155,12 @@ export const TAROT_DECK: DeckCard[] = [
     "suit": "pentacles",
     "number": 14,
     "keywords": [
-      "星币",
-      "King"
+      "成就",
+      "稳健富",
+      "担当"
     ],
-    "upright": "星币国王正位：关注当下行动与处境的平衡",
-    "reversed": "星币国王逆位：需要调整节奏或视角"
+    "upright": "星币国王事业与资源稳健，担当在肩",
+    "reversed": "吝啬管控，或成功背后失去生活温度"
   }
 ] as const;
 
