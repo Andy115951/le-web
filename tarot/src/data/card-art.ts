@@ -1,7 +1,7 @@
 /**
  * Hybrid card art: optional center illustration under the CSS frame.
  * Files live at `public/cards/{cardId}.webp`. Only list ids that exist.
- * Majors + Cups + Wands + Swords complete; pentacles next.
+ * Majors + Cups + Wands + Swords complete; Pentacles ace–seven in; eight–court next.
  */
 export const CARD_ART: Readonly<Record<string, string>> = {
   major_00: "/cards/major_00.webp",
@@ -68,6 +68,13 @@ export const CARD_ART: Readonly<Record<string, string>> = {
   swords_ten: "/cards/swords_ten.webp",
   swords_three: "/cards/swords_three.webp",
   swords_two: "/cards/swords_two.webp",
+  pentacles_ace: "/cards/pentacles_ace.webp",
+  pentacles_two: "/cards/pentacles_two.webp",
+  pentacles_three: "/cards/pentacles_three.webp",
+  pentacles_four: "/cards/pentacles_four.webp",
+  pentacles_five: "/cards/pentacles_five.webp",
+  pentacles_six: "/cards/pentacles_six.webp",
+  pentacles_seven: "/cards/pentacles_seven.webp",
 };
 
 export function getCardArtSrc(cardId: string | undefined | null): string | null {
