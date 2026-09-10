@@ -1,6 +1,11 @@
 import { gatewayAI } from "@/lib/ai/gateway";
 import { mockAI } from "@/lib/ai/mock";
-import type { FollowUpInput, InterpretInput, TarotAI } from "@/lib/ai/types";
+import type {
+  FollowUpInput,
+  InterpretInput,
+  StreamOptions,
+  TarotAI,
+} from "@/lib/ai/types";
 
 function withMockFallback(primary: TarotAI): TarotAI {
   return {
@@ -20,6 +25,50 @@ function withMockFallback(primary: TarotAI): TarotAI {
         return mockAI.followUp(input);
       }
     },
+    async *interpretStream(input: InterpretInput, options?: StreamOptions) {
+      let yielded = false;
+      try {
+        for await (const part of primary.interpretStream(input, options)) {
+          yielded = true;
+          yield part;
+        }
+        if (!yielded) {
+          yield* mockAI.interpretStream(input, options);
+        }
+      } catch (err) {
+        console.error(
+          "[ai] gateway interpretStream failed; falling back to mock",
+          err,
+        );
+        if (!yielded) {
+          yield* mockAI.interpretStream(input, options);
+        } else {
+          throw err;
+        }
+      }
+    },
+    async *followUpStream(input: FollowUpInput, options?: StreamOptions) {
+      let yielded = false;
+      try {
+        for await (const part of primary.followUpStream(input, options)) {
+          yielded = true;
+          yield part;
+        }
+        if (!yielded) {
+          yield* mockAI.followUpStream(input, options);
+        }
+      } catch (err) {
+        console.error(
+          "[ai] gateway followUpStream failed; falling back to mock",
+          err,
+        );
+        if (!yielded) {
+          yield* mockAI.followUpStream(input, options);
+        } else {
+          throw err;
+        }
+      }
+    },
   };
 }
 
@@ -34,4 +83,9 @@ export function getAiProviderLabel(): string {
   return (process.env.AI_PROVIDER || "mock").toLowerCase();
 }
 
-export type { TarotAI, InterpretInput, FollowUpInput } from "@/lib/ai/types";
+export type {
+  TarotAI,
+  InterpretInput,
+  FollowUpInput,
+  StreamOptions,
+} from "@/lib/ai/types";

@@ -1,5 +1,11 @@
 import { getCard } from "@/data/deck";
-import type { FollowUpInput, InterpretInput, TarotAI } from "@/lib/ai/types";
+import { chunkText } from "@/lib/ai/chunk";
+import type {
+  FollowUpInput,
+  InterpretInput,
+  StreamOptions,
+  TarotAI,
+} from "@/lib/ai/types";
 import { describeSpread } from "@/lib/ai/prompts";
 
 const DISCLAIMER = "以上解读供娱乐与自我反思，并不构成确定预言。";
@@ -23,46 +29,60 @@ function sceneClosing(scene: string): string {
   }
 }
 
-export const mockAI: TarotAI = {
-  async interpret(input: InterpretInput) {
-    const lines = describeSpread(input.spreadResult);
-    if (input.detailLevel === "brief") {
-      return [
-        `总览：围绕「${input.question}」，牌面更像在请你先看清节奏，再决定伸手的方向。`,
-        "",
-        lines,
-        "",
-        `综合：${sceneClosing(input.scene)}`,
-        "",
-        DISCLAIMER,
-      ].join("\n");
-    }
+async function interpretText(input: InterpretInput): Promise<string> {
+  const lines = describeSpread(input.spreadResult);
+  if (input.detailLevel === "brief") {
     return [
-      `总览：关于「${input.question}」，这一局像一盏被风吹动的烛火——晃，但还在。`,
+      `总览：围绕「${input.question}」，牌面更像在请你先看清节奏，再决定伸手的方向。`,
       "",
-      "分牌：",
       lines,
       "",
-      "综合：先承认已经走过的部分，再把注意力收回你真正能移动的一步。",
-      sceneClosing(input.scene),
-      "",
-      "建议：选一个最小的行动（或一个明确的暂停），观察三天。",
+      `综合：${sceneClosing(input.scene)}`,
       "",
       DISCLAIMER,
     ].join("\n");
+  }
+  return [
+    `总览：关于「${input.question}」，这一局像一盏被风吹动的烛火——晃，但还在。`,
+    "",
+    "分牌：",
+    lines,
+    "",
+    "综合：先承认已经走过的部分，再把注意力收回你真正能移动的一步。",
+    sceneClosing(input.scene),
+    "",
+    "建议：选一个最小的行动（或一个明确的暂停），观察三天。",
+    "",
+    DISCLAIMER,
+  ].join("\n");
+}
+
+async function followUpText(input: FollowUpInput): Promise<string> {
+  const tip = input.spreadResult.cards[0]
+    ? getCard(input.spreadResult.cards[0].cardId)?.nameZh
+    : null;
+  const anchor = tip ? `尤其是「${tip}」` : "本局牌面";
+  return [
+    `我仍以本局（${anchor}）为锚来听你说的：「${input.userMessage}」。`,
+    "",
+    "可能的方向是：把问题拆成「我能影响的」与「我只能观察的」。前者试一小步，后者允许暂时只看着。",
+    sceneClosing(input.scene),
+    "",
+    "若你其实在谈一个全新主题，也可以点「新占卜」再起一卦。",
+  ].join("\n");
+}
+
+export const mockAI: TarotAI = {
+  async interpret(input) {
+    return interpretText(input);
   },
-  async followUp(input: FollowUpInput) {
-    const tip = input.spreadResult.cards[0]
-      ? getCard(input.spreadResult.cards[0].cardId)?.nameZh
-      : null;
-    const anchor = tip ? `尤其是「${tip}」` : "本局牌面";
-    return [
-      `我仍以本局（${anchor}）为锚来听你说的：「${input.userMessage}」。`,
-      "",
-      "可能的方向是：把问题拆成「我能影响的」与「我只能观察的」。前者试一小步，后者允许暂时只看着。",
-      sceneClosing(input.scene),
-      "",
-      "若你其实在谈一个全新主题，也可以点「新占卜」再起一卦。",
-    ].join("\n");
+  async followUp(input) {
+    return followUpText(input);
+  },
+  async *interpretStream(input, options?: StreamOptions) {
+    yield* chunkText(await interpretText(input), options);
+  },
+  async *followUpStream(input, options?: StreamOptions) {
+    yield* chunkText(await followUpText(input), options);
   },
 };

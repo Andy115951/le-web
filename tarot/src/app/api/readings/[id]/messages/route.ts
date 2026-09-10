@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
 import { getTarotAI } from "@/lib/ai";
+import {
+  ndjsonStreamResponse,
+  streamOptionsFromReq,
+  wantsStream,
+} from "@/lib/ai/ndjson-stream";
 import { ensureAnonymousId, getCurrentUser } from "@/lib/auth/session";
 import {
   QUOTAS,
@@ -30,7 +35,10 @@ export async function POST(
     const quota = user ? QUOTAS.user : QUOTAS.guest;
     if (usage.messages >= quota.messages) {
       return NextResponse.json(
-        { error: user ? "今日追问次数已用完" : "访客追问额度已用完，请登录", code: "quota" },
+        {
+          error: user ? "今日追问次数已用完" : "访客追问额度已用完，请登录",
+          code: "quota",
+        },
         { status: 429 },
       );
     }
@@ -42,22 +50,54 @@ export async function POST(
     await bumpUsage(subject, "message");
     const history = await listMessages(id);
     const ai = getTarotAI();
-    const reply = await ai.followUp({
-      question: reading.question,
-      scene: reading.scene,
-      spreadResult: reading.spreadResult,
-      history: history.map((m) => ({ role: m.role, content: m.content })),
-      userMessage: text,
-    });
-    // soft suggest new reading if keywords
-    let content = reply;
-    if (/换个问题|另一件事|完全不同/.test(text)) {
-      content += "\n\n若这已是新的议题，建议点「新占卜」重新起卦。";
+    const softHint = /换个问题|另一件事|完全不同/.test(text);
+
+    if (!wantsStream(req)) {
+      const reply = await ai.followUp({
+        question: reading.question,
+        scene: reading.scene,
+        spreadResult: reading.spreadResult,
+        history: history.map((m) => ({ role: m.role, content: m.content })),
+        userMessage: text,
+      });
+      let content = reply;
+      if (softHint) {
+        content += "\n\n若这已是新的议题，建议点「新占卜」重新起卦。";
+      }
+      await addMessage(id, "assistant", content);
+      await updateReadingStatus(id, "ready_for_followup");
+      const messages = await listMessages(id);
+      return NextResponse.json({ messages });
     }
-    await addMessage(id, "assistant", content);
-    await updateReadingStatus(id, "ready_for_followup");
-    const messages = await listMessages(id);
-    return NextResponse.json({ messages });
+
+    const options = streamOptionsFromReq(req);
+    return ndjsonStreamResponse(async (write) => {
+      let content = "";
+      for await (const delta of ai.followUpStream(
+        {
+          question: reading.question,
+          scene: reading.scene,
+          spreadResult: reading.spreadResult,
+          history: history.map((m) => ({ role: m.role, content: m.content })),
+          userMessage: text,
+        },
+        options,
+      )) {
+        content += delta;
+        write({ t: "delta", c: delta });
+      }
+      content = content.trim();
+      if (softHint) {
+        const hint = "\n\n若这已是新的议题，建议点「新占卜」重新起卦。";
+        content += hint;
+        write({ t: "delta", c: hint });
+      }
+      if (!content) throw new Error("回复为空");
+      await addMessage(id, "assistant", content);
+      await updateReadingStatus(id, "ready_for_followup");
+      const messages = await listMessages(id);
+      write({ t: "done", messages });
+    });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "发送失败" },
