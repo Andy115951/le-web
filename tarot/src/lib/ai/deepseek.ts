@@ -15,7 +15,7 @@ import {
 } from "@/lib/ai/prompts";
 
 /** Same defaults as stock-dashboard DeepSeek OpenAI-compatible gateway. */
-const DEFAULT_CHAT_URL = "https://api.deepseek.com/chat/completions";
+const DEFAULT_CHAT_URL = "https://mediocre-new-api.midway.run/v1/chat/completions";
 const DEFAULT_MODEL = "deepseek-v4-flash";
 
 function normalizeChatUrl(value: string | undefined): string | null {

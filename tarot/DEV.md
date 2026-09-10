@@ -77,7 +77,7 @@ Next.js (App Router) + Tailwind + shadcn in le-web/tarot
 
 抽牌：服务端 `crypto.getRandomValues` + Fisher–Yates；结果写入 DB 后再返回前端。
 
-AI 接线：`src/lib/ai/index.ts` 按 `AI_PROVIDER` 选 mock / deepseek（`gateway` 为 legacy 别名）；deepseek 读 `DEEPSEEK_API_KEY`、`DEEPSEEK_API_URL`（默认 `https://api.deepseek.com/chat/completions`）、`DEEPSEEK_MODEL`（默认 `deepseek-v4-flash`）。流式协议见 `src/lib/ai/ndjson-stream.ts`；客户端 `reading-client.tsx` 消费 NDJSON。
+AI 接线：`src/lib/ai/index.ts` 按 `AI_PROVIDER` 选 mock / deepseek（`gateway` 为 legacy 别名）；deepseek 读 `DEEPSEEK_API_KEY`、`DEEPSEEK_API_URL`（默认 `https://mediocre-new-api.midway.run/v1/chat/completions`）、`DEEPSEEK_MODEL`（默认 `deepseek-v4-flash`）。流式协议见 `src/lib/ai/ndjson-stream.ts`；客户端 `reading-client.tsx` 消费 NDJSON。
 
 ### 数据表草案
 
