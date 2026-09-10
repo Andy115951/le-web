@@ -1,4 +1,4 @@
-# Tarot Plan（冻结 v0.4 · 2026-09-10）
+# Tarot Plan（冻结 v0.5 · 2026-09-10）
 
 ## 1. 项目定位
 
@@ -16,7 +16,7 @@
 | 目录 | `tarot/` |
 | Vercel | 独立项目，Root Directory = `tarot` |
 | Supabase | 复用 `le's Project`，表前缀 `tarot_` |
-| 技术（实现向） | 子目录内 Next.js App Router + AI SDK 流式；认证对齐 quadrant-todo 的用户名密码 + session cookie |
+| 技术（实现向） | Next.js App Router + Tailwind + **shadcn**（基础控件）+ AI SDK 流式；仪式/牌面自定义；认证对齐 quadrant-todo |
 
 ## 3. 已冻结的产品决策
 
