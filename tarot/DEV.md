@@ -1,6 +1,6 @@
-# leweb · tarot — 开发文档（冻结产品决策 v2.2 · 2026-09-10）
+# leweb · tarot — 开发文档（冻结产品决策 v2.3 · 2026-09-10）
 
-> 状态：**P0–P21 已实现**（P19：22 张大阿尔卡纳；P20–P21：圣杯花色 `cups_ace`–`cups_king` 混合位图齐）。AI 默认 `AI_PROVIDER=mock`；`AI_PROVIDER=deepseek`（legacy 别名 `gateway`）走 DeepSeek OpenAI 兼容接口（对齐 stock-dashboard：`DEEPSEEK_API_KEY` / `DEEPSEEK_API_URL` / `DEEPSEEK_MODEL`），失败回退 mock。P13 起不再使用 Vercel AI Gateway。P17 混合桥接；P18 牌库加厚 + 今日一牌；P19 大阿尔卡纳全套；P20 圣杯 ace–seven；P21 圣杯八–十与宫廷。剩余：权杖 → 宝剑 → 星币渐进 `CARD_ART`，不强制外购整副。生产已可配 `DEEPSEEK_API_KEY`；Vercel↔GitHub 自动部署已接通。
+> 状态：**P0–P22 已实现**（P19：22 张大阿尔卡纳；P20–P21：圣杯花色齐；P22：权杖花色 `wands_ace`–`wands_king` 混合位图齐）。AI 默认 `AI_PROVIDER=mock`；`AI_PROVIDER=deepseek`（legacy 别名 `gateway`）走 DeepSeek OpenAI 兼容接口（对齐 stock-dashboard：`DEEPSEEK_API_KEY` / `DEEPSEEK_API_URL` / `DEEPSEEK_MODEL`），失败回退 mock。P13 起不再使用 Vercel AI Gateway。P17 混合桥接；P18 牌库加厚 + 今日一牌；P19–P22 渐进 `CARD_ART`。剩余：宝剑 → 星币渐进 `CARD_ART`，不强制外购整副。生产已可配 `DEEPSEEK_API_KEY`；Vercel↔GitHub 自动部署已接通。
 > 仓库路径：`Andy115951/le-web/tarot/`
 
 ---
@@ -25,7 +25,7 @@
 | 登录 | 用户名 + 密码（先做） |
 | 登录额度 | 10 卦/天 + ~100 追问 |
 | 文案 | 按场景切换语气；禁止绝对预言 |
-| 牌面 | P8 插画风示意 + 混合位图（`src/data/card-art.ts` → `public/cards/{id}.webp`）；22 张大阿尔卡纳已齐；圣杯花色全套已齐；权杖/宝剑/星币仍示意；无图回退示意 |
+| 牌面 | P8 插画风示意 + 混合位图（`src/data/card-art.ts` → `public/cards/{id}.webp`）；22 张大阿尔卡纳已齐；圣杯+权杖花色全套已齐；宝剑/星币仍示意；无图回退示意 |
 | 产品名 | Candle Taro（禁「塔罗」二字） |
 | 示例问题 | 六场景已定稿，见 COPY.md |
 | 语气 | 六档调性已定稿，见 COPY.md |
@@ -48,11 +48,12 @@
 | P18 牌库 + 今日一牌 | `deck.ts` 正逆位/关键词加厚（禁绝对预言）；首页每日一牌确定性抽取，不落库、不计额度；链到牌义/起卦 |
 | P19 大阿尔卡纳全套 | `public/cards/major_00.webp`–`major_21.webp` + `CARD_ART` 全登记 |
 | P20 圣杯批次 | `cups_ace`–`cups_seven` webp 进 `CARD_ART` |
-| P21 圣杯收官 | `cups_eight`–`cups_ten` + `cups_page`/`knight`/`queen`/`king`；圣杯花色 `CARD_ART` 齐；权杖等后续 |
+| P21 圣杯收官 | `cups_eight`–`cups_ten` + `cups_page`/`knight`/`queen`/`king`；圣杯花色 `CARD_ART` 齐 |
+| P22 权杖花色 | `wands_ace`–`wands_king` webp 进 `CARD_ART`；宝剑/星币后续 |
 
 ### 待续讨论（仍可再抠）
 
-- 小阿尔卡纳渐进位图（权杖 → 宝剑 → 星币）；**冻结：不要求外购整副牌面**
+- 小阿尔卡纳渐进位图（宝剑 → 星币）；**冻结：不要求外购整副牌面**
 
 ---
 
@@ -96,7 +97,7 @@ AI 接线：`src/lib/ai/index.ts` 按 `AI_PROVIDER` 选 mock / deepseek（`gatew
 
 ## 4. 实现阶段
 
-见 `PLAN.md` §5。P0–P21 已落地。关键：`src/lib/ai/deepseek.ts`、`src/lib/ai/index.ts`；UI：`src/components/reading/ritual-stage.tsx`、`tarot-card-face.tsx`（含 `TarotCardBack` + 混合位图）、`src/data/card-art.ts`、`public/cards/`、`reading-client.tsx`、`share-reading-button.tsx`、`src/lib/share-reading.ts`、`src/lib/share-reading-image.ts`、`src/components/history/history-card.tsx`、`src/components/app-shell.tsx`（skip link）；`src/hooks/use-quota.ts`、`src/components/quota/quota-hint.tsx`；牌义图鉴：`src/app/cards/`、`src/components/cards/`；今日一牌：`src/lib/daily-card.ts`、`src/components/home/daily-card.tsx`；动画样式在 `src/app/globals.css`。
+见 `PLAN.md` §5。P0–P22 已落地。关键：`src/lib/ai/deepseek.ts`、`src/lib/ai/index.ts`；UI：`src/components/reading/ritual-stage.tsx`、`tarot-card-face.tsx`（含 `TarotCardBack` + 混合位图）、`src/data/card-art.ts`、`public/cards/`、`reading-client.tsx`、`share-reading-button.tsx`、`src/lib/share-reading.ts`、`src/lib/share-reading-image.ts`、`src/components/history/history-card.tsx`、`src/components/app-shell.tsx`（skip link）；`src/hooks/use-quota.ts`、`src/components/quota/quota-hint.tsx`；牌义图鉴：`src/app/cards/`、`src/components/cards/`；今日一牌：`src/lib/daily-card.ts`、`src/components/home/daily-card.tsx`；动画样式在 `src/app/globals.css`。
 
 ## 5. 风险
 

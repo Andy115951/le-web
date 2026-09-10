@@ -1,7 +1,7 @@
 /**
  * Hybrid card art: optional center illustration under the CSS frame.
  * Files live at `public/cards/{cardId}.webp`. Only list ids that exist.
- * Majors complete; Cups suit complete; other minors stay glyph.
+ * Majors complete; Cups + Wands suits complete; swords/pentacles stay glyph.
  */
 export const CARD_ART: Readonly<Record<string, string>> = {
   major_00: "/cards/major_00.webp",
@@ -40,6 +40,20 @@ export const CARD_ART: Readonly<Record<string, string>> = {
   cups_knight: "/cards/cups_knight.webp",
   cups_queen: "/cards/cups_queen.webp",
   cups_king: "/cards/cups_king.webp",
+  wands_ace: "/cards/wands_ace.webp",
+  wands_two: "/cards/wands_two.webp",
+  wands_three: "/cards/wands_three.webp",
+  wands_four: "/cards/wands_four.webp",
+  wands_five: "/cards/wands_five.webp",
+  wands_six: "/cards/wands_six.webp",
+  wands_seven: "/cards/wands_seven.webp",
+  wands_eight: "/cards/wands_eight.webp",
+  wands_nine: "/cards/wands_nine.webp",
+  wands_ten: "/cards/wands_ten.webp",
+  wands_page: "/cards/wands_page.webp",
+  wands_knight: "/cards/wands_knight.webp",
+  wands_queen: "/cards/wands_queen.webp",
+  wands_king: "/cards/wands_king.webp",
 };
 
 export function getCardArtSrc(cardId: string | undefined | null): string | null {
