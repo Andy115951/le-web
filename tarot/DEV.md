@@ -1,4 +1,4 @@
-# leweb · tarot — 开发文档（冻结产品决策 v0.4 · 2026-09-10）
+# leweb · tarot — 开发文档（冻结产品决策 v0.5 · 2026-09-10）
 
 > 状态：产品决策已冻结（见下「决策记录」）。实现未开始；本文供后续开发对照。
 > 仓库路径：`Andy115951/le-web/tarot/`
@@ -26,6 +26,7 @@
 | 登录额度 | 10 卦/天 + ~100 追问 |
 | 文案 | 按场景切换语气；禁止绝对预言 |
 | 牌面 | MVP 简化示意；美化后置 |
+| 前端 UI | Next.js + Tailwind + shadcn（基础控件）；仪式/牌面自定义 |
 
 ### 待续讨论（仍可再抠）
 
@@ -54,11 +55,12 @@
 ## 3. 技术架构建议
 
 ```text
-Next.js (App Router) in le-web/tarot
+Next.js (App Router) + Tailwind + shadcn in le-web/tarot
   → Vercel（独立项目，root = tarot）
   → Supabase Postgres（tarot_* 表）
   → AI：Vercel AI Gateway + AI SDK streamText
   → Auth：username/password + httpOnly session（对齐 quadrant-todo）
+  → 仪式区/牌面：自定义组件（不用 shadcn 默认皮肤硬套）
 ```
 
 抽牌：服务端 `crypto.getRandomValues` + Fisher–Yates；结果写入 DB 后再返回前端。
