@@ -1,6 +1,6 @@
 # Tarot Plan（冻结 v1.6 · 2026-09-10）
 
-> 实现状态：P0–P14 已落地（牌库、仪式动画、解读/追问、历史重命名/软删、额度与登录、插画风牌面 + 牌背、流式 UI、基础无障碍、分享牌阵文字摘要、设置关于抛光、烛光分享 PNG、DeepSeek 提供商、额度感知 UX + 软提示重抽）。AI 默认 mock；`AI_PROVIDER=deepseek`（legacy `gateway`）对齐 stock-dashboard OpenAI 兼容接口，不再用 Vercel AI Gateway。生产需 `DEEPSEEK_API_KEY`。Vercel↔GitHub 自动部署已接通。剩余主要为精美写实卡面素材。产品决策仍按下表冻结。
+> 实现状态：P0–P15 已落地（牌库、仪式动画、解读/追问、历史重命名/软删、额度与登录、插画风牌面 + 牌背、流式 UI、基础无障碍、分享牌阵文字摘要、设置关于抛光、烛光分享 PNG、DeepSeek 提供商（含 thinking 关闭）、额度感知 UX + 软提示重抽）。AI 默认 mock；`AI_PROVIDER=deepseek`（legacy `gateway`）对齐 stock-dashboard OpenAI 兼容接口，不再用 Vercel AI Gateway。生产需 `DEEPSEEK_API_KEY`。Vercel↔GitHub 自动部署已接通。剩余主要为精美写实卡面素材。产品决策仍按下表冻结。
 
 ## 0. 产品名
 

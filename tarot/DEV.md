@@ -1,6 +1,6 @@
 # leweb · tarot — 开发文档（冻结产品决策 v1.6 · 2026-09-10）
 
-> 状态：**P0–P14 已实现**。AI 默认 `AI_PROVIDER=mock`；`AI_PROVIDER=deepseek`（legacy 别名 `gateway`）走 DeepSeek OpenAI 兼容接口（对齐 stock-dashboard：`DEEPSEEK_API_KEY` / `DEEPSEEK_API_URL` / `DEEPSEEK_MODEL`），失败回退 mock。P13 起不再使用 Vercel AI Gateway。P6：仪式烛光/洗牌/逐张翻牌动画。P7：解读与追问 NDJSON 流式 UI。P8：插画风牌面（花色配色 / 正逆位角标 / 双层边框角饰 + `TarotCardBack`）。P9：历史重命名 + 软删。P10：无障碍基础（skip link、仪式 live region、牌面 aria、历史对话框焦点）+ 空状态/错误烛光微文案。P11：分享牌阵文字摘要（clipboard / Web Share）+ 设置页关于区块抛光。P12：客户端 canvas 生成烛光分享 PNG（可下载；支持时 Web Share 文件）。P13：DeepSeek 提供商（`src/lib/ai/deepseek.ts`）。P14：额度感知 UX（新占卜/追问页今日额度提示、近耗尽/用尽烛光文案、访客登录引导）+ 解读页软提示重抽 chip（顾问提到新占卜或追问≥2 次后）。剩余：精美写实卡面素材。生产已可配 `DEEPSEEK_API_KEY`；Vercel↔GitHub 自动部署已接通。
+> 状态：**P0–P15 已实现**。AI 默认 `AI_PROVIDER=mock`；`AI_PROVIDER=deepseek`（legacy 别名 `gateway`）走 DeepSeek OpenAI 兼容接口（对齐 stock-dashboard：`DEEPSEEK_API_KEY` / `DEEPSEEK_API_URL` / `DEEPSEEK_MODEL`），失败回退 mock。P13 起不再使用 Vercel AI Gateway。P6：仪式烛光/洗牌/逐张翻牌动画。P7：解读与追问 NDJSON 流式 UI。P8：插画风牌面（花色配色 / 正逆位角标 / 双层边框角饰 + `TarotCardBack`）。P9：历史重命名 + 软删。P10：无障碍基础（skip link、仪式 live region、牌面 aria、历史对话框焦点）+ 空状态/错误烛光微文案。P11：分享牌阵文字摘要（clipboard / Web Share）+ 设置页关于区块抛光。P12：客户端 canvas 生成烛光分享 PNG（可下载；支持时 Web Share 文件）。P13：DeepSeek 提供商（`src/lib/ai/deepseek.ts`）。P15：DeepSeek 请求默认 `thinking.disabled`（对齐 stock，避免空 content）。P14：额度感知 UX（新占卜/追问页今日额度提示、近耗尽/用尽烛光文案、访客登录引导）+ 解读页软提示重抽 chip（顾问提到新占卜或追问≥2 次后）。剩余：精美写实卡面素材。生产已可配 `DEEPSEEK_API_KEY`；Vercel↔GitHub 自动部署已接通。
 > 仓库路径：`Andy115951/le-web/tarot/`
 
 ---
@@ -89,7 +89,7 @@ AI 接线：`src/lib/ai/index.ts` 按 `AI_PROVIDER` 选 mock / deepseek（`gatew
 
 ## 4. 实现阶段
 
-见 `PLAN.md` §5。P0–P14 已落地。关键：`src/lib/ai/deepseek.ts`、`src/lib/ai/index.ts`；UI：`src/components/reading/ritual-stage.tsx`、`tarot-card-face.tsx`（含 `TarotCardBack`）、`reading-client.tsx`、`share-reading-button.tsx`、`src/lib/share-reading.ts`、`src/lib/share-reading-image.ts`、`src/components/history/history-card.tsx`、`src/components/app-shell.tsx`（skip link）；`src/hooks/use-quota.ts`、`src/components/quota/quota-hint.tsx`；动画样式在 `src/app/globals.css`。
+见 `PLAN.md` §5。P0–P15 已落地。关键：`src/lib/ai/deepseek.ts`、`src/lib/ai/index.ts`；UI：`src/components/reading/ritual-stage.tsx`、`tarot-card-face.tsx`（含 `TarotCardBack`）、`reading-client.tsx`、`share-reading-button.tsx`、`src/lib/share-reading.ts`、`src/lib/share-reading-image.ts`、`src/components/history/history-card.tsx`、`src/components/app-shell.tsx`（skip link）；`src/hooks/use-quota.ts`、`src/components/quota/quota-hint.tsx`；动画样式在 `src/app/globals.css`。
 
 ## 5. 风险
 

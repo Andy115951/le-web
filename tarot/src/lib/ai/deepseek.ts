@@ -69,6 +69,21 @@ function getClient() {
     apiKey: cfg.apiKey,
     baseURL: cfg.baseURL,
     name: "deepseek",
+    // deepseek-v4-flash may spend completion budget on reasoning; stock disables it.
+    fetch: async (input, init) => {
+      if (init?.body && typeof init.body === "string") {
+        try {
+          const parsed = JSON.parse(init.body) as Record<string, unknown>;
+          if (parsed.thinking == null) {
+            parsed.thinking = { type: "disabled" };
+            init = { ...init, body: JSON.stringify(parsed) };
+          }
+        } catch {
+          /* leave body unchanged */
+        }
+      }
+      return globalThis.fetch(input, init);
+    },
   });
   return { model: openai.chat(cfg.model), cfg };
 }
