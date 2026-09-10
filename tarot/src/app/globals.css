@@ -129,3 +129,98 @@
     @apply font-sans;
   }
 }
+
+/* Candle Taro ritual animations (P6) */
+.ritual-glow {
+  background:
+    radial-gradient(ellipse at 50% 0%, oklch(0.78 0.12 75 / 18%), transparent 55%),
+    radial-gradient(ellipse at 50% 100%, oklch(0.55 0.08 40 / 12%), transparent 50%);
+  animation: ritual-glow-pulse 3.2s ease-in-out infinite;
+}
+
+@keyframes ritual-glow-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+.ritual-panel--breathe {
+  animation: ritual-breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes ritual-breathe {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.78 0.12 75 / 0%); }
+  50% { box-shadow: 0 0 28px 2px oklch(0.78 0.12 75 / 18%); }
+}
+
+.ritual-panel--shuffle .ritual-deck-card {
+  animation: ritual-shuffle 0.7s ease-in-out infinite alternate;
+}
+
+@keyframes ritual-shuffle {
+  from { transform: translateY(0) rotate(-4deg); }
+  to { transform: translateY(-6px) rotate(4deg); }
+}
+
+.ritual-panel--ask {
+  animation: ritual-ask 1.6s ease-in-out infinite;
+}
+
+@keyframes ritual-ask {
+  0%, 100% { border-color: oklch(0.78 0.12 75 / 20%); }
+  50% { border-color: oklch(0.78 0.12 75 / 55%); }
+}
+
+.tarot-flip {
+  perspective: 900px;
+}
+
+.tarot-flip-inner {
+  position: relative;
+  min-height: 11rem;
+  transform-style: preserve-3d;
+  transition: transform 0.7s ease;
+}
+
+.tarot-flip--revealed .tarot-flip-inner {
+  transform: rotateY(180deg);
+}
+
+.tarot-flip-back,
+.tarot-flip-front {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.tarot-flip-back {
+  position: absolute;
+  inset: 0;
+  min-height: 11rem;
+  background:
+    repeating-linear-gradient(
+      135deg,
+      oklch(0.28 0.04 60 / 35%) 0 6px,
+      oklch(0.2 0.025 55 / 35%) 6px 12px
+    );
+}
+
+.tarot-flip-front {
+  transform: rotateY(180deg);
+}
+
+.tarot-card-face--reversed {
+  box-shadow: inset 0 0 20px oklch(0.6 0.18 25 / 18%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ritual-glow,
+  .ritual-panel--breathe,
+  .ritual-panel--shuffle .ritual-deck-card,
+  .ritual-panel--ask,
+  .tarot-flip-inner {
+    animation: none !important;
+    transition: none !important;
+  }
+  .tarot-flip--revealed .tarot-flip-inner {
+    transform: none;
+  }
+}
