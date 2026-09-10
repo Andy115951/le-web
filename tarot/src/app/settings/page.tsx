@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { SettingsDefaultsForm } from "@/components/settings/settings-defaults-form";
 
 export default async function SettingsPage() {
   const user = await getCurrentUser();
@@ -21,7 +22,7 @@ export default async function SettingsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">设置</h1>
-        <p className="mt-1 text-sm text-muted-foreground">账号与今日额度</p>
+        <p className="mt-1 text-sm text-muted-foreground">账号、默认选项与今日额度</p>
       </div>
       <Card>
         <CardHeader>
@@ -38,6 +39,7 @@ export default async function SettingsPage() {
           )}
         </CardContent>
       </Card>
+      <SettingsDefaultsForm />
       <Card>
         <CardHeader>
           <CardTitle className="text-base">今日额度</CardTitle>
@@ -47,7 +49,7 @@ export default async function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
-          访客 1/5；登录后 10/100。默认解读档与仪式速度可在每局临时修改。
+          访客 1/5；登录后 10/100。默认解读档与仪式速度可在下方设置，每局也可临时修改。
         </CardContent>
       </Card>
       <Card>

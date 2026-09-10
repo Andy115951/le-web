@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   CUSTOM_SCENE,
@@ -10,6 +10,7 @@ import {
   type SceneId,
   type SpreadType,
 } from "@/data/scenes";
+import { DEFAULT_USER_PREFS, readUserPrefs } from "@/lib/user-prefs";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -39,10 +40,20 @@ export function NewReadingForm({
   );
   const [question, setQuestion] = useState(scene.exampleQuestion);
   const [spread, setSpread] = useState<SpreadType>(scene.defaultSpread);
-  const [detail, setDetail] = useState<DetailLevel>("brief");
-  const [speed, setSpeed] = useState<RitualSpeed>("normal");
+  const [detail, setDetail] = useState<DetailLevel>(
+    DEFAULT_USER_PREFS.detailLevel,
+  );
+  const [speed, setSpeed] = useState<RitualSpeed>(
+    DEFAULT_USER_PREFS.ritualSpeed,
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const prefs = readUserPrefs();
+    setDetail(prefs.detailLevel);
+    setSpeed(prefs.ritualSpeed);
+  }, []);
 
   function onPickScene(id: SceneId) {
     const next = ALL.find((s) => s.id === id) ?? CUSTOM_SCENE;

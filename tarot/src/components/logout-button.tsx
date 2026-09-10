@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 
-export function LogoutButton({ label }: { label: string }) {
+export function LogoutButton({ label = "退出" }: { label?: string }) {
   const router = useRouter();
   return (
     <Button

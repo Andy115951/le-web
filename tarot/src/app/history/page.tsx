@@ -5,6 +5,7 @@ import { getCard } from "@/data/deck";
 import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -35,9 +36,16 @@ export default async function HistoryPage() {
       {readings.length === 0 ? (
         <Card className="border-dashed">
           <CardHeader>
-            <CardTitle className="text-base text-muted-foreground">还没有记录</CardTitle>
-            <CardDescription>完成一局后会出现在这里</CardDescription>
+            <CardTitle className="text-base">还没有占卜记录</CardTitle>
+            <CardDescription>
+              点亮一盏烛火，写下你的问题；完成后，解读会出现在这里。
+            </CardDescription>
           </CardHeader>
+          <CardContent>
+            <Button asChild>
+              <Link href="/reading/new">开始新占卜</Link>
+            </Button>
+          </CardContent>
         </Card>
       ) : (
         <div className="grid gap-3">

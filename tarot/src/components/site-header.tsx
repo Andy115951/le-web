@@ -20,7 +20,15 @@ export async function SiteHeader() {
             <Link href="/settings">设置</Link>
           </Button>
           {user ? (
-            <LogoutButton label={user.username} />
+            <>
+              <Link
+                href="/settings"
+                className="hidden text-sm text-muted-foreground sm:inline hover:text-foreground"
+              >
+                {user.username}
+              </Link>
+              <LogoutButton />
+            </>
           ) : (
             <Button asChild variant="ghost" size="sm">
               <Link href="/login">登录</Link>

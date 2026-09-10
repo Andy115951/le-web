@@ -44,12 +44,18 @@ export default function LoginPage() {
 
   return (
     <div className="mx-auto max-w-md space-y-6">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {mode === "login" ? "欢迎回来" : "创建账号"}
+        </h1>
+        <p className="text-sm text-muted-foreground">
+          登录后历史会合并到账号，每日额度提升为 10 次新占卜 / 100 次追问。访客也可直接起卦。
+        </p>
+      </div>
       <Card>
         <CardHeader>
           <CardTitle>{mode === "login" ? "登录" : "注册"}</CardTitle>
-          <CardDescription>
-            用户名 + 密码。登录后自动合并访客历史，额度提升为每日 10 卦 / 100 追问。
-          </CardDescription>
+          <CardDescription>用户名 + 密码即可，无需邮箱。</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={submit} className="space-y-4">
