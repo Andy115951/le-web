@@ -1,6 +1,6 @@
 # Tarot Plan（冻结 v2.3 · 2026-09-10）
 
-> 实现状态：P0–P22 已落地（大阿尔卡纳全套 + 圣杯 + 权杖花色混合位图齐）。AI 默认 mock；`AI_PROVIDER=deepseek`（legacy `gateway`）对齐 stock-dashboard OpenAI 兼容接口，不再用 Vercel AI Gateway。生产需 `DEEPSEEK_API_KEY`。Vercel↔GitHub 自动部署已接通。剩余主要为宝剑 → 星币渐进 `CARD_ART`（不强制外购整副）。产品决策仍按下表冻结。
+> 实现状态：P0–P23 已落地（大阿尔卡纳全套 + 圣杯 + 权杖 + 宝剑花色混合位图齐）。AI 默认 mock；`AI_PROVIDER=deepseek`（legacy `gateway`）对齐 stock-dashboard OpenAI 兼容接口，不再用 Vercel AI Gateway。生产需 `DEEPSEEK_API_KEY`。Vercel↔GitHub 自动部署已接通。剩余主要为星币（宝剑已齐）→渐进 `CARD_ART`（不强制外购整副）。产品决策仍按下表冻结。
 
 ## 0. 产品名
 
@@ -84,7 +84,7 @@
 
 - MVP：**简化示意**起步；P8 升级为插画风（花色配色、中文花色名、正逆位角标、双层边框角饰、仪式牌背）
 - P17：**混合桥接**——可选 `public/cards/{id}.webp` 叠在现有烛光框下；`src/data/card-art.ts` 的 `CARD_ART` 仅登记已有文件；无图回退 glyph
-- **冻结**：不要求外购整副牌面；渐进扩展 `CARD_ART`（大阿卡纳已齐，圣杯+权杖花色已齐，宝剑下一步）
+- **冻结**：不要求外购整副牌面；渐进扩展 `CARD_ART`（大阿卡纳已齐，圣杯+权杖+宝剑花色已齐，星币下一步）
 
 ### 3.11 P6 动画（已定）
 
@@ -191,7 +191,7 @@
 ### 3.27 P22 权杖花色混合位图（已定）
 
 - `public/cards/wands_ace.webp`–`wands_ten.webp` 与 `wands_page` / `wands_knight` / `wands_queen` / `wands_king`（同烛光写实风）
-- `CARD_ART` 登记权杖花色全套；宝剑 → 星币下一批
+- `CARD_ART` 登记权杖花色全套；星币（宝剑已齐）→下一批
 
 ## 4. MVP 范围
 
