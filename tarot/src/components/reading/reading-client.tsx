@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { RitualSpeed } from "@/data/scenes";
 import type { Message, Reading } from "@/lib/types";
 import { RitualStage } from "@/components/reading/ritual-stage";
+import { ShareReadingButton } from "@/components/reading/share-reading-button";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -213,13 +214,14 @@ export function ReadingClient({
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">{reading.question}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Badge variant="outline">
             {reading.detailLevel === "brief" ? "简要" : "详细"}
           </Badge>
           <Badge variant="secondary" aria-label={`仪式速度：${speedLabel}`}>
             {speedLabel}
           </Badge>
+          {ritualDone ? <ShareReadingButton reading={reading} /> : null}
           <Button asChild size="sm">
             <Link href="/reading/new">新占卜</Link>
           </Button>
