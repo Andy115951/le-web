@@ -1,7 +1,7 @@
 /**
  * Hybrid card art: optional center illustration under the CSS frame.
  * Files live at `public/cards/{cardId}.webp`. Only list ids that exist.
- * Majors complete; minors stay on glyph UI until assets land.
+ * Majors complete; Cups ace–seven in progress; other minors stay glyph.
  */
 export const CARD_ART: Readonly<Record<string, string>> = {
   major_00: "/cards/major_00.webp",
@@ -26,6 +26,13 @@ export const CARD_ART: Readonly<Record<string, string>> = {
   major_19: "/cards/major_19.webp",
   major_20: "/cards/major_20.webp",
   major_21: "/cards/major_21.webp",
+  cups_ace: "/cards/cups_ace.webp",
+  cups_two: "/cards/cups_two.webp",
+  cups_three: "/cards/cups_three.webp",
+  cups_four: "/cards/cups_four.webp",
+  cups_five: "/cards/cups_five.webp",
+  cups_six: "/cards/cups_six.webp",
+  cups_seven: "/cards/cups_seven.webp",
 };
 
 export function getCardArtSrc(cardId: string | undefined | null): string | null {

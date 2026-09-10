@@ -1,6 +1,6 @@
-# leweb · tarot — 开发文档（冻结产品决策 v1.9 · 2026-09-10）
+# leweb · tarot — 开发文档（冻结产品决策 v2.1 · 2026-09-10）
 
-> 状态：**P0–P18 已实现**。AI 默认 `AI_PROVIDER=mock`；`AI_PROVIDER=deepseek`（legacy 别名 `gateway`）走 DeepSeek OpenAI 兼容接口（对齐 stock-dashboard：`DEEPSEEK_API_KEY` / `DEEPSEEK_API_URL` / `DEEPSEEK_MODEL`），失败回退 mock。P13 起不再使用 Vercel AI Gateway。P6：仪式烛光/洗牌/逐张翻牌动画。P7：解读与追问 NDJSON 流式 UI。P8：插画风牌面（花色配色 / 正逆位角标 / 双层边框角饰 + `TarotCardBack`）。P9：历史重命名 + 软删。P10：无障碍基础（skip link、仪式 live region、牌面 aria、历史对话框焦点）+ 空状态/错误烛光微文案。P11：分享牌阵文字摘要（clipboard / Web Share）+ 设置页关于区块抛光。P12：客户端 canvas 生成烛光分享 PNG（可下载；支持时 Web Share 文件）。P13：DeepSeek 提供商（`src/lib/ai/deepseek.ts`）。P14：额度感知 UX（新占卜/追问页今日额度提示、近耗尽/用尽烛光文案、访客登录引导）+ 解读页软提示重抽 chip。P15：DeepSeek 请求默认 `thinking.disabled`（对齐 stock，避免空 content）。P16：牌义图鉴（`/cards` 列表筛选搜索 + `/cards/[id]` 正逆位详情，复用 `TarotCardFace`）。P17：混合卡面桥接（可选 `public/cards/{id}.webp` 叠在现有烛光框下；无图回退 glyph；`CARD_ART` 仅列已有文件；大阿卡纳 3 张样例先行，小阿卡纳仍 glyph）。P18：牌库释义加厚（78 张关键词/正逆位烛光语气）+ 首页「今日一牌」（按访客/用户 + 上海日历日确定性抽取，不计入额度）。剩余：补更多牌位图 / 全套写实素材（渐进 `CARD_ART`，不强制外购整副）。生产已可配 `DEEPSEEK_API_KEY`；Vercel↔GitHub 自动部署已接通。
+> 状态：**P0–P20 已实现**（P19：22 张大阿尔卡纳混合位图 `major_00`–`major_21` 齐）。AI 默认 `AI_PROVIDER=mock`；`AI_PROVIDER=deepseek`（legacy 别名 `gateway`）走 DeepSeek OpenAI 兼容接口（对齐 stock-dashboard：`DEEPSEEK_API_KEY` / `DEEPSEEK_API_URL` / `DEEPSEEK_MODEL`），失败回退 mock。P13 起不再使用 Vercel AI Gateway。P6–P18 见下表。P17 混合桥接；P18 牌库加厚 + 今日一牌；P19 大阿尔卡纳全套 webp；P20 圣杯 ace–seven 混合位图。剩余：圣杯 court + 八至十、权杖/宝剑/星币渐进 `CARD_ART`，不强制外购整副。生产已可配 `DEEPSEEK_API_KEY`；Vercel↔GitHub 自动部署已接通。
 > 仓库路径：`Andy115951/le-web/tarot/`
 
 ---
@@ -25,7 +25,7 @@
 | 登录 | 用户名 + 密码（先做） |
 | 登录额度 | 10 卦/天 + ~100 追问 |
 | 文案 | 按场景切换语气；禁止绝对预言 |
-| 牌面 | P8 插画风示意 + 混合位图（`src/data/card-art.ts` → `public/cards/{id}.webp`）；22 张大阿尔卡纳已齐；小阿尔卡纳仍示意；无图回退示意 |
+| 牌面 | P8 插画风示意 + 混合位图（`src/data/card-art.ts` → `public/cards/{id}.webp`）；22 张大阿尔卡纳已齐；圣杯 ace–seven 已齐；其余小阿卡纳示意；无图回退示意 |
 | 产品名 | Candle Taro（禁「塔罗」二字） |
 | 示例问题 | 六场景已定稿，见 COPY.md |
 | 语气 | 六档调性已定稿，见 COPY.md |
@@ -44,12 +44,14 @@
 | P14 额度 + 软重抽 | `useQuota` + `QuotaHint`；429 含 usage/quota；解读页可关闭的「新占卜」软提示 chip |
 | P15 DeepSeek thinking | 请求体默认 `thinking.disabled`（对齐 stock-dashboard），避免空 content |
 | P16 牌义图鉴 | 导航「牌义」；`/cards` 筛选+搜索；`/cards/[id]` 正逆位详情；复用牌库与 `TarotCardFace`；CTA「去占卜」 |
-| P17 混合卡面 | 可选 webp 叠在烛光框下；glyph 回退；`src/data/card-art.ts` 渐进映射；样例 major_00/09/17；小阿卡纳仍 glyph；分享图同桥 |
+| P17 混合卡面 | 可选 webp 叠在烛光框下；glyph 回退；`src/data/card-art.ts` 渐进映射；分享图同桥 |
 | P18 牌库 + 今日一牌 | `deck.ts` 正逆位/关键词加厚（禁绝对预言）；首页每日一牌确定性抽取，不落库、不计额度；链到牌义/起卦 |
+| P19 大阿尔卡纳全套 | `public/cards/major_00.webp`–`major_21.webp` + `CARD_ART` 全登记 |
+| P20 圣杯批次 | `cups_ace`–`cups_seven` webp 进 `CARD_ART`；八至十与宫廷牌 + 其他花色后续 |
 
 ### 待续讨论（仍可再抠）
 
-- 补更多牌位图 / 全套写实素材（渐进扩展 `CARD_ART`；**冻结：不要求外购整副牌面**）
+- 小阿尔卡纳渐进位图（圣杯八–十与宫廷 → 权杖 → 宝剑 → 星币）；**冻结：不要求外购整副牌面**
 
 ---
 

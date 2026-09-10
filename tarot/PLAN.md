@@ -1,6 +1,6 @@
 # Tarot Plan（冻结 v1.8 · 2026-09-10）
 
-> 实现状态：P0–P18 已落地（牌库释义加厚、仪式动画、解读/追问、历史重命名/软删、额度与登录、插画风牌面 + 牌背、流式 UI、基础无障碍、分享牌阵文字摘要、设置关于抛光、烛光分享 PNG、DeepSeek 提供商（含 thinking 关闭）、额度感知 UX + 软提示重抽、牌义图鉴、混合卡面样例、首页今日一牌）。AI 默认 mock；`AI_PROVIDER=deepseek`（legacy `gateway`）对齐 stock-dashboard OpenAI 兼容接口，不再用 Vercel AI Gateway。生产需 `DEEPSEEK_API_KEY`。Vercel↔GitHub 自动部署已接通。剩余主要为补更多牌位图 / 全套写实素材（渐进 `CARD_ART`，不强制外购整副）。产品决策仍按下表冻结。
+> 实现状态：P0–P20 已落地（含 22 张大阿尔卡纳混合位图）。AI 默认 mock；`AI_PROVIDER=deepseek`（legacy `gateway`）对齐 stock-dashboard OpenAI 兼容接口，不再用 Vercel AI Gateway。生产需 `DEEPSEEK_API_KEY`。Vercel↔GitHub 自动部署已接通。剩余主要为圣杯八–十/宫廷与其他花色渐进 `CARD_ART`（不强制外购整副）。产品决策仍按下表冻结。
 
 ## 0. 产品名
 
@@ -84,7 +84,7 @@
 
 - MVP：**简化示意**起步；P8 升级为插画风（花色配色、中文花色名、正逆位角标、双层边框角饰、仪式牌背）
 - P17：**混合桥接**——可选 `public/cards/{id}.webp` 叠在现有烛光框下；`src/data/card-art.ts` 的 `CARD_ART` 仅登记已有文件；无图回退 glyph
-- **冻结**：不要求外购整副牌面；渐进扩展 `CARD_ART`（大阿卡纳样例先行，小阿卡纳暂 glyph）
+- **冻结**：不要求外购整副牌面；渐进扩展 `CARD_ART`（大阿卡纳已齐，小阿卡纳圣杯先行）
 
 ### 3.11 P6 动画（已定）
 
@@ -161,7 +161,7 @@
 ### 3.22 P17 混合卡面桥接（已定）
 
 - `TarotCardFace`：若 `getCardArtSrc(card.id)` 有值，中心叠 `public/cards/{id}.webp`，保留烛光框/角饰/正逆位角标；无图则 glyph 示意不变
-- `CARD_ART`（`src/data/card-art.ts`）**只列已有文件**；样例先行：`major_00` / `major_09` / `major_17`；小阿卡纳暂不进表
+- `CARD_ART`（`src/data/card-art.ts`）**只列已有文件**；大阿尔卡纳 `major_00`–`major_21` 已齐；小阿卡纳渐进补表
 - 分享 PNG（`share-reading-image.ts`）同桥：有位图则画入，否则花色示意
 - **冻结**：不要求外购整副；后续按需渐进补位图即可
 
@@ -172,11 +172,22 @@
 - UI：展示 `TarotCardFace` + 关键词 + 当日方位牌义；链到 `/cards/[id]` 与「开始占卜」
 - 写实位图仍渐进；今日一牌可复用已有 hybrid art
 
+### 3.24 P19 大阿尔卡纳全套混合位图（已定）
+
+- `public/cards/major_00.webp`–`major_21.webp`（写实烛光幻想，AI 生成，768×1024）
+- `CARD_ART` 登记全部 22 张；`TarotCardFace` / 分享 PNG / 今日一牌 / 牌义图鉴自动吃到
+- 小阿尔卡纳仍 glyph，按圣杯→权杖→宝剑→星币分批补
+
+### 3.25 P20 圣杯 ace–seven 混合位图（已定）
+
+- `public/cards/cups_ace.webp`–`cups_seven.webp`（同烛光写实风）
+- `CARD_ART` 增补这 7 张；八至十与 page/knight/queen/king 下一批
+
 ## 4. MVP 范围
 
-含：场景起卦、文本仪式（三速）、简要/详细解读、自由追问、新占卜按钮与软提示、历史卡片（重命名/软删）、访客/登录额度、用户名密码登录、深色烛光 UI、插画风牌面示意 + 混合卡面样例、AI mock + deepseek 接线、流式解读/追问 UI、基础无障碍与空状态抛光、分享牌阵纯文本摘要、烛光分享 PNG、额度感知 UX、牌义图鉴、加厚牌库释义、首页今日一牌。
+含：场景起卦、文本仪式（三速）、简要/详细解读、自由追问、新占卜按钮与软提示、历史卡片（重命名/软删）、访客/登录额度、用户名密码登录、深色烛光 UI、插画风牌面示意 + 大阿尔卡纳混合位图全套、AI mock + deepseek 接线、流式解读/追问 UI、基础无障碍与空状态抛光、分享牌阵纯文本摘要、烛光分享 PNG、额度感知 UX、牌义图鉴、加厚牌库释义、首页今日一牌。
 
-不含（更多位图 / 全套写实仍后置）：付费、OAuth/手机号、全套写实牌面（不强制外购）、凯尔特十字等复杂牌阵。
+不含（小阿卡纳位图 / 付费等仍后置）：付费、OAuth/手机号、小阿卡纳全套写实（不强制外购）、凯尔特十字等复杂牌阵。
 
 ## 5. 分阶段（实现时）
 
@@ -201,6 +212,8 @@
 | P16 | 牌义图鉴（列表筛选/搜索 + 正逆位详情） | 已完成 |
 | P17 | 混合卡面桥接（webp 样例 + glyph 回退 + 渐进 CARD_ART） | 已完成 |
 | P18 | 牌库释义加厚 + 首页今日一牌（不计额度） | 已完成 |
+| P19 | 大阿尔卡纳 22 张混合位图全套 | 已完成 |
+| P20 | 圣杯 ace–seven 混合位图 | 已完成 |
 
 ## 6. 详细设计
 
