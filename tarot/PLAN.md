@@ -1,6 +1,6 @@
-# Tarot Plan（冻结 v1.8 · 2026-09-10）
+# Tarot Plan（冻结 v2.2 · 2026-09-10）
 
-> 实现状态：P0–P20 已落地（含 22 张大阿尔卡纳混合位图）。AI 默认 mock；`AI_PROVIDER=deepseek`（legacy `gateway`）对齐 stock-dashboard OpenAI 兼容接口，不再用 Vercel AI Gateway。生产需 `DEEPSEEK_API_KEY`。Vercel↔GitHub 自动部署已接通。剩余主要为圣杯八–十/宫廷与其他花色渐进 `CARD_ART`（不强制外购整副）。产品决策仍按下表冻结。
+> 实现状态：P0–P21 已落地（大阿尔卡纳全套 + 圣杯花色混合位图齐）。AI 默认 mock；`AI_PROVIDER=deepseek`（legacy `gateway`）对齐 stock-dashboard OpenAI 兼容接口，不再用 Vercel AI Gateway。生产需 `DEEPSEEK_API_KEY`。Vercel↔GitHub 自动部署已接通。剩余主要为权杖 → 宝剑 → 星币渐进 `CARD_ART`（不强制外购整副）。产品决策仍按下表冻结。
 
 ## 0. 产品名
 
@@ -84,7 +84,7 @@
 
 - MVP：**简化示意**起步；P8 升级为插画风（花色配色、中文花色名、正逆位角标、双层边框角饰、仪式牌背）
 - P17：**混合桥接**——可选 `public/cards/{id}.webp` 叠在现有烛光框下；`src/data/card-art.ts` 的 `CARD_ART` 仅登记已有文件；无图回退 glyph
-- **冻结**：不要求外购整副牌面；渐进扩展 `CARD_ART`（大阿卡纳已齐，小阿卡纳圣杯先行）
+- **冻结**：不要求外购整副牌面；渐进扩展 `CARD_ART`（大阿卡纳已齐，圣杯花色已齐，权杖下一步）
 
 ### 3.11 P6 动画（已定）
 
@@ -176,18 +176,23 @@
 
 - `public/cards/major_00.webp`–`major_21.webp`（写实烛光幻想，AI 生成，768×1024）
 - `CARD_ART` 登记全部 22 张；`TarotCardFace` / 分享 PNG / 今日一牌 / 牌义图鉴自动吃到
-- 小阿尔卡纳仍 glyph，按圣杯→权杖→宝剑→星币分批补
+- 小阿尔卡纳：圣杯已齐；权杖→宝剑→星币分批补
 
 ### 3.25 P20 圣杯 ace–seven 混合位图（已定）
 
 - `public/cards/cups_ace.webp`–`cups_seven.webp`（同烛光写实风）
-- `CARD_ART` 增补这 7 张；八至十与 page/knight/queen/king 下一批
+- `CARD_ART` 增补这 7 张
+
+### 3.26 P21 圣杯八–十与宫廷收官（已定）
+
+- `public/cards/cups_eight.webp`–`cups_ten.webp` 与 `cups_page` / `cups_knight` / `cups_queen` / `cups_king` webp
+- `CARD_ART` 登记圣杯花色全套；权杖 → 宝剑 → 星币下一批
 
 ## 4. MVP 范围
 
-含：场景起卦、文本仪式（三速）、简要/详细解读、自由追问、新占卜按钮与软提示、历史卡片（重命名/软删）、访客/登录额度、用户名密码登录、深色烛光 UI、插画风牌面示意 + 大阿尔卡纳混合位图全套、AI mock + deepseek 接线、流式解读/追问 UI、基础无障碍与空状态抛光、分享牌阵纯文本摘要、烛光分享 PNG、额度感知 UX、牌义图鉴、加厚牌库释义、首页今日一牌。
+含：场景起卦、文本仪式（三速）、简要/详细解读、自由追问、新占卜按钮与软提示、历史卡片（重命名/软删）、访客/登录额度、用户名密码登录、深色烛光 UI、插画风牌面示意 + 大阿尔卡纳混合位图全套 + 圣杯花色混合位图、AI mock + deepseek 接线、流式解读/追问 UI、基础无障碍与空状态抛光、分享牌阵纯文本摘要、烛光分享 PNG、额度感知 UX、牌义图鉴、加厚牌库释义、首页今日一牌。
 
-不含（小阿卡纳位图 / 付费等仍后置）：付费、OAuth/手机号、小阿卡纳全套写实（不强制外购）、凯尔特十字等复杂牌阵。
+不含（其余小阿卡纳位图 / 付费等仍后置）：付费、OAuth/手机号、权杖/宝剑/星币全套写实（不强制外购）、凯尔特十字等复杂牌阵。
 
 ## 5. 分阶段（实现时）
 
@@ -214,6 +219,7 @@
 | P18 | 牌库释义加厚 + 首页今日一牌（不计额度） | 已完成 |
 | P19 | 大阿尔卡纳 22 张混合位图全套 | 已完成 |
 | P20 | 圣杯 ace–seven 混合位图 | 已完成 |
+| P21 | 圣杯八–十与宫廷混合位图（花色收官） | 已完成 |
 
 ## 6. 详细设计
 
