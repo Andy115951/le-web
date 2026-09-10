@@ -32,7 +32,7 @@ export default async function HistoryPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">历史</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {user ? `已登录：${user.username}` : "访客记录保存在本机身份下"}
+            {user ? `已登录：${user.username}` : "访客记录会安静地留在这台设备上"}
           </p>
         </div>
         <Button asChild>

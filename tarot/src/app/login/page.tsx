@@ -32,11 +32,11 @@ export default function LoginPage() {
         body: JSON.stringify({ username, password }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "失败");
+      if (!res.ok) throw new Error(data.error || "登录未成功，请再试一次。");
       router.push("/history");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "失败");
+      setError(err instanceof Error ? err.message : "登录未成功，请再试一次。");
     } finally {
       setLoading(false);
     }

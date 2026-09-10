@@ -70,12 +70,12 @@ function CornerMarks({ compact }: { compact?: boolean }) {
   const mark =
     "pointer-events-none absolute border-primary/45 " + size;
   return (
-    <>
+    <span aria-hidden className="contents">
       <span className={cn(mark, "left-1.5 top-1.5 border-l border-t")} />
       <span className={cn(mark, "right-1.5 top-1.5 border-r border-t")} />
       <span className={cn(mark, "bottom-1.5 left-1.5 border-b border-l")} />
       <span className={cn(mark, "bottom-1.5 right-1.5 border-b border-r")} />
-    </>
+    </span>
   );
 }
 
@@ -123,8 +123,14 @@ export function TarotCardBack({
       )}
       aria-hidden
     >
-      <div className="pointer-events-none absolute inset-0 opacity-50 [background:repeating-linear-gradient(135deg,oklch(0.28_0.04_60/40%)_0_5px,oklch(0.18_0.03_55/35%)_5px_10px)]" />
-      <div className="pointer-events-none absolute inset-2 rounded-md border border-primary/30" />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-50 [background:repeating-linear-gradient(135deg,oklch(0.28_0.04_60/40%)_0_5px,oklch(0.18_0.03_55/35%)_5px_10px)]"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute inset-2 rounded-md border border-primary/30"
+        aria-hidden
+      />
       <CornerMarks compact={compact} />
       <div className="relative flex h-full min-h-[inherit] flex-col items-center justify-center gap-1">
         <span
@@ -168,8 +174,12 @@ export function TarotCardFace({
         ? suit.labelZh
         : undefined;
 
+  const ariaName = `${label}，${reversed ? "逆位" : "正位"}${subLabel ? `，${subLabel}` : ""}`;
+
   return (
     <div
+      role="img"
+      aria-label={ariaName}
       className={cn(
         "tarot-card-face relative overflow-hidden rounded-lg border border-primary/40 bg-gradient-to-b shadow-[inset_0_0_28px_oklch(0.78_0.12_75/14%)]",
         accent,
@@ -178,8 +188,14 @@ export function TarotCardFace({
         className,
       )}
     >
-      <div className="pointer-events-none absolute inset-0 opacity-50 [background:radial-gradient(ellipse_at_50%_18%,oklch(0.78_0.12_75/28%),transparent_58%)]" />
-      <div className="pointer-events-none absolute inset-1.5 rounded-md border border-primary/25" />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-50 [background:radial-gradient(ellipse_at_50%_18%,oklch(0.78_0.12_75/28%),transparent_58%)]"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute inset-1.5 rounded-md border border-primary/25"
+        aria-hidden
+      />
       <CornerMarks compact={compact} />
 
       {!compact && (

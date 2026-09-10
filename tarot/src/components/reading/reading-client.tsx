@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import type { RitualSpeed } from "@/data/scenes";
 import type { Message, Reading } from "@/lib/types";
 import { RitualStage } from "@/components/reading/ritual-stage";
 import { Button } from "@/components/ui/button";
@@ -20,9 +21,26 @@ type StreamEvent =
   | { t: "done"; messages: Message[] }
   | { t: "error"; error: string };
 
+const SPEED_LABEL: Record<RitualSpeed, string> = {
+  slow: "慢",
+  normal: "常",
+  fast: "快",
+};
+
 function prefersReducedMotion(): boolean {
   if (typeof window === "undefined") return false;
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function warmError(fallback: string, raw?: unknown): string {
+  if (typeof raw === "string" && raw.trim()) {
+    // Soften a few developer-ish API phrases if they leak through
+    if (/stream|ndjson|json|status|fetch|network/i.test(raw)) {
+      return fallback;
+    }
+    return raw;
+  }
+  return fallback;
 }
 
 async function readNdjsonStream(
@@ -32,13 +50,20 @@ async function readNdjsonStream(
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(
-      typeof data.error === "string" ? data.error : `请求失败 (${res.status})`,
+      warmError(
+        "烛火晃了一下，这次没能完成。稍后再试一次吧。",
+        typeof data.error === "string" ? data.error : undefined,
+      ),
     );
   }
   const ctype = res.headers.get("content-type") || "";
   if (!ctype.includes("ndjson") || !res.body) {
     const data = await res.json();
-    if (data.error) throw new Error(data.error);
+    if (data.error) {
+      throw new Error(
+        warmError("烛火晃了一下，这次没能完成。稍后再试一次吧。", data.error),
+      );
+    }
     return data.messages as Message[];
   }
 
@@ -59,11 +84,17 @@ async function readNdjsonStream(
       const event = JSON.parse(line) as StreamEvent;
       if (event.t === "delta") onDelta(event.c);
       else if (event.t === "done") messages = event.messages;
-      else if (event.t === "error") throw new Error(event.error);
+      else if (event.t === "error") {
+        throw new Error(
+          warmError("烛火晃了一下，这次没能完成。稍后再试一次吧。", event.error),
+        );
+      }
     }
   }
 
-  if (!messages) throw new Error("流式响应未完成");
+  if (!messages) {
+    throw new Error("字句还没落定，烛火就灭了。请再试一次。");
+  }
   return messages;
 }
 
@@ -106,7 +137,12 @@ export function ReadingClient({
       setMessages(next);
       setStreamingText("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "解读失败");
+      setError(
+        warmError(
+          "解读还没到来。稍后再试，或轻轻追问一次。",
+          e instanceof Error ? e.message : undefined,
+        ),
+      );
       setStreamingText("");
     } finally {
       setInterpreting(false);
@@ -152,7 +188,12 @@ export function ReadingClient({
       setMessages(next);
       setStreamingText("");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "发送失败");
+      setError(
+        warmError(
+          "追问没能送出。稍后再试一次吧。",
+          e instanceof Error ? e.message : undefined,
+        ),
+      );
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
       setDraft(text);
       setStreamingText("");
@@ -160,6 +201,8 @@ export function ReadingClient({
       setSending(false);
     }
   }
+
+  const speedLabel = SPEED_LABEL[reading.ritualSpeed] ?? reading.ritualSpeed;
 
   return (
     <div className="space-y-6">
@@ -174,7 +217,9 @@ export function ReadingClient({
           <Badge variant="outline">
             {reading.detailLevel === "brief" ? "简要" : "详细"}
           </Badge>
-          <Badge variant="secondary">{reading.ritualSpeed}</Badge>
+          <Badge variant="secondary" aria-label={`仪式速度：${speedLabel}`}>
+            {speedLabel}
+          </Badge>
           <Button asChild size="sm">
             <Link href="/reading/new">新占卜</Link>
           </Button>
@@ -197,29 +242,48 @@ export function ReadingClient({
                 ? streamingText
                   ? "烛火摇曳，字句正浮现…"
                   : "烛火摇曳，正在生成…"
-                : "可继续追问"}
+                : messages.length === 0
+                  ? "牌已揭晓，解读即将到来…"
+                  : "可继续追问"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {messages.map((m) => (
-              <div
-                key={m.id}
-                className={
-                  m.role === "user"
-                    ? "rounded-lg bg-secondary/60 px-3 py-2 text-sm"
-                    : "whitespace-pre-wrap rounded-lg border border-border/60 bg-card/40 px-3 py-2 text-sm leading-relaxed"
-                }
-              >
-                {m.role === "user" ? `你：${m.content}` : m.content}
-              </div>
-            ))}
-            {streamingText && (
-              <div className="whitespace-pre-wrap rounded-lg border border-amber-500/30 bg-card/40 px-3 py-2 text-sm leading-relaxed">
-                {streamingText}
-                <span className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-amber-400/80 align-middle" />
-              </div>
+            {messages.length === 0 && !interpreting && !streamingText && !error ? (
+              <p className="text-sm text-muted-foreground">
+                烛火还在酝酿。若迟迟没有字句，可以稍后再试。
+              </p>
+            ) : null}
+            <div className="space-y-4" aria-live="polite" aria-relevant="additions">
+              {messages.map((m) => (
+                <div
+                  key={m.id}
+                  className={
+                    m.role === "user"
+                      ? "rounded-lg bg-secondary/60 px-3 py-2 text-sm"
+                      : "whitespace-pre-wrap rounded-lg border border-border/60 bg-card/40 px-3 py-2 text-sm leading-relaxed"
+                  }
+                >
+                  {m.role === "user" ? `你：${m.content}` : m.content}
+                </div>
+              ))}
+              {streamingText && (
+                <div
+                  className="whitespace-pre-wrap rounded-lg border border-amber-500/30 bg-card/40 px-3 py-2 text-sm leading-relaxed"
+                  aria-label="正在浮现的解读"
+                >
+                  {streamingText}
+                  <span
+                    className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-amber-400/80 align-middle"
+                    aria-hidden
+                  />
+                </div>
+              )}
+            </div>
+            {error && (
+              <p className="text-sm text-destructive" role="alert">
+                {error}
+              </p>
             )}
-            {error && <p className="text-sm text-destructive">{error}</p>}
             <div className="flex flex-col gap-2 sm:flex-row">
               <Textarea
                 value={draft}
@@ -228,8 +292,13 @@ export function ReadingClient({
                 rows={2}
                 className="resize-none"
                 disabled={sending || interpreting}
+                aria-label="追问内容"
               />
-              <Button onClick={sendFollowUp} disabled={sending || interpreting}>
+              <Button
+                onClick={sendFollowUp}
+                disabled={sending || interpreting}
+                aria-label="发送追问"
+              >
                 发送
               </Button>
             </div>

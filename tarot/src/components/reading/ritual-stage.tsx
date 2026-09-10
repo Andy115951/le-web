@@ -75,9 +75,10 @@ export function RitualStage({
   }, [alreadyDone, done, revealedCount, cards.length]);
 
   const showCards = flipping || done;
+  const stageLabel = done ? "牌已显现" : STEPS[step];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" aria-label="占卜仪式">
       <div
         className={cn(
           "ritual-panel relative overflow-hidden rounded-xl border border-primary/20 bg-card/50 p-8 text-center",
@@ -85,18 +86,27 @@ export function RitualStage({
           step === 1 && "ritual-panel--shuffle",
           step === 2 && "ritual-panel--ask",
         )}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
       >
         <div className="ritual-glow pointer-events-none absolute inset-0" aria-hidden />
         <p className="relative text-sm tracking-[0.35em] text-primary/80">仪式</p>
-        <p className="relative mt-3 text-lg text-foreground">
-          {done ? "牌已显现" : STEPS[step]}
-        </p>
-        <div className="relative mx-auto mt-4 h-1 max-w-xs overflow-hidden rounded-full bg-muted">
+        <p className="relative mt-3 text-lg text-foreground">{stageLabel}</p>
+        <div
+          className="relative mx-auto mt-4 h-1 max-w-xs overflow-hidden rounded-full bg-muted"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={STEPS.length}
+          aria-valuenow={Math.min(step, STEPS.length)}
+          aria-label="仪式进度"
+        >
           <div
             className="h-full bg-primary transition-all duration-500"
             style={{
               width: `${(Math.min(step, STEPS.length) / STEPS.length) * 100}%`,
             }}
+            aria-hidden
           />
         </div>
         {step === 1 && (
@@ -118,10 +128,13 @@ export function RitualStage({
             "grid gap-3",
             cards.length === 1 ? "mx-auto max-w-xs" : "sm:grid-cols-3",
           )}
+          aria-label="牌阵结果"
         >
           {cards.map((c, index) => {
             const card = getCard(c.cardId);
             const visible = index < revealedCount;
+            const name = card?.nameZh ?? c.cardId;
+            const orient = c.reversed ? "逆位" : "正位";
             return (
               <Card
                 key={c.position}
@@ -129,6 +142,11 @@ export function RitualStage({
                   "bg-card/80 transition-opacity duration-500",
                   visible ? "opacity-100" : "opacity-40",
                 )}
+                aria-label={
+                  visible
+                    ? `${c.positionLabel}：${name}，${orient}`
+                    : `${c.positionLabel}：尚未翻开`
+                }
               >
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base">{c.positionLabel}</CardTitle>
@@ -141,14 +159,16 @@ export function RitualStage({
                     )}
                   >
                     <div className="tarot-flip-inner">
-                      <div className="tarot-flip-back"><TarotCardBack /></div>
+                      <div className="tarot-flip-back">
+                        <TarotCardBack />
+                      </div>
                       <div className="tarot-flip-front space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-lg font-medium text-primary">
-                            {card?.nameZh ?? c.cardId}
+                            {name}
                           </span>
                           <Badge variant={c.reversed ? "destructive" : "secondary"}>
-                            {c.reversed ? "逆位" : "正位"}
+                            {orient}
                           </Badge>
                         </div>
                         <p className="text-xs text-muted-foreground">

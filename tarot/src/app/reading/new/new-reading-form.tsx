@@ -81,10 +81,10 @@ export function NewReadingForm({
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "起卦失败");
+      if (!res.ok) throw new Error(data.error || "起卦没能完成，请稍后再试。");
       router.push(`/reading/${data.reading.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "起卦失败");
+      setError(err instanceof Error ? err.message : "起卦没能完成，请稍后再试。");
     } finally {
       setLoading(false);
     }
