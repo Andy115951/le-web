@@ -1,6 +1,6 @@
-# Tarot Plan（冻结 v2.4 · 2026-09-11）
+# Tarot Plan（冻结 v2.5 · 2026-09-11）
 
-> 实现状态：P0–P24 已落地（大阿尔卡纳全套 + 圣杯 + 权杖 + 宝剑花色齐 + 星币 ace–seven 混合位图）。AI 默认 mock；`AI_PROVIDER=deepseek`（legacy `gateway`）对齐 stock-dashboard OpenAI 兼容接口，不再用 Vercel AI Gateway。生产需 `DEEPSEEK_API_KEY`。Vercel↔GitHub 自动部署已接通。剩余主要为星币八–十与宫廷 →渐进 `CARD_ART`（不强制外购整副）。产品决策仍按下表冻结。
+> 实现状态：P0–P25 已落地（大阿尔卡纳全套 + 圣杯 + 权杖 + 宝剑 + 星币花色混合位图齐；78 张 `CARD_ART`）。AI 默认 mock；`AI_PROVIDER=deepseek`（legacy `gateway`）对齐 stock-dashboard OpenAI 兼容接口，不再用 Vercel AI Gateway。生产需 `DEEPSEEK_API_KEY`。Vercel↔GitHub 自动部署已接通。混合位图渐进已收官（不强制外购整副）。产品决策仍按下表冻结。
 
 ## 0. 产品名
 
@@ -84,7 +84,7 @@
 
 - MVP：**简化示意**起步；P8 升级为插画风（花色配色、中文花色名、正逆位角标、双层边框角饰、仪式牌背）
 - P17：**混合桥接**——可选 `public/cards/{id}.webp` 叠在现有烛光框下；`src/data/card-art.ts` 的 `CARD_ART` 仅登记已有文件；无图回退 glyph
-- **冻结**：不要求外购整副牌面；渐进扩展 `CARD_ART`（大阿卡纳已齐，圣杯+权杖+宝剑花色已齐，星币 ace–seven 已齐，八–宫廷下一步）
+- **冻结**：不要求外购整副牌面；渐进扩展 `CARD_ART`（大阿卡纳 + 四花色已齐，78 张）
 
 ### 3.11 P6 动画（已定）
 
@@ -176,7 +176,7 @@
 
 - `public/cards/major_00.webp`–`major_21.webp`（写实烛光幻想，AI 生成，768×1024）
 - `CARD_ART` 登记全部 22 张；`TarotCardFace` / 分享 PNG / 今日一牌 / 牌义图鉴自动吃到
-- 小阿尔卡纳：圣杯+权杖+宝剑已齐；星币 ace–seven 已齐，八–宫廷分批补
+- 小阿尔卡纳：圣杯+权杖+宝剑+星币花色已齐
 
 ### 3.25 P20 圣杯 ace–seven 混合位图（已定）
 
@@ -203,11 +203,17 @@
 - `public/cards/pentacles_ace.webp`–`pentacles_seven.webp`（同烛光写实风，768×1024）
 - `CARD_ART` 增补这 7 张；八–十与宫廷见下一批
 
+### 3.30 P25 星币八–十与宫廷收官（已定）
+
+- `public/cards/pentacles_eight.webp`–`pentacles_ten.webp` 与 `pentacles_page` / `pentacles_knight` / `pentacles_queen` / `pentacles_king` webp
+- `CARD_ART` 登记星币花色全套；78 张混合位图齐
+
+
 ## 4. MVP 范围
 
 含：场景起卦、文本仪式（三速）、简要/详细解读、自由追问、新占卜按钮与软提示、历史卡片（重命名/软删）、访客/登录额度、用户名密码登录、深色烛光 UI、插画风牌面示意 + 大阿尔卡纳混合位图全套 + 圣杯/权杖花色混合位图、AI mock + deepseek 接线、流式解读/追问 UI、基础无障碍与空状态抛光、分享牌阵纯文本摘要、烛光分享 PNG、额度感知 UX、牌义图鉴、加厚牌库释义、首页今日一牌。
 
-不含（其余小阿卡纳位图 / 付费等仍后置）：付费、OAuth/手机号、星币八–宫廷写实（不强制外购）、凯尔特十字等复杂牌阵。
+不含（付费等仍后置）：付费、OAuth/手机号、凯尔特十字等复杂牌阵；混合位图已齐（不强制外购整副）。
 
 ## 5. 分阶段（实现时）
 
@@ -238,6 +244,7 @@
 | P22 | 权杖花色混合位图全套（ace–king） | 已完成 |
 | P23 | 宝剑花色混合位图全套（ace–king）+ 牌义「仅看已配图」 | 已完成 |
 | P24 | 星币 ace–seven 混合位图 | 已完成 |
+| P25 | 星币八–十与宫廷混合位图（花色收官） | 已完成 |
 
 ## 6. 详细设计
 
