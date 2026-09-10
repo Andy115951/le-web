@@ -36,8 +36,12 @@ export async function POST(
     if (usage.messages >= quota.messages) {
       return NextResponse.json(
         {
-          error: user ? "今日追问次数已用完" : "访客追问额度已用完，请登录",
+          error: user
+            ? "今日追问额度已用尽，可以先回看这卦，或明天再续。"
+            : "访客追问额度已用尽，请登录后继续。",
           code: "quota",
+          usage,
+          quota,
         },
         { status: 429 },
       );

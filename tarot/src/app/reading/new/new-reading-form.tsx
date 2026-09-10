@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   CUSTOM_SCENE,
@@ -11,6 +12,8 @@ import {
   type SpreadType,
 } from "@/data/scenes";
 import { DEFAULT_USER_PREFS, readUserPrefs } from "@/lib/user-prefs";
+import { useQuota } from "@/hooks/use-quota";
+import { QuotaHint } from "@/components/quota/quota-hint";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,6 +34,7 @@ export function NewReadingForm({
   initialSceneId?: string;
 }) {
   const router = useRouter();
+  const quotaState = useQuota();
   const start =
     ALL.find((s) => s.id === initialSceneId) ?? SCENES[0] ?? CUSTOM_SCENE;
   const [sceneId, setSceneId] = useState<SceneId>(start.id);
@@ -48,6 +52,7 @@ export function NewReadingForm({
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [quotaBlocked, setQuotaBlocked] = useState(false);
 
   useEffect(() => {
     const prefs = readUserPrefs();
@@ -62,12 +67,25 @@ export function NewReadingForm({
     setSpread(next.defaultSpread);
   }
 
+  const readingsExhausted =
+    !quotaState.loading && quotaState.remaining.readings <= 0;
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const q = question.trim();
     if (q.length < 4) return;
+    if (readingsExhausted) {
+      setQuotaBlocked(true);
+      setError(
+        quotaState.user
+          ? "今日新占卜额度已用尽，明天再来点亮一盏吧。"
+          : "访客今日起卦额度已用尽，请登录后继续。",
+      );
+      return;
+    }
     setLoading(true);
     setError("");
+    setQuotaBlocked(false);
     try {
       const res = await fetch("/api/readings", {
         method: "POST",
@@ -81,7 +99,13 @@ export function NewReadingForm({
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "起卦没能完成，请稍后再试。");
+      if (!res.ok) {
+        if (data.code === "quota") {
+          setQuotaBlocked(true);
+          await quotaState.refresh();
+        }
+        throw new Error(data.error || "起卦没能完成，请稍后再试。");
+      }
       router.push(`/reading/${data.reading.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "起卦没能完成，请稍后再试。");
@@ -92,6 +116,15 @@ export function NewReadingForm({
 
   return (
     <form onSubmit={onSubmit} className="space-y-6">
+      <QuotaHint
+        loading={quotaState.loading}
+        user={quotaState.user}
+        usage={quotaState.usage}
+        quota={quotaState.quota}
+        remaining={quotaState.remaining}
+        focus="readings"
+      />
+
       <div className="flex flex-wrap gap-2">
         {ALL.map((s) => (
           <Button
@@ -115,6 +148,7 @@ export function NewReadingForm({
           rows={3}
           placeholder="写下你想问的…"
           className="resize-none"
+          disabled={readingsExhausted}
         />
       </div>
 
@@ -155,9 +189,26 @@ export function NewReadingForm({
         </CardContent>
       </Card>
 
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      <Button type="submit" size="lg" disabled={loading} className="w-full sm:w-auto">
-        {loading ? "起卦中…" : "确认起卦"}
+      {error && (
+        <div className="space-y-1" role="alert">
+          <p className="text-sm text-destructive">{error}</p>
+          {quotaBlocked && !quotaState.user ? (
+            <p className="text-sm text-muted-foreground">
+              <Link href="/login" className="text-primary underline-offset-2 hover:underline">
+                去登录
+              </Link>
+              ，历史会自动合并，每日可起更多卦。
+            </p>
+          ) : null}
+        </div>
+      )}
+      <Button
+        type="submit"
+        size="lg"
+        disabled={loading || readingsExhausted}
+        className="w-full sm:w-auto"
+      >
+        {loading ? "起卦中…" : readingsExhausted ? "今日额度已用尽" : "确认起卦"}
       </Button>
     </form>
   );

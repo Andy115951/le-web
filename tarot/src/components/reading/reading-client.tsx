@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { RitualSpeed } from "@/data/scenes";
 import type { Message, Reading } from "@/lib/types";
+import { useQuota } from "@/hooks/use-quota";
+import { QuotaHint } from "@/components/quota/quota-hint";
 import { RitualStage } from "@/components/reading/ritual-stage";
 import { ShareReadingButton } from "@/components/reading/share-reading-button";
 import { Button } from "@/components/ui/button";
@@ -22,6 +24,14 @@ type StreamEvent =
   | { t: "done"; messages: Message[] }
   | { t: "error"; error: string };
 
+class ApiError extends Error {
+  code?: string;
+  constructor(message: string, code?: string) {
+    super(message);
+    this.code = code;
+  }
+}
+
 const SPEED_LABEL: Record<RitualSpeed, string> = {
   slow: "慢",
   normal: "常",
@@ -35,7 +45,6 @@ function prefersReducedMotion(): boolean {
 
 function warmError(fallback: string, raw?: unknown): string {
   if (typeof raw === "string" && raw.trim()) {
-    // Soften a few developer-ish API phrases if they leak through
     if (/stream|ndjson|json|status|fetch|network/i.test(raw)) {
       return fallback;
     }
@@ -44,25 +53,31 @@ function warmError(fallback: string, raw?: unknown): string {
   return fallback;
 }
 
+function suggestsRedraw(text: string): boolean {
+  return /新占卜|重新起卦|再起一卦|另起一卦/.test(text);
+}
+
 async function readNdjsonStream(
   res: Response,
   onDelta: (chunk: string) => void,
 ): Promise<Message[]> {
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(
+    throw new ApiError(
       warmError(
         "烛火晃了一下，这次没能完成。稍后再试一次吧。",
         typeof data.error === "string" ? data.error : undefined,
       ),
+      typeof data.code === "string" ? data.code : undefined,
     );
   }
   const ctype = res.headers.get("content-type") || "";
   if (!ctype.includes("ndjson") || !res.body) {
     const data = await res.json();
     if (data.error) {
-      throw new Error(
+      throw new ApiError(
         warmError("烛火晃了一下，这次没能完成。稍后再试一次吧。", data.error),
+        typeof data.code === "string" ? data.code : undefined,
       );
     }
     return data.messages as Message[];
@@ -86,7 +101,7 @@ async function readNdjsonStream(
       if (event.t === "delta") onDelta(event.c);
       else if (event.t === "done") messages = event.messages;
       else if (event.t === "error") {
-        throw new Error(
+        throw new ApiError(
           warmError("烛火晃了一下，这次没能完成。稍后再试一次吧。", event.error),
         );
       }
@@ -94,7 +109,7 @@ async function readNdjsonStream(
   }
 
   if (!messages) {
-    throw new Error("字句还没落定，烛火就灭了。请再试一次。");
+    throw new ApiError("字句还没落定，烛火就灭了。请再试一次。");
   }
   return messages;
 }
@@ -113,16 +128,38 @@ export function ReadingClient({
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState("");
+  const [quotaBlocked, setQuotaBlocked] = useState(false);
   const [streamingText, setStreamingText] = useState("");
+  const [redrawDismissed, setRedrawDismissed] = useState(false);
+  const quotaState = useQuota();
 
   const streamQuery = useMemo(() => {
     const instant = prefersReducedMotion() ? "&instant=1" : "";
     return `?stream=1${instant}`;
   }, []);
 
+  const userFollowUps = useMemo(
+    () => messages.filter((m) => m.role === "user").length,
+    [messages],
+  );
+
+  const assistantHintedRedraw = useMemo(() => {
+    const lastAssistant = [...messages]
+      .reverse()
+      .find((m) => m.role === "assistant");
+    return lastAssistant ? suggestsRedraw(lastAssistant.content) : false;
+  }, [messages]);
+
+  const showRedrawChip =
+    !redrawDismissed &&
+    ritualDone &&
+    messages.some((m) => m.role === "assistant") &&
+    (assistantHintedRedraw || userFollowUps >= 2);
+
   const runInterpret = useCallback(async () => {
     setInterpreting(true);
     setError("");
+    setQuotaBlocked(false);
     setStreamingText("");
     try {
       const res = await fetch(
@@ -159,8 +196,18 @@ export function ReadingClient({
   async function sendFollowUp() {
     const text = draft.trim();
     if (!text) return;
+    if (!quotaState.loading && quotaState.remaining.messages <= 0) {
+      setQuotaBlocked(true);
+      setError(
+        quotaState.user
+          ? "今日追问额度已用尽，可以先回看这卦，或明天再续。"
+          : "访客追问额度已用尽，请登录后继续。",
+      );
+      return;
+    }
     setSending(true);
     setError("");
+    setQuotaBlocked(false);
     setStreamingText("");
     const optimistic: Message = {
       id: `local-${Date.now()}`,
@@ -188,7 +235,12 @@ export function ReadingClient({
       });
       setMessages(next);
       setStreamingText("");
+      await quotaState.refresh();
     } catch (e) {
+      if (e instanceof ApiError && e.code === "quota") {
+        setQuotaBlocked(true);
+        await quotaState.refresh();
+      }
       setError(
         warmError(
           "追问没能送出。稍后再试一次吧。",
@@ -204,6 +256,8 @@ export function ReadingClient({
   }
 
   const speedLabel = SPEED_LABEL[reading.ritualSpeed] ?? reading.ritualSpeed;
+  const messagesExhausted =
+    !quotaState.loading && quotaState.remaining.messages <= 0;
 
   return (
     <div className="space-y-6">
@@ -284,28 +338,76 @@ export function ReadingClient({
               )}
             </div>
             {error && (
-              <p className="text-sm text-destructive" role="alert">
-                {error}
-              </p>
+              <div className="space-y-1" role="alert">
+                <p className="text-sm text-destructive">{error}</p>
+                {quotaBlocked && !quotaState.user ? (
+                  <p className="text-sm text-muted-foreground">
+                    <Link
+                      href="/login"
+                      className="text-primary underline-offset-2 hover:underline"
+                    >
+                      去登录
+                    </Link>
+                    ，历史会自动合并，追问额度也会更宽裕。
+                  </p>
+                ) : null}
+              </div>
             )}
+            {showRedrawChip ? (
+              <div
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2"
+                role="status"
+              >
+                <p className="text-sm text-amber-100/90">
+                  {assistantHintedRedraw
+                    ? "话题似乎换了。若想另起一卦，可以轻轻点亮新烛火。"
+                    : "追问已经走了一段。若主题变了，建议重新起卦，牌面会更贴切。"}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setRedrawDismissed(true)}
+                  >
+                    先留下
+                  </Button>
+                  <Button asChild size="sm">
+                    <Link href="/reading/new">新占卜</Link>
+                  </Button>
+                </div>
+              </div>
+            ) : null}
             {messages.some((m) => m.role === "assistant") ? (
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Textarea
-                  value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
-                  placeholder="继续追问…"
-                  rows={2}
-                  className="resize-none"
-                  disabled={sending || interpreting}
-                  aria-label="追问内容"
+              <div className="space-y-2">
+                <QuotaHint
+                  loading={quotaState.loading}
+                  user={quotaState.user}
+                  usage={quotaState.usage}
+                  quota={quotaState.quota}
+                  remaining={quotaState.remaining}
+                  focus="messages"
                 />
-                <Button
-                  onClick={sendFollowUp}
-                  disabled={sending || interpreting}
-                  aria-label="发送追问"
-                >
-                  发送
-                </Button>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Textarea
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    placeholder={
+                      messagesExhausted ? "今日追问额度已用尽…" : "继续追问…"
+                    }
+                    rows={2}
+                    className="resize-none"
+                    disabled={sending || interpreting || messagesExhausted}
+                    aria-label="追问内容"
+                  />
+                  <Button
+                    onClick={sendFollowUp}
+                    disabled={sending || interpreting || messagesExhausted}
+                    aria-label="发送追问"
+                  >
+                    发送
+                  </Button>
+                </div>
               </div>
             ) : null}
           </CardContent>

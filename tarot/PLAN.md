@@ -1,6 +1,6 @@
-# Tarot Plan（冻结 v1.5 · 2026-09-10）
+# Tarot Plan（冻结 v1.6 · 2026-09-10）
 
-> 实现状态：P0–P13 已落地（牌库、仪式动画、解读/追问、历史重命名/软删、额度与登录、插画风牌面 + 牌背、流式 UI、基础无障碍、分享牌阵文字摘要、设置关于抛光、烛光分享 PNG、DeepSeek 提供商）。AI 默认 mock；`AI_PROVIDER=deepseek`（legacy `gateway`）对齐 stock-dashboard OpenAI 兼容接口，不再用 Vercel AI Gateway。生产需 `DEEPSEEK_API_KEY`。Vercel↔GitHub 自动部署已接通。剩余主要为精美写实卡面素材。产品决策仍按下表冻结。
+> 实现状态：P0–P14 已落地（牌库、仪式动画、解读/追问、历史重命名/软删、额度与登录、插画风牌面 + 牌背、流式 UI、基础无障碍、分享牌阵文字摘要、设置关于抛光、烛光分享 PNG、DeepSeek 提供商、额度感知 UX + 软提示重抽）。AI 默认 mock；`AI_PROVIDER=deepseek`（legacy `gateway`）对齐 stock-dashboard OpenAI 兼容接口，不再用 Vercel AI Gateway。生产需 `DEEPSEEK_API_KEY`。Vercel↔GitHub 自动部署已接通。剩余主要为精美写实卡面素材。产品决策仍按下表冻结。
 
 ## 0. 产品名
 
@@ -138,9 +138,16 @@
 - Env：`DEEPSEEK_API_KEY`（必填才启用）、`DEEPSEEK_API_URL`（默认官方 chat/completions）、`DEEPSEEK_MODEL`（默认 `deepseek-v4-flash`）
 - 解读/追问仍走 `generateText` / `streamText`；失败回退 mock；不再依赖 Vercel AI Gateway / `AI_GATEWAY_*`
 
+### 3.19 P14 额度感知 + 软提示重抽（已定）
+
+- 新占卜页与解读追问区展示今日额度（`usage/quota`），近耗尽与用尽用烛光语气；访客用尽/将近用尽时引导登录
+- 429 响应带 `code: "quota"` 与 `usage`/`quota`；前端禁用提交并保留登录 CTA
+- 解读页：顾问文案提到「新占卜/再起一卦」或用户追问 ≥2 次后，展示可关闭的软提示 chip（不强制）
+- 写实位图牌面仍不在本阶段
+
 ## 4. MVP 范围
 
-含：场景起卦、文本仪式（三速）、简要/详细解读、自由追问、新占卜按钮与软提示、历史卡片（重命名/软删）、访客/登录额度、用户名密码登录、深色烛光 UI、插画风牌面示意、AI mock + deepseek 接线、流式解读/追问 UI、基础无障碍与空状态抛光、分享牌阵纯文本摘要、烛光分享 PNG。
+含：场景起卦、文本仪式（三速）、简要/详细解读、自由追问、新占卜按钮与软提示、历史卡片（重命名/软删）、访客/登录额度、用户名密码登录、深色烛光 UI、插画风牌面示意、AI mock + deepseek 接线、流式解读/追问 UI、基础无障碍与空状态抛光、分享牌阵纯文本摘要、烛光分享 PNG、额度感知 UX。
 
 不含（写实卡面等仍后置）：付费、OAuth/手机号、精美写实卡面素材、凯尔特十字等复杂牌阵。
 
@@ -162,6 +169,7 @@
 | P11 | 分享牌阵摘要 + 设置关于抛光 | 已完成 |
 | P12 | 烛光分享 PNG（canvas 下载 / Web Share 文件） | 已完成 |
 | P13 | DeepSeek 提供商（替换 Vercel AI Gateway） | 已完成 |
+| P14 | 额度感知 UX + 解读页软提示重抽 | 已完成 |
 
 ## 6. 详细设计
 

@@ -23,7 +23,14 @@ export async function POST(req: Request) {
     const quota = user ? QUOTAS.user : QUOTAS.guest;
     if (usage.readings >= quota.readings) {
       return NextResponse.json(
-        { error: user ? "今日新占卜次数已用完" : "访客今日额度已用完，请登录后继续", code: "quota" },
+        {
+          error: user
+            ? "今日新占卜额度已用尽，明天再来点亮一盏吧。"
+            : "访客今日起卦额度已用尽，请登录后继续。",
+          code: "quota",
+          usage,
+          quota,
+        },
         { status: 429 },
       );
     }

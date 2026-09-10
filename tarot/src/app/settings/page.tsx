@@ -60,6 +60,7 @@ export default async function SettingsPage() {
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground space-y-1">
           <p>访客每天 1 次新占卜、约 5 次追问；登录后 10 / 100。</p>
+          <p>新占卜与追问页也会轻声提示今日剩余；将近用尽时用烛光语气提醒，不打断仪式。</p>
           <p>默认解读档与仪式速度保存在本机，每局仍可临时修改。</p>
         </CardContent>
       </Card>
