@@ -38,6 +38,7 @@ export function RitualStage({
   const done = step >= STEPS.length;
   const flipping = step === STEPS.length - 1;
 
+  // Advance ritual steps; stay on the flip step until every card is revealed.
   useEffect(() => {
     if (alreadyDone) {
       if (!finished.current) {
@@ -45,6 +46,11 @@ export function RitualStage({
         onDone();
       }
       return;
+    }
+    if (flipping) {
+      if (revealedCount < cards.length) return;
+      const t = setTimeout(() => setStep((s) => s + 1), Math.max(280, Math.floor(delay * 0.35)));
+      return () => clearTimeout(t);
     }
     if (done) {
       if (!finished.current) {
@@ -55,7 +61,7 @@ export function RitualStage({
     }
     const t = setTimeout(() => setStep((s) => s + 1), delay);
     return () => clearTimeout(t);
-  }, [step, delay, done, onDone, alreadyDone]);
+  }, [step, delay, done, flipping, revealedCount, cards.length, onDone, alreadyDone]);
 
   useEffect(() => {
     if (alreadyDone || !flipping) return;
@@ -66,13 +72,6 @@ export function RitualStage({
     );
     return () => clearTimeout(t);
   }, [alreadyDone, flipping, revealedCount, cards.length, delay]);
-
-  useEffect(() => {
-    if (alreadyDone || !done) return;
-    if (revealedCount < cards.length) {
-      setRevealedCount(cards.length);
-    }
-  }, [alreadyDone, done, revealedCount, cards.length]);
 
   const showCards = flipping || done;
   const stageLabel = done ? "牌已显现" : STEPS[step];

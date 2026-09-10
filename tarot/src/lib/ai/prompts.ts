@@ -17,7 +17,13 @@ export function describeSpread(spreadResult: InterpretInput["spreadResult"]): st
           ? card.reversed
           : card.upright
         : "";
-      return `【${c.positionLabel}】${card?.nameZh ?? c.cardId}（${orient}）：${meaning}`;
+      const label = `${card?.nameZh ?? c.cardId}（${orient}）`;
+      const body = meaning
+        ? meaning.replace(new RegExp(`^${card?.nameZh ?? ""}[正逆]位[：:]?`), "").trim() || meaning
+        : "";
+      return body
+        ? `【${c.positionLabel}】${label}：${body}`
+        : `【${c.positionLabel}】${label}`;
     })
     .join("\n");
 }

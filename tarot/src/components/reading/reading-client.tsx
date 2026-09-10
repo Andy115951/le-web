@@ -221,7 +221,9 @@ export function ReadingClient({
           <Badge variant="secondary" aria-label={`仪式速度：${speedLabel}`}>
             {speedLabel}
           </Badge>
-          {ritualDone ? <ShareReadingButton reading={reading} /> : null}
+          {ritualDone && messages.some((m) => m.role === "assistant") ? (
+            <ShareReadingButton reading={reading} />
+          ) : null}
           <Button asChild size="sm">
             <Link href="/reading/new">新占卜</Link>
           </Button>
@@ -286,24 +288,26 @@ export function ReadingClient({
                 {error}
               </p>
             )}
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Textarea
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                placeholder="继续追问…"
-                rows={2}
-                className="resize-none"
-                disabled={sending || interpreting}
-                aria-label="追问内容"
-              />
-              <Button
-                onClick={sendFollowUp}
-                disabled={sending || interpreting}
-                aria-label="发送追问"
-              >
-                发送
-              </Button>
-            </div>
+            {messages.some((m) => m.role === "assistant") ? (
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Textarea
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  placeholder="继续追问…"
+                  rows={2}
+                  className="resize-none"
+                  disabled={sending || interpreting}
+                  aria-label="追问内容"
+                />
+                <Button
+                  onClick={sendFollowUp}
+                  disabled={sending || interpreting}
+                  aria-label="发送追问"
+                >
+                  发送
+                </Button>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       )}
