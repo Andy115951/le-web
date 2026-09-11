@@ -311,29 +311,54 @@ export function ReadingClient({
                 烛火还在酝酿。若迟迟没有字句，可以稍后再试。
               </p>
             ) : null}
-            <div className="space-y-4" aria-live="polite" aria-relevant="additions">
-              {messages.map((m) => (
-                <div
-                  key={m.id}
-                  className={
-                    m.role === "user"
-                      ? "rounded-lg bg-secondary/60 px-3 py-2 text-sm"
-                      : "whitespace-pre-wrap rounded-lg border border-border/60 bg-card/40 px-3 py-2 text-sm leading-relaxed"
-                  }
-                >
-                  {m.role === "user" ? `你：${m.content}` : m.content}
-                </div>
-              ))}
+            <div className="space-y-3" aria-live="polite" aria-relevant="additions">
+              {messages.map((m) => {
+                const isUser = m.role === "user";
+                return (
+                  <div
+                    key={m.id}
+                    className={
+                      isUser
+                        ? "ml-6 flex flex-col items-end gap-1 sm:ml-12"
+                        : "mr-6 flex flex-col items-start gap-1 sm:mr-12"
+                    }
+                  >
+                    <span
+                      className={
+                        isUser
+                          ? "px-1 text-[10px] tracking-wider text-primary/80"
+                          : "px-1 text-[10px] tracking-wider text-amber-200/70"
+                      }
+                    >
+                      {isUser ? "你的追问" : "烛火解读"}
+                    </span>
+                    <div
+                      className={
+                        isUser
+                          ? "max-w-[95%] rounded-2xl rounded-br-md border border-primary/35 bg-primary/15 px-3.5 py-2.5 text-sm text-foreground shadow-[inset_0_0_18px_oklch(0.78_0.12_75/8%)]"
+                          : "max-w-[95%] whitespace-pre-wrap rounded-2xl rounded-bl-md border border-amber-500/25 bg-card/55 px-3.5 py-2.5 text-sm leading-relaxed text-foreground/95 shadow-[inset_0_0_22px_oklch(0.78_0.12_75/10%)]"
+                      }
+                    >
+                      {m.content}
+                    </div>
+                  </div>
+                );
+              })}
               {streamingText && (
-                <div
-                  className="whitespace-pre-wrap rounded-lg border border-amber-500/30 bg-card/40 px-3 py-2 text-sm leading-relaxed"
-                  aria-label="正在浮现的解读"
-                >
-                  {streamingText}
-                  <span
-                    className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-amber-400/80 align-middle"
-                    aria-hidden
-                  />
+                <div className="mr-6 flex flex-col items-start gap-1 sm:mr-12">
+                  <span className="px-1 text-[10px] tracking-wider text-amber-200/70">
+                    烛火解读
+                  </span>
+                  <div
+                    className="max-w-[95%] whitespace-pre-wrap rounded-2xl rounded-bl-md border border-amber-500/35 bg-card/55 px-3.5 py-2.5 text-sm leading-relaxed shadow-[inset_0_0_22px_oklch(0.78_0.12_75/10%)]"
+                    aria-label="正在浮现的解读"
+                  >
+                    {streamingText}
+                    <span
+                      className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-amber-400/80 align-middle"
+                      aria-hidden
+                    />
+                  </div>
                 </div>
               )}
             </div>
