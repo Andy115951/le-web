@@ -11,7 +11,12 @@ import {
   type SceneId,
   type SpreadType,
 } from "@/data/scenes";
-import { spreadHint } from "@/lib/spread-label";
+import {
+  spreadHint,
+  spreadLabel,
+  suggestedTheaterSpread,
+  theaterSoftTip,
+} from "@/lib/spread-label";
 import { DEFAULT_USER_PREFS, readUserPrefs } from "@/lib/user-prefs";
 import { useQuota } from "@/hooks/use-quota";
 import { QuotaHint } from "@/components/quota/quota-hint";
@@ -186,6 +191,25 @@ export function NewReadingForm({
             {spreadHint(spread) ? (
               <p className="text-xs text-muted-foreground">{spreadHint(spread)}</p>
             ) : null}
+            {(() => {
+              const theaterSuggest = suggestedTheaterSpread(sceneId);
+              const tip = theaterSoftTip(sceneId);
+              if (!theaterSuggest || !tip || spread === theaterSuggest) return null;
+              return (
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-xs text-muted-foreground">{tip}</p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 text-xs text-primary"
+                    onClick={() => setSpread(theaterSuggest)}
+                  >
+                    改用{spreadLabel(theaterSuggest)}
+                  </Button>
+                </div>
+              );
+            })()}
           </div>
           <div className="space-y-2">
             <Label>解读</Label>
