@@ -1,6 +1,6 @@
 # Tarot Plan（冻结 v2.13 · 2026-09-11）
 
-> 实现状态：P0–P33 已落地（大阿尔卡纳全套 + 圣杯 + 权杖 + 宝剑 + 星币花色混合位图齐；78 张 `CARD_ART`；追问子牌阵；牌阵剧场三阵；烛火信物；场景剧场软提示；同题回看对照；凯尔特十字十位）。AI 默认 mock；`AI_PROVIDER=deepseek`（legacy `gateway`）对齐 stock-dashboard OpenAI 兼容接口，不再用 Vercel AI Gateway。生产需 `DEEPSEEK_API_KEY`。Vercel↔GitHub 自动部署已接通。混合位图渐进已收官（不强制外购整副）。产品决策仍按下表冻结。
+> 实现状态：P0–P34 已落地（大阿尔卡纳全套 + 圣杯 + 权杖 + 宝剑 + 星币花色混合位图齐；78 张 `CARD_ART`；追问子牌阵；牌阵剧场三阵；烛火信物；场景剧场软提示；同题回看对照；凯尔特十字十位；GitHub/Google OAuth）。AI 默认 mock；`AI_PROVIDER=deepseek`（legacy `gateway`）对齐 stock-dashboard OpenAI 兼容接口，不再用 Vercel AI Gateway。生产需 `DEEPSEEK_API_KEY`。Vercel↔GitHub 自动部署已接通。混合位图渐进已收官（不强制外购整副）。产品决策仍按下表冻结。
 
 ## 0. 产品名
 
@@ -84,7 +84,7 @@
 
 ### 3.9 文案资产
 
-- 示例问题、场景语气、启动/空状态微文案、子牌阵/剧场软提示/信物按钮态见同目录 `COPY.md`（v1.7）
+- 示例问题、场景语气、启动/空状态微文案、子牌阵/剧场软提示/信物按钮态见同目录 `COPY.md`（v1.8）
 
 ### 3.10 牌面素材
 
