@@ -8,6 +8,7 @@ export function spreadLabel(spread: string): string {
   if (spread === "relation_dual") return "关系双人";
   if (spread === "choice_fork") return "抉择分叉";
   if (spread === "moon_triad") return "月相三问";
+  if (spread === "celtic_cross") return "凯尔特十字";
   return spread;
 }
 
@@ -30,6 +31,9 @@ export function spreadHint(spread: string): string | null {
   }
   if (spread === "single") {
     return "一盏启示，点到为止";
+  }
+  if (spread === "celtic_cross") {
+    return "十字十位 · 全景深入";
   }
   return null;
 }

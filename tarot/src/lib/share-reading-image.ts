@@ -5,7 +5,7 @@ import { spreadLabel } from "@/lib/spread-label";
 import type { Reading } from "@/lib/types";
 
 const W = 1080;
-const H = 1350;
+const BASE_H = 1350;
 
 const SUIT_GLYPH: Record<Suit, string> = {
   wands: "✦",
@@ -176,7 +176,7 @@ function drawMiniCard(
   ctx.font = "22px 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  ctx.fillText(truncate(positionLabel, 10), x + w / 2, y + 22);
+  ctx.fillText(truncate(positionLabel, 12), x + w / 2, y + 22);
 
   const cx = x + w / 2;
 
@@ -228,6 +228,23 @@ function drawMiniCard(
 
 /** Build a candlelight portrait PNG of the spread (privacy-safe; no ids). */
 export async function renderReadingSharePng(reading: Reading): Promise<Blob> {
+  const cards = reading.spreadResult.cards;
+  const count = Math.max(1, cards.length);
+  // 10-card Celtic Cross: smaller tiles + taller canvas so rows wrap cleanly
+  const cols =
+    count <= 3 ? count : count >= 10 ? 5 : Math.ceil(count / 2);
+  const cardW =
+    count === 1 ? 320 : count <= 3 ? 250 : count >= 10 ? 168 : 190;
+  const cardH =
+    count === 1 ? 420 : count <= 3 ? 380 : count >= 10 ? 250 : 300;
+  const gap = count === 1 ? 0 : count >= 10 ? 14 : 20;
+  const rowGap = count >= 10 ? 18 : 24;
+  const rows = Math.ceil(count / cols);
+  const H =
+    count >= 10
+      ? Math.max(BASE_H, 320 + rows * (cardH + rowGap) + 220)
+      : BASE_H;
+
   const canvas = document.createElement("canvas");
   canvas.width = W;
   canvas.height = H;
@@ -285,14 +302,6 @@ export async function renderReadingSharePng(reading: Reading): Promise<Blob> {
     metaY,
   );
 
-  // Cards (wrap to two rows when 4+)
-  const cards = reading.spreadResult.cards;
-  const count = Math.max(1, cards.length);
-  const cols = count <= 3 ? count : Math.ceil(count / 2);
-  const cardW = count === 1 ? 320 : count <= 3 ? 250 : 190;
-  const cardH = count === 1 ? 420 : count <= 3 ? 380 : 300;
-  const gap = count === 1 ? 0 : 20;
-  const rowGap = 24;
   const cardY0 = metaY + 48;
 
   const arts = await Promise.all(

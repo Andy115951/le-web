@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { RitualSpeed } from "@/data/scenes";
-import type { SpreadResult } from "@/lib/types";
+import type { DrawnCard, SpreadResult } from "@/lib/types";
 import { getCard } from "@/data/deck";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +18,76 @@ const SPEEDS: Record<RitualSpeed, number> = {
 
 const STEPS = ["静心…", "洗牌…", "问牌…", "翻开牌面…"] as const;
 
+/** Celtic Cross CSS grid areas (classic cross + vertical staff). */
+const CELTIC_AREA: Record<string, string> = {
+  present: "present",
+  cross: "cross",
+  foundation: "foundation",
+  recent_past: "past",
+  crown: "crown",
+  near_future: "future",
+  self: "self",
+  environment: "environment",
+  hopes_fears: "hopes",
+  outcome: "outcome",
+};
+
+function SpreadCard({
+  drawn,
+  visible,
+  className,
+  style,
+}: {
+  drawn: DrawnCard;
+  visible: boolean;
+  className?: string;
+  style?: CSSProperties;
+}) {
+  const card = getCard(drawn.cardId);
+  const name = card?.nameZh ?? drawn.cardId;
+  const orient = drawn.reversed ? "逆位" : "正位";
+  return (
+    <Card
+      className={cn(
+        "bg-card/80 transition-opacity duration-500",
+        visible ? "opacity-100" : "opacity-40",
+        className,
+      )}
+      style={style}
+      aria-label={
+        visible
+          ? `${drawn.positionLabel}：${name}，${orient}`
+          : `${drawn.positionLabel}：尚未翻开`
+      }
+    >
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">{drawn.positionLabel}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className={cn("tarot-flip", visible && "tarot-flip--revealed")}>
+          <div className="tarot-flip-inner">
+            <div className="tarot-flip-back">
+              <TarotCardBack />
+            </div>
+            <div className="tarot-flip-front space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-lg font-medium text-primary">{name}</span>
+                <Badge variant={drawn.reversed ? "destructive" : "secondary"}>
+                  {orient}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {card?.keywords.join(" · ")}
+              </p>
+              <TarotCardFace card={card} reversed={drawn.reversed} />
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function RitualStage({
   speed,
   spread,
@@ -31,6 +101,7 @@ export function RitualStage({
 }) {
   const delay = SPEEDS[speed] ?? 900;
   const cards = useMemo(() => spread.cards, [spread]);
+  const isCeltic = spread.spread === "celtic_cross";
   const [step, setStep] = useState(alreadyDone ? STEPS.length : 0);
   const [revealedCount, setRevealedCount] = useState(
     alreadyDone ? cards.length : 0,
@@ -127,70 +198,70 @@ export function RitualStage({
           <p className="text-center text-xs tracking-[0.2em] text-primary/70">
             {spreadLabel(spread.spread)}
           </p>
-        <div
-          className={cn(
-            "grid gap-3",
-            cards.length === 1
-              ? "mx-auto max-w-xs"
-              : cards.length === 5
-                ? "grid-cols-2 sm:grid-cols-3"
-                : "sm:grid-cols-3",
-          )}
-          aria-label="牌阵结果"
-        >
-          {cards.map((c, index) => {
-            const card = getCard(c.cardId);
-            const visible = index < revealedCount;
-            const name = card?.nameZh ?? c.cardId;
-            const orient = c.reversed ? "逆位" : "正位";
-            return (
-              <Card
-                key={c.position}
-                className={cn(
-                  "bg-card/80 transition-opacity duration-500",
-                  visible ? "opacity-100" : "opacity-40",
-                )}
-                aria-label={
-                  visible
-                    ? `${c.positionLabel}：${name}，${orient}`
-                    : `${c.positionLabel}：尚未翻开`
-                }
+
+          {isCeltic ? (
+            <>
+              {/* Mobile: compact 2-column sequential */}
+              <div
+                className="grid grid-cols-2 gap-3 sm:hidden"
+                aria-label="牌阵结果"
               >
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{c.positionLabel}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div
-                    className={cn(
-                      "tarot-flip",
-                      visible && "tarot-flip--revealed",
-                    )}
-                  >
-                    <div className="tarot-flip-inner">
-                      <div className="tarot-flip-back">
-                        <TarotCardBack />
-                      </div>
-                      <div className="tarot-flip-front space-y-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-lg font-medium text-primary">
-                            {name}
-                          </span>
-                          <Badge variant={c.reversed ? "destructive" : "secondary"}>
-                            {orient}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {card?.keywords.join(" · ")}
-                        </p>
-                        <TarotCardFace card={card} reversed={c.reversed} />
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                {cards.map((c, index) => (
+                  <SpreadCard
+                    key={c.position}
+                    drawn={c}
+                    visible={index < revealedCount}
+                  />
+                ))}
+              </div>
+              {/* sm+: Celtic-ish cross + vertical staff */}
+              <div
+                className="hidden gap-3 sm:grid"
+                style={{
+                  gridTemplateColumns: "minmax(0,1fr) minmax(0,1.15fr) minmax(0,1fr) minmax(0,1fr)",
+                  gridTemplateAreas: `
+                    ". crown crown self"
+                    "past present future environment"
+                    ". cross . hopes"
+                    ". foundation . outcome"
+                  `,
+                }}
+                aria-label="牌阵结果"
+              >
+                {cards.map((c, index) => {
+                  const area = CELTIC_AREA[c.position] ?? undefined;
+                  return (
+                    <SpreadCard
+                      key={c.position}
+                      drawn={c}
+                      visible={index < revealedCount}
+                      style={area ? { gridArea: area } : undefined}
+                    />
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <div
+              className={cn(
+                "grid gap-3",
+                cards.length === 1
+                  ? "mx-auto max-w-xs"
+                  : cards.length === 5
+                    ? "grid-cols-2 sm:grid-cols-3"
+                    : "sm:grid-cols-3",
+              )}
+              aria-label="牌阵结果"
+            >
+              {cards.map((c, index) => (
+                <SpreadCard
+                  key={c.position}
+                  drawn={c}
+                  visible={index < revealedCount}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

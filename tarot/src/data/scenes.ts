@@ -13,7 +13,8 @@ export type SpreadType =
   | "five_cross"
   | "relation_dual"
   | "choice_fork"
-  | "moon_triad";
+  | "moon_triad"
+  | "celtic_cross";
 export type DetailLevel = "brief" | "detailed";
 export type RitualSpeed = "slow" | "normal" | "fast";
 

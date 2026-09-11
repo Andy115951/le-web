@@ -55,12 +55,27 @@ const MOON_TRIAD = [
   { position: "timely_act", positionLabel: "应时之举" },
 ] as const;
 
+/** 凯尔特十字（十位）：现状 / 挑战 / 根基 / 近况 / 可能显化 / 近前 / 自我 / 环境 / 希冀与隐忧 / 综合走向 */
+const CELTIC_CROSS = [
+  { position: "present", positionLabel: "现状" },
+  { position: "cross", positionLabel: "挑战" },
+  { position: "foundation", positionLabel: "根基" },
+  { position: "recent_past", positionLabel: "近况" },
+  { position: "crown", positionLabel: "可能显化" },
+  { position: "near_future", positionLabel: "近前" },
+  { position: "self", positionLabel: "自我" },
+  { position: "environment", positionLabel: "环境" },
+  { position: "hopes_fears", positionLabel: "希冀与隐忧" },
+  { position: "outcome", positionLabel: "综合走向" },
+] as const;
+
 function positionsFor(spread: SpreadType) {
   if (spread === "single") return SINGLE;
   if (spread === "five_cross") return FIVE_CROSS;
   if (spread === "relation_dual") return RELATION_DUAL;
   if (spread === "choice_fork") return CHOICE_FORK;
   if (spread === "moon_triad") return MOON_TRIAD;
+  if (spread === "celtic_cross") return CELTIC_CROSS;
   return THREE;
 }
 

@@ -48,6 +48,7 @@ export async function POST(req: Request) {
       "relation_dual",
       "choice_fork",
       "moon_triad",
+      "celtic_cross",
     ];
     const rawSpread = (body.spreadType || "three_card") as SpreadType;
     if (!allowedSpreads.includes(rawSpread)) {

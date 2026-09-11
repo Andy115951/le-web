@@ -175,6 +175,7 @@ export function NewReadingForm({
                   ["relation_dual", "关系双人"],
                   ["choice_fork", "抉择分叉"],
                   ["moon_triad", "月相三问"],
+                  ["celtic_cross", "凯尔特十字"],
                 ] as const
               ).map(([v, label]) => (
                 <Button
