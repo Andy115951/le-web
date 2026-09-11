@@ -212,3 +212,44 @@ export const QUOTAS = {
   user: { readings: 10, messages: 100 },
 } as const;
 
+
+/** Trim + collapse internal whitespace for same-question matching. */
+export function normalizeQuestion(q: string): string {
+  return q.trim().replace(/\s+/g, " ");
+}
+
+/**
+ * Most recent earlier reading with the same normalized question for this owner.
+ * Ignores soft-deleted; requires spread_result; excludes excludeId.
+ */
+export async function findPriorReadingByQuestion(opts: {
+  question: string;
+  userId?: string | null;
+  anonymousId?: string | null;
+  excludeId: string;
+}): Promise<Reading | null> {
+  const normalized = normalizeQuestion(opts.question);
+  if (!normalized) return null;
+
+  const supabase = getSupabaseAdmin();
+  let q = supabase
+    .from("tarot_readings")
+    .select("*")
+    .is("deleted_at", null)
+    .neq("id", opts.excludeId)
+    .not("spread_result", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(80);
+
+  if (opts.userId) q = q.eq("user_id", opts.userId);
+  else if (opts.anonymousId) q = q.eq("anonymous_id", opts.anonymousId);
+  else return null;
+
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+
+  const match = (data ?? []).find(
+    (row) => normalizeQuestion(String(row.question ?? "")) === normalized,
+  );
+  return match ? mapReading(match) : null;
+}

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ensureAnonymousId, getCurrentUser } from "@/lib/auth/session";
-import { listReadings } from "@/lib/store/readings";
+import { listReadings, normalizeQuestion } from "@/lib/store/readings";
 import { getCard } from "@/data/deck";
 import { spreadLabel } from "@/lib/spread-label";
 import { CUSTOM_SCENE, SCENES } from "@/data/scenes";
@@ -60,6 +60,14 @@ export default async function HistoryPage() {
             const names = r.spreadResult.cards
               .map((c) => getCard(c.cardId)?.nameZh ?? c.cardId)
               .join(" / ");
+            const nq = normalizeQuestion(r.question);
+            const canCompare = readings.some(
+              (other) =>
+                other.id !== r.id &&
+                !!other.spreadResult &&
+                normalizeQuestion(other.question) === nq &&
+                other.createdAt < r.createdAt,
+            );
             return (
               <HistoryCard
                 key={r.id}
@@ -71,6 +79,7 @@ export default async function HistoryPage() {
                   spreadLabel: spreadLabel(r.spreadType),
                   cardNames: names,
                   updatedAt: r.updatedAt,
+                  canCompare,
                 }}
               />
             );

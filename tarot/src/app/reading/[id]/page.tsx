@@ -1,6 +1,11 @@
 import { notFound } from "next/navigation";
 import { ensureAnonymousId, getCurrentUser } from "@/lib/auth/session";
-import { canAccessReading, getReading, listMessages } from "@/lib/store/readings";
+import {
+  canAccessReading,
+  findPriorReadingByQuestion,
+  getReading,
+  listMessages,
+} from "@/lib/store/readings";
 import { ReadingClient } from "@/components/reading/reading-client";
 
 export default async function ReadingPage({
@@ -16,5 +21,17 @@ export default async function ReadingPage({
     notFound();
   }
   const messages = await listMessages(id);
-  return <ReadingClient initialReading={reading} initialMessages={messages} />;
+  const prior = await findPriorReadingByQuestion({
+    question: reading.question,
+    userId: user?.id ?? null,
+    anonymousId: user ? null : anon,
+    excludeId: reading.id,
+  });
+  return (
+    <ReadingClient
+      initialReading={reading}
+      initialMessages={messages}
+      priorReading={prior}
+    />
+  );
 }

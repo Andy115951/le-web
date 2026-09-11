@@ -9,6 +9,7 @@ import { QuotaHint } from "@/components/quota/quota-hint";
 import { RitualStage } from "@/components/reading/ritual-stage";
 import { ShareReadingButton } from "@/components/reading/share-reading-button";
 import { CandleTokenButton } from "@/components/reading/candle-token-button";
+import { ComparePriorSection } from "@/components/reading/compare-prior-section";
 import { TarotCardFace } from "@/components/reading/tarot-card-face";
 import { getCard } from "@/data/deck";
 import {
@@ -124,9 +125,11 @@ async function readNdjsonStream(
 export function ReadingClient({
   initialReading,
   initialMessages,
+  priorReading = null,
 }: {
   initialReading: Reading;
   initialMessages: Message[];
+  priorReading?: Reading | null;
 }) {
   const [reading] = useState(initialReading);
   const [messages, setMessages] = useState(initialMessages);
@@ -308,6 +311,10 @@ export function ReadingClient({
         alreadyDone={initialMessages.length > 0}
         onDone={() => setRitualDone(true)}
       />
+
+      {ritualDone && priorReading ? (
+        <ComparePriorSection prior={priorReading} current={reading} />
+      ) : null}
 
       {ritualDone && (
         <Card>

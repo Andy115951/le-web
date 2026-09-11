@@ -22,6 +22,8 @@ export type HistoryCardData = {
   spreadLabel: string;
   cardNames: string;
   updatedAt: string;
+  /** P32: same-question prior exists */
+  canCompare?: boolean;
 };
 
 export function HistoryCard({ reading }: { reading: HistoryCardData }) {
@@ -210,6 +212,14 @@ export function HistoryCard({ reading }: { reading: HistoryCardData }) {
                 </CardTitle>
                 <Badge variant="outline">{reading.spreadLabel}</Badge>
                 <Badge variant="secondary">{reading.sceneLabel}</Badge>
+                {reading.canCompare ? (
+                  <Badge
+                    variant="outline"
+                    className="border-amber-500/40 text-amber-100/90"
+                  >
+                    可对照
+                  </Badge>
+                ) : null}
               </div>
               <CardDescription>
                 {reading.cardNames}
