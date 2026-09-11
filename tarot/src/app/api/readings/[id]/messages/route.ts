@@ -6,6 +6,11 @@ import {
   wantsStream,
 } from "@/lib/ai/ndjson-stream";
 import { ensureAnonymousId, getCurrentUser } from "@/lib/auth/session";
+import { drawSingleCard } from "@/lib/draw";
+import {
+  DEFAULT_SUB_CARD_PROMPT,
+  encodeSubCardMessage,
+} from "@/lib/sub-card-message";
 import {
   QUOTAS,
   addMessage,
@@ -24,10 +29,18 @@ export async function POST(
   try {
     const { id } = await ctx.params;
     const body = await req.json();
-    const text = String(body.content || "").trim();
-    if (text.length < 1 || text.length > 500) {
+    const rawContent = String(body.content ?? "");
+    const text = rawContent.trim();
+    const subSpread = body.subSpread === "single" ? "single" : null;
+
+    if (subSpread === "single") {
+      if (text.length > 500) {
+        return NextResponse.json({ error: "消息长度不合适" }, { status: 400 });
+      }
+    } else if (text.length < 1 || text.length > 500) {
       return NextResponse.json({ error: "消息长度不合适" }, { status: 400 });
     }
+
     const user = await getCurrentUser();
     const anon = await ensureAnonymousId();
     const subject = user ? `user:${user.id}` : `anon:${anon}`;
@@ -50,11 +63,32 @@ export async function POST(
     if (!reading || !(await canAccessReading(reading, user?.id ?? null, anon))) {
       return NextResponse.json({ error: "未找到" }, { status: 404 });
     }
-    await addMessage(id, "user", text);
+
+    let storedContent: string;
+    let visibleText: string;
+
+    if (subSpread === "single") {
+      const exclude = reading.spreadResult.cards.map((c) => c.cardId);
+      const drawn = drawSingleCard(exclude);
+      visibleText = text || DEFAULT_SUB_CARD_PROMPT;
+      storedContent = encodeSubCardMessage(
+        {
+          cardId: drawn.cardId,
+          reversed: drawn.reversed,
+          positionLabel: drawn.positionLabel,
+        },
+        text,
+      );
+    } else {
+      storedContent = text;
+      visibleText = text;
+    }
+
+    await addMessage(id, "user", storedContent);
     await bumpUsage(subject, "message");
     const history = await listMessages(id);
     const ai = getTarotAI();
-    const softHint = /换个问题|另一件事|完全不同/.test(text);
+    const softHint = /换个问题|另一件事|完全不同/.test(visibleText);
 
     if (!wantsStream(req)) {
       const reply = await ai.followUp({
@@ -62,7 +96,7 @@ export async function POST(
         scene: reading.scene,
         spreadResult: reading.spreadResult,
         history: history.map((m) => ({ role: m.role, content: m.content })),
-        userMessage: text,
+        userMessage: storedContent,
       });
       let content = reply;
       if (softHint) {
@@ -83,7 +117,7 @@ export async function POST(
           scene: reading.scene,
           spreadResult: reading.spreadResult,
           history: history.map((m) => ({ role: m.role, content: m.content })),
-          userMessage: text,
+          userMessage: storedContent,
         },
         options,
       )) {

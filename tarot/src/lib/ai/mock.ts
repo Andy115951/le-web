@@ -7,6 +7,7 @@ import type {
   TarotAI,
 } from "@/lib/ai/types";
 import { describeSpread } from "@/lib/ai/prompts";
+import { contentForAI, parseSubCardMessage } from "@/lib/sub-card-message";
 
 const DISCLAIMER = "以上解读供娱乐与自我反思，并不构成确定预言。";
 
@@ -62,14 +63,23 @@ async function followUpText(input: FollowUpInput): Promise<string> {
     ? getCard(input.spreadResult.cards[0].cardId)?.nameZh
     : null;
   const anchor = tip ? `尤其是「${tip}」` : "本局牌面";
+  const { meta, text } = parseSubCardMessage(input.userMessage);
+  const heard = meta ? contentForAI(input.userMessage) : text;
+  const subNote = meta
+    ? "我会把这张象征牌当作本轮追问的额外锚点，仍以本局主牌阵为根基。"
+    : null;
   return [
-    `我仍以本局（${anchor}）为锚来听你说的：「${input.userMessage}」。`,
+    `我仍以本局（${anchor}）为锚来听你说的：`,
+    heard,
     "",
+    subNote,
     "可能的方向是：把问题拆成「我能影响的」与「我只能观察的」。前者试一小步，后者允许暂时只看着。",
     sceneClosing(input.scene),
     "",
     "若你其实在谈一个全新主题，也可以点「新占卜」再起一卦。",
-  ].join("\n");
+  ]
+    .filter((line): line is string => line != null)
+    .join("\n");
 }
 
 export const mockAI: TarotAI = {

@@ -1,6 +1,11 @@
 import { getCard } from "@/data/deck";
 import { SCENES, CUSTOM_SCENE, TONE_BASELINE } from "@/data/scenes";
 import type { FollowUpInput, InterpretInput } from "@/lib/ai/types";
+import {
+  contentForAI,
+  hasSubCardInMessages,
+  parseSubCardMessage,
+} from "@/lib/sub-card-message";
 
 export function sceneTone(scene: string): string {
   const s = [...SCENES, CUSTOM_SCENE].find((x) => x.id === scene);
@@ -60,12 +65,21 @@ export function interpretUserPrompt(input: InterpretInput): string {
 }
 
 export function followUpSystemPrompt(input: FollowUpInput): string {
+  const historyHasSub = hasSubCardInMessages(input.history);
+  const currentHasSub = parseSubCardMessage(input.userMessage).meta != null;
+  const subCardRule =
+    historyHasSub || currentHasSub
+      ? "若追问含【象征】子牌（子牌阵），将其视为锚定本轮追问的额外象征牌，仍以本局主牌阵为根基回应；勿当作新的完整起卦或另开一局解读。"
+      : "";
   return [
     "你是 Candle Taro 的追问顾问。仍以本局牌阵为锚，像持续顾问对话般回应。",
     OUTPUT_RULES,
     `场景语气：${sceneTone(input.scene)}`,
     "若用户明显换成全新主题，可温和建议点「新占卜」再起一卦，不强制。",
-  ].join("\n");
+    subCardRule,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 export function followUpMessages(input: FollowUpInput): {
@@ -82,13 +96,14 @@ export function followUpMessages(input: FollowUpInput): {
     .filter((m) => m.role === "user" || m.role === "assistant")
     .map((m) => ({
       role: m.role as "user" | "assistant",
-      content: m.content,
+      content:
+        m.role === "user" ? contentForAI(m.content) : m.content,
     }));
 
   return [
     { role: "user" as const, content: anchor },
     { role: "assistant" as const, content: "已收到本局牌阵，我会以此为锚回应你的追问。" },
     ...history,
-    { role: "user" as const, content: input.userMessage },
+    { role: "user" as const, content: contentForAI(input.userMessage) },
   ];
 }

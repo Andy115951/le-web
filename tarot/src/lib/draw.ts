@@ -51,3 +51,18 @@ export function drawSpread(spread: SpreadType): SpreadResult {
   }));
   return { spread, cards };
 }
+
+/** Draw one symbolic card, preferring cards not already in the main spread. */
+export function drawSingleCard(excludeCardIds: string[] = []): DrawnCard {
+  const exclude = new Set(excludeCardIds);
+  const available = TAROT_DECK.filter((c) => !exclude.has(c.id));
+  const pool = available.length > 0 ? available : [...TAROT_DECK];
+  const shuffled = secureShuffle(pool);
+  const picked = shuffled[0]!;
+  return {
+    position: "symbol",
+    positionLabel: "象征",
+    cardId: picked.id,
+    reversed: coinFlip(),
+  };
+}
