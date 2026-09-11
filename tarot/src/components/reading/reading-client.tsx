@@ -8,6 +8,7 @@ import { useQuota } from "@/hooks/use-quota";
 import { QuotaHint } from "@/components/quota/quota-hint";
 import { RitualStage } from "@/components/reading/ritual-stage";
 import { ShareReadingButton } from "@/components/reading/share-reading-button";
+import { CandleTokenButton } from "@/components/reading/candle-token-button";
 import { TarotCardFace } from "@/components/reading/tarot-card-face";
 import { getCard } from "@/data/deck";
 import {
@@ -290,7 +291,10 @@ export function ReadingClient({
             {speedLabel}
           </Badge>
           {ritualDone && messages.some((m) => m.role === "assistant") ? (
-            <ShareReadingButton reading={reading} />
+            <>
+              <ShareReadingButton reading={reading} />
+              <CandleTokenButton reading={reading} />
+            </>
           ) : null}
           <Button asChild size="sm">
             <Link href="/reading/new">新占卜</Link>

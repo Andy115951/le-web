@@ -7,6 +7,7 @@ import { getCard } from "@/data/deck";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TarotCardBack, TarotCardFace } from "@/components/reading/tarot-card-face";
+import { spreadLabel } from "@/lib/spread-label";
 import { cn } from "@/lib/utils";
 
 const SPEEDS: Record<RitualSpeed, number> = {
@@ -122,6 +123,10 @@ export function RitualStage({
       </div>
 
       {showCards && (
+        <div className="space-y-3">
+          <p className="text-center text-xs tracking-[0.2em] text-primary/70">
+            {spreadLabel(spread.spread)}
+          </p>
         <div
           className={cn(
             "grid gap-3",
@@ -185,6 +190,7 @@ export function RitualStage({
               </Card>
             );
           })}
+        </div>
         </div>
       )}
     </div>

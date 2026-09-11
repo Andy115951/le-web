@@ -5,6 +5,7 @@ import type {
   InterpretInput,
   StreamOptions,
   TarotAI,
+  TokenVerseInput,
 } from "@/lib/ai/types";
 import { describeSpread } from "@/lib/ai/prompts";
 import { contentForAI, parseSubCardMessage } from "@/lib/sub-card-message";
@@ -82,12 +83,44 @@ async function followUpText(input: FollowUpInput): Promise<string> {
     .join("\n");
 }
 
+
+async function tokenVerseText(input: TokenVerseInput): Promise<string> {
+  const card = getCard(input.cardId);
+  const name = card?.nameZh ?? "此牌";
+  const kw = card?.keywords?.[0] ?? "静默";
+  const pos = input.positionLabel;
+  if (input.reversed) {
+    const lines = [
+      `${name}逆光而立：${kw}被藏起时，更宜先听自己的呼吸。`,
+      `${pos}上，${name}低语——先松开紧握的那只手，再看路怎么转。`,
+      `烛火一晃：${name}提醒你，${kw}不必急着显形。`,
+    ];
+    return lines[Math.abs(hashStr(input.cardId + pos)) % lines.length]!;
+  }
+  const lines = [
+    `${name}低声说：先把${kw}握在掌心，再问风向。`,
+    `烛影里，${name}提醒你——${kw}比急着定论更靠近答案。`,
+    `以${name}为镜：${kw}还在生长，不必催它开花。`,
+    `${pos}处，${name}示意：把脚步放慢半寸，${kw}自会显形。`,
+  ];
+  return lines[Math.abs(hashStr(input.cardId + pos)) % lines.length]!;
+}
+
+function hashStr(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return h;
+}
+
 export const mockAI: TarotAI = {
   async interpret(input) {
     return interpretText(input);
   },
   async followUp(input) {
     return followUpText(input);
+  },
+  async tokenVerse(input) {
+    return tokenVerseText(input);
   },
   async *interpretStream(input, options?: StreamOptions) {
     yield* chunkText(await interpretText(input), options);

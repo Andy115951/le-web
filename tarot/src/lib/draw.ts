@@ -34,9 +34,33 @@ const FIVE_CROSS = [
   { position: "advice", positionLabel: "建议" },
 ] as const;
 
+/** 关系双人：我方 / 对方 / 关系纽带 */
+const RELATION_DUAL = [
+  { position: "self", positionLabel: "我方" },
+  { position: "other", positionLabel: "对方" },
+  { position: "bond", positionLabel: "关系纽带" },
+] as const;
+
+/** 抉择分叉：路径甲 / 路径乙 / 关键建议 */
+const CHOICE_FORK = [
+  { position: "path_a", positionLabel: "路径甲" },
+  { position: "path_b", positionLabel: "路径乙" },
+  { position: "counsel", positionLabel: "关键建议" },
+] as const;
+
+/** 月相三问：隐流 / 显象 / 应时之举 */
+const MOON_TRIAD = [
+  { position: "undertow", positionLabel: "隐流" },
+  { position: "apparition", positionLabel: "显象" },
+  { position: "timely_act", positionLabel: "应时之举" },
+] as const;
+
 function positionsFor(spread: SpreadType) {
   if (spread === "single") return SINGLE;
   if (spread === "five_cross") return FIVE_CROSS;
+  if (spread === "relation_dual") return RELATION_DUAL;
+  if (spread === "choice_fork") return CHOICE_FORK;
+  if (spread === "moon_triad") return MOON_TRIAD;
   return THREE;
 }
 

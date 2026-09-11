@@ -7,7 +7,13 @@ export type SceneId =
   | "body"
   | "custom";
 
-export type SpreadType = "three_card" | "single" | "five_cross";
+export type SpreadType =
+  | "three_card"
+  | "single"
+  | "five_cross"
+  | "relation_dual"
+  | "choice_fork"
+  | "moon_triad";
 export type DetailLevel = "brief" | "detailed";
 export type RitualSpeed = "slow" | "normal" | "fast";
 

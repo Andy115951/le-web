@@ -6,12 +6,15 @@ import type {
   InterpretInput,
   StreamOptions,
   TarotAI,
+  TokenVerseInput,
 } from "@/lib/ai/types";
 import {
   followUpMessages,
   followUpSystemPrompt,
   interpretSystemPrompt,
   interpretUserPrompt,
+  tokenVerseSystemPrompt,
+  tokenVerseUserPrompt,
 } from "@/lib/ai/prompts";
 
 /** Same defaults as stock-dashboard DeepSeek OpenAI-compatible gateway. */
@@ -106,6 +109,15 @@ export const deepseekAI: TarotAI = {
       messages: followUpMessages(input),
     });
     return text.trim();
+  },
+  async tokenVerse(input: TokenVerseInput) {
+    const { model } = getClient();
+    const { text } = await generateText({
+      model,
+      system: tokenVerseSystemPrompt(),
+      prompt: tokenVerseUserPrompt(input),
+    });
+    return text.trim().replace(/^["「『]|["」』]$/g, "").trim();
   },
   async *interpretStream(input: InterpretInput, options?: StreamOptions) {
     if (options?.instant) {

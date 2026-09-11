@@ -21,9 +21,20 @@ export type StreamOptions = {
   instant?: boolean;
 };
 
+/** P30 烛火信物：短签 verse for focal card wallpaper. */
+export type TokenVerseInput = {
+  question: string;
+  scene: SceneId;
+  spreadResult: SpreadResult;
+  cardId: string;
+  reversed: boolean;
+  positionLabel: string;
+};
+
 export interface TarotAI {
   interpret(input: InterpretInput): Promise<string>;
   followUp(input: FollowUpInput): Promise<string>;
+  tokenVerse(input: TokenVerseInput): Promise<string>;
   interpretStream(
     input: InterpretInput,
     options?: StreamOptions,

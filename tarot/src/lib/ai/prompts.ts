@@ -1,6 +1,6 @@
 import { getCard } from "@/data/deck";
 import { SCENES, CUSTOM_SCENE, TONE_BASELINE } from "@/data/scenes";
-import type { FollowUpInput, InterpretInput } from "@/lib/ai/types";
+import type { FollowUpInput, InterpretInput, TokenVerseInput } from "@/lib/ai/types";
 import {
   contentForAI,
   hasSubCardInMessages,
@@ -106,4 +106,38 @@ export function followUpMessages(input: FollowUpInput): {
     ...history,
     { role: "user" as const, content: contentForAI(input.userMessage) },
   ];
+}
+
+
+export function tokenVerseSystemPrompt(): string {
+  return [
+    "你是 Candle Taro 的短签写手：为「烛火信物」壁纸写 1–2 行中文短签。",
+    OUTPUT_RULES,
+    "只输出短签正文，不要标题、引号、免责声明或解释。",
+    "语气神秘、意象化；禁止绝对预言（必将/一定会等）；可用可能/倾向/值得留意。",
+    "总长约 16–40 字，最多两行（可用换行）。",
+  ].join("\n");
+}
+
+export function tokenVerseUserPrompt(input: TokenVerseInput): string {
+  const card = getCard(input.cardId);
+  const orient = input.reversed ? "逆位" : "正位";
+  const name = card?.nameZh ?? input.cardId;
+  const meaning = card
+    ? input.reversed
+      ? card.reversed
+      : card.upright
+    : "";
+  const keywords = card?.keywords?.join("、") ?? "";
+  return [
+    `问题：${input.question}`,
+    `场景：${input.scene}`,
+    `焦点位：${input.positionLabel}`,
+    `牌：${name}（${orient}）`,
+    keywords ? `关键词：${keywords}` : "",
+    meaning ? `牌义摘要：${meaning}` : "",
+    "请写一句可贴在烛光壁纸上的短签。",
+  ]
+    .filter(Boolean)
+    .join("\n");
 }

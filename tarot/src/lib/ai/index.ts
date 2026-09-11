@@ -5,6 +5,7 @@ import type {
   InterpretInput,
   StreamOptions,
   TarotAI,
+  TokenVerseInput,
 } from "@/lib/ai/types";
 
 function withMockFallback(primary: TarotAI, label: string): TarotAI {
@@ -23,6 +24,14 @@ function withMockFallback(primary: TarotAI, label: string): TarotAI {
       } catch (err) {
         console.error(`[ai] ${label} followUp failed; falling back to mock`, err);
         return mockAI.followUp(input);
+      }
+    },
+    async tokenVerse(input: TokenVerseInput) {
+      try {
+        return await primary.tokenVerse(input);
+      } catch (err) {
+        console.error(`[ai] ${label} tokenVerse failed; falling back to mock`, err);
+        return mockAI.tokenVerse(input);
       }
     },
     async *interpretStream(input: InterpretInput, options?: StreamOptions) {
@@ -78,5 +87,6 @@ export type {
   TarotAI,
   InterpretInput,
   FollowUpInput,
+  TokenVerseInput,
   StreamOptions,
 } from "@/lib/ai/types";

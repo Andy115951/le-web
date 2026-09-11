@@ -11,6 +11,7 @@ import {
   type SceneId,
   type SpreadType,
 } from "@/data/scenes";
+import { spreadHint } from "@/lib/spread-label";
 import { DEFAULT_USER_PREFS, readUserPrefs } from "@/lib/user-prefs";
 import { useQuota } from "@/hooks/use-quota";
 import { QuotaHint } from "@/components/quota/quota-hint";
@@ -161,14 +162,29 @@ export function NewReadingForm({
           <div className="space-y-2">
             <Label>牌阵</Label>
             <div className="flex flex-wrap gap-2">
-              <Button type="button" size="sm" variant={spread === "three_card" ? "default" : "outline"} onClick={() => setSpread("three_card")}>三牌</Button>
-              <Button type="button" size="sm" variant={spread === "five_cross" ? "default" : "outline"} onClick={() => setSpread("five_cross")}>情境五牌</Button>
-              <Button type="button" size="sm" variant={spread === "single" ? "default" : "outline"} onClick={() => setSpread("single")}>单牌</Button>
+              {(
+                [
+                  ["three_card", "三牌"],
+                  ["single", "单牌"],
+                  ["five_cross", "情境五牌"],
+                  ["relation_dual", "关系双人"],
+                  ["choice_fork", "抉择分叉"],
+                  ["moon_triad", "月相三问"],
+                ] as const
+              ).map(([v, label]) => (
+                <Button
+                  key={v}
+                  type="button"
+                  size="sm"
+                  variant={spread === v ? "default" : "outline"}
+                  onClick={() => setSpread(v)}
+                >
+                  {label}
+                </Button>
+              ))}
             </div>
-            {spread === "five_cross" ? (
-              <p className="text-xs text-muted-foreground">
-                现状 · 挑战 · 过去影响 · 近期走向 · 建议
-              </p>
+            {spreadHint(spread) ? (
+              <p className="text-xs text-muted-foreground">{spreadHint(spread)}</p>
             ) : null}
           </div>
           <div className="space-y-2">
