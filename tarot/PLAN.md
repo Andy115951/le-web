@@ -1,4 +1,4 @@
-# Tarot Plan（冻结 v2.12 · 2026-09-11）
+# Tarot Plan（冻结 v2.13 · 2026-09-11）
 
 > 实现状态：P0–P33 已落地（大阿尔卡纳全套 + 圣杯 + 权杖 + 宝剑 + 星币花色混合位图齐；78 张 `CARD_ART`；追问子牌阵；牌阵剧场三阵；烛火信物；场景剧场软提示；同题回看对照；凯尔特十字十位）。AI 默认 mock；`AI_PROVIDER=deepseek`（legacy `gateway`）对齐 stock-dashboard OpenAI 兼容接口，不再用 Vercel AI Gateway。生产需 `DEEPSEEK_API_KEY`。Vercel↔GitHub 自动部署已接通。混合位图渐进已收官（不强制外购整副）。产品决策仍按下表冻结。
 
@@ -270,13 +270,27 @@
 - AI：`describeSpread` 已按位标注入；详细档可更长，无需新协议
 - 回看对照（P32）：经 `spreadResult.cards` 自然工作
 - 「凯尔特十字」作牌阵产品名可用；其余对外文案仍禁「塔罗」
-- **下一批**：P34 账号系统补全（queued；本阶段不实现 OAuth）
+- 下一批曾指向 P34；**P34 已完成**（见 §3.37）
+
+
+### 3.37 P34 账号系统补全（已定）
+
+- 保留既有用户名/密码 + httpOnly `ct_session`
+- 登录页可选 **GitHub / Google** OAuth（环境变量齐全才显示按钮；缺省不崩溃）
+- 自定义 OAuth（非整站改写为 Supabase Auth）：`GET /api/auth/oauth/github|google` → 授权；共用 `GET /api/auth/oauth/callback`（state 编码 provider + HMAC CSRF）
+- 首登：写入 `tarot_users`（`password_hash` 可空）、建会话、`mergeAnonymousReadings`；回访按 `(auth_provider, provider_user_id)` 查找
+- 显示名取 OAuth profile；用户名 `gh_<login|id>` / `go_<sub>`（OAuth 放宽至 48 位）
+- Migration：`20260911170000_oauth_users.sql`（`auth_provider` / `provider_user_id` / `avatar_url` / `email` + 部分唯一索引）
+- Env：`OAUTH_BASE_URL`（或 `VERCEL_URL` / request origin）、`GITHUB_OAUTH_CLIENT_ID/SECRET`、`GOOGLE_OAUTH_CLIENT_ID/SECRET`；复用 `SESSION_SECRET` 签 state
+- Redirect URI：`{OAUTH_BASE_URL}/api/auth/oauth/callback`（生产必配；本地可另加 localhost）
+- 设置页展示登录身份 + 登录方式提示；文案禁「塔罗」
+- 手机号登录仍后置
 
 ## 4. MVP 范围
 
-含：场景起卦、文本仪式（三速）、简要/详细解读、自由追问（含追问子牌阵）、新占卜按钮与软提示、历史卡片（重命名/软删）、访客/登录额度、用户名密码登录、深色烛光 UI、插画风牌面示意 + 大阿尔卡纳混合位图全套 + 圣杯/权杖花色混合位图、AI mock + deepseek 接线、流式解读/追问 UI、基础无障碍与空状态抛光、分享牌阵纯文本摘要、烛光分享 PNG、烛火信物竖版壁纸、额度感知 UX、牌义图鉴、加厚牌库释义、首页今日一牌、牌阵剧场三阵（关系双人/抉择分叉/月相三问）、场景剧场软提示、同题回看对照（上一卦/本卦）、凯尔特十字十位。
+含：场景起卦、文本仪式（三速）、简要/详细解读、自由追问（含追问子牌阵）、新占卜按钮与软提示、历史卡片（重命名/软删）、访客/登录额度、用户名密码登录 + GitHub/Google OAuth、深色烛光 UI、插画风牌面示意 + 大阿尔卡纳混合位图全套 + 圣杯/权杖花色混合位图、AI mock + deepseek 接线、流式解读/追问 UI、基础无障碍与空状态抛光、分享牌阵纯文本摘要、烛光分享 PNG、烛火信物竖版壁纸、额度感知 UX、牌义图鉴、加厚牌库释义、首页今日一牌、牌阵剧场三阵（关系双人/抉择分叉/月相三问）、场景剧场软提示、同题回看对照（上一卦/本卦）、凯尔特十字十位。
 
-不含（付费等仍后置）：付费、OAuth/手机号（P34 排队）；混合位图已齐（不强制外购整副）。
+不含（付费等仍后置）：付费、手机号登录；混合位图已齐（不强制外购整副）。OAuth（GitHub/Google）已在 P34 落地。
 
 ## 5. 分阶段（实现时）
 
@@ -316,7 +330,7 @@
 | P31 | 牌阵剧场场景软提示 + COPY/设置文案同步 | 已完成 |
 | P32 | 回看对照（同题上一卦 / 本卦关键牌并排） | 已完成 |
 | P33 | 凯尔特十字十位 `celtic_cross` | 已完成 |
-| P34 | 账号系统补全（OAuth 等） | 排队中 |
+| P34 | 账号系统补全（OAuth 等） | 已完成 |
 
 ## 6. 详细设计
 

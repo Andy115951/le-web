@@ -47,8 +47,11 @@ export type Message = {
   createdAt: string;
 };
 
+export type AuthProvider = "password" | "github" | "google";
+
 export type PublicUser = {
   id: string;
   username: string;
   displayName: string | null;
+  authProvider?: AuthProvider;
 };

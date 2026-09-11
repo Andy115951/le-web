@@ -12,12 +12,25 @@ import {
 } from "@/components/ui/card";
 import { SettingsDefaultsForm } from "@/components/settings/settings-defaults-form";
 
+function providerHint(provider?: string | null) {
+  if (provider === "github") return "GitHub";
+  if (provider === "google") return "Google";
+  if (provider === "password") return "用户名密码";
+  return null;
+}
+
 export default async function SettingsPage() {
   const user = await getCurrentUser();
   const anon = await ensureAnonymousId();
   const subject = user ? `user:${user.id}` : `anon:${anon}`;
   const usage = await getUsage(subject);
   const quota = user ? QUOTAS.user : QUOTAS.guest;
+  const how = providerHint(user?.authProvider);
+  const label = user
+    ? user.displayName && user.displayName !== user.username
+      ? `${user.displayName}（${user.username}）`
+      : user.username
+    : null;
 
   return (
     <div className="space-y-6">
@@ -32,7 +45,9 @@ export default async function SettingsPage() {
         <CardHeader>
           <CardTitle className="text-base">账号</CardTitle>
           <CardDescription>
-            {user ? `已登录：${user.username}` : "当前为访客 · 登录后历史自动合并"}
+            {user
+              ? `已登录：${label}${how ? ` · ${how}` : ""}`
+              : "当前为访客 · 登录后历史自动合并"}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">

@@ -10,10 +10,26 @@ import {
   setCookie,
 } from "@/lib/cookies";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import type { PublicUser } from "@/lib/types";
+import type { AuthProvider, PublicUser } from "@/lib/types";
+import type { OAuthProfile } from "@/lib/auth/oauth";
 
 function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
+}
+
+function toPublicUser(row: {
+  id: string;
+  username: string;
+  display_name: string | null;
+  auth_provider?: string | null;
+}): PublicUser {
+  const provider = (row.auth_provider || "password") as AuthProvider;
+  return {
+    id: row.id,
+    username: row.username,
+    displayName: row.display_name,
+    authProvider: provider,
+  };
 }
 
 export async function ensureAnonymousId() {
@@ -35,15 +51,20 @@ export async function registerUser(username: string, password: string) {
   const password_hash = await bcrypt.hash(password, 12);
   const { data, error } = await supabase
     .from("tarot_users")
-    .insert({ username: clean, password_hash, display_name: clean })
-    .select("id, username, display_name")
+    .insert({
+      username: clean,
+      password_hash,
+      display_name: clean,
+      auth_provider: "password",
+    })
+    .select("id, username, display_name, auth_provider")
     .single();
   if (error) {
     if (error.code === "23505") throw new Error("用户名已存在");
     throw new Error(error.message);
   }
   await createSession(data.id);
-  return { id: data.id, username: data.username, displayName: data.display_name } as PublicUser;
+  return toPublicUser(data);
 }
 
 export async function loginUser(username: string, password: string) {
@@ -51,22 +72,100 @@ export async function loginUser(username: string, password: string) {
   const clean = username.trim().toLowerCase();
   const { data: user, error } = await supabase
     .from("tarot_users")
-    .select("id, username, display_name, password_hash")
+    .select("id, username, display_name, password_hash, auth_provider")
     .eq("username", clean)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+  if (!user?.password_hash || !(await bcrypt.compare(password, user.password_hash))) {
     throw new Error("用户名或密码错误");
   }
   await createSession(user.id);
-  return {
-    id: user.id,
-    username: user.username,
-    displayName: user.display_name,
-  } as PublicUser;
+  return toPublicUser(user);
 }
 
-async function createSession(userId: string) {
+/** Allocate a unique username; OAuth allows up to 48 chars a-z0-9_. */
+async function allocateUsername(preferred: string) {
+  const supabase = getSupabaseAdmin();
+  let base = preferred
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "")
+    .slice(0, 48);
+  if (base.length < 3) base = `u_${nanoid(8)}`;
+  for (let i = 0; i < 8; i++) {
+    const candidate = i === 0 ? base : `${base.slice(0, 40)}_${nanoid(4)}`.slice(0, 48);
+    const { data } = await supabase
+      .from("tarot_users")
+      .select("id")
+      .eq("username", candidate)
+      .maybeSingle();
+    if (!data) return candidate;
+  }
+  return `u_${nanoid(12)}`;
+}
+
+export async function upsertOAuthUser(profile: OAuthProfile): Promise<PublicUser> {
+  const supabase = getSupabaseAdmin();
+  const { data: existing, error: findErr } = await supabase
+    .from("tarot_users")
+    .select("id, username, display_name, auth_provider")
+    .eq("auth_provider", profile.provider)
+    .eq("provider_user_id", profile.providerUserId)
+    .maybeSingle();
+  if (findErr) throw new Error(findErr.message);
+
+  if (existing) {
+    const patch: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+    if (profile.displayName && !existing.display_name) {
+      patch.display_name = profile.displayName;
+    }
+    if (profile.avatarUrl) patch.avatar_url = profile.avatarUrl;
+    if (profile.email) patch.email = profile.email;
+    await supabase.from("tarot_users").update(patch).eq("id", existing.id);
+    const displayName =
+      (typeof patch.display_name === "string" ? patch.display_name : null) ||
+      existing.display_name ||
+      profile.displayName;
+    return toPublicUser({
+      ...existing,
+      display_name: displayName,
+    });
+  }
+
+  const username = await allocateUsername(profile.usernameHint);
+  const { data: created, error: insertErr } = await supabase
+    .from("tarot_users")
+    .insert({
+      username,
+      password_hash: null,
+      display_name: profile.displayName || username,
+      auth_provider: profile.provider,
+      provider_user_id: profile.providerUserId,
+      avatar_url: profile.avatarUrl,
+      email: profile.email,
+    })
+    .select("id, username, display_name, auth_provider")
+    .single();
+  if (insertErr) {
+    // Race: another request created the same provider identity
+    if (insertErr.code === "23505") {
+      const { data: raced } = await supabase
+        .from("tarot_users")
+        .select("id, username, display_name, auth_provider")
+        .eq("auth_provider", profile.provider)
+        .eq("provider_user_id", profile.providerUserId)
+        .maybeSingle();
+      if (raced) return toPublicUser(raced);
+    }
+    throw new Error(insertErr.message);
+  }
+  return toPublicUser(created);
+}
+
+export async function createSession(userId: string) {
   const supabase = getSupabaseAdmin();
   const token = randomBytes(32).toString("hex");
   const expires = new Date(Date.now() + SESSION_DAYS * 86400000).toISOString();
@@ -109,7 +208,7 @@ export async function getCurrentUser(): Promise<PublicUser | null> {
   }
   const { data: user } = await supabase
     .from("tarot_users")
-    .select("id, username, display_name")
+    .select("id, username, display_name, auth_provider")
     .eq("id", session.user_id)
     .maybeSingle();
   if (!user) return null;
@@ -117,7 +216,7 @@ export async function getCurrentUser(): Promise<PublicUser | null> {
     .from("tarot_sessions")
     .update({ last_seen_at: new Date().toISOString() })
     .eq("id", session.id);
-  return { id: user.id, username: user.username, displayName: user.display_name };
+  return toPublicUser(user);
 }
 
 export async function mergeAnonymousReadings(userId: string, anonymousId: string) {

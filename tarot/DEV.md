@@ -1,6 +1,6 @@
-# leweb · tarot — 开发文档（冻结产品决策 v2.12 · 2026-09-11）
+# leweb · tarot — 开发文档（冻结产品决策 v2.13 · 2026-09-11）
 
-> 状态：**P0–P33 已实现**（P19：22 张大阿尔卡纳；P20–P21：圣杯；P22：权杖；P23：宝剑；P24–P25：星币花色全套 `pentacles_ace`–`pentacles_king` 混合位图；78 张 `CARD_ART` 齐；P28 追问子牌阵；P29 牌阵剧场三阵；P30 烛火信物；P31 场景剧场软提示 + COPY v1.7；P32 同题回看对照；P33 凯尔特十字十位）。AI 默认 `AI_PROVIDER=mock`；`AI_PROVIDER=deepseek`（legacy 别名 `gateway`）走 DeepSeek OpenAI 兼容接口（对齐 stock-dashboard：`DEEPSEEK_API_KEY` / `DEEPSEEK_API_URL` / `DEEPSEEK_MODEL`），失败回退 mock。P13 起不再使用 Vercel AI Gateway。P17 混合桥接；P18 牌库加厚 + 今日一牌；P19–P25 渐进 `CARD_ART` 收官。生产已可配 `DEEPSEEK_API_KEY`；Vercel↔GitHub 自动部署已接通。
+> 状态：**P0–P34 已实现**（P19：22 张大阿尔卡纳；P20–P21：圣杯；P22：权杖；P23：宝剑；P24–P25：星币花色全套 `pentacles_ace`–`pentacles_king` 混合位图；78 张 `CARD_ART` 齐；P28 追问子牌阵；P29 牌阵剧场三阵；P30 烛火信物；P31 场景剧场软提示 + COPY v1.7；P32 同题回看对照；P33 凯尔特十字十位；P34 GitHub/Google OAuth）。AI 默认 `AI_PROVIDER=mock`；`AI_PROVIDER=deepseek`（legacy 别名 `gateway`）走 DeepSeek OpenAI 兼容接口（对齐 stock-dashboard：`DEEPSEEK_API_KEY` / `DEEPSEEK_API_URL` / `DEEPSEEK_MODEL`），失败回退 mock。P13 起不再使用 Vercel AI Gateway。P17 混合桥接；P18 牌库加厚 + 今日一牌；P19–P25 渐进 `CARD_ART` 收官。生产已可配 `DEEPSEEK_API_KEY`；Vercel↔GitHub 自动部署已接通。
 > 仓库路径：`Andy115951/le-web/tarot/`
 
 ---
@@ -22,7 +22,7 @@
 | 新局 | 常驻按钮 + 主题切换时软提示重抽 |
 | 历史 | 卡片：标题 + 牌阵 + 关键牌；P32 可对照 chip |
 | 访客 | 1 卦/天 + ~5 追问 → 促登录 |
-| 登录 | 用户名 + 密码（先做） |
+| 登录 | 用户名 + 密码；可选 GitHub / Google OAuth（P34） |
 | 登录额度 | 10 卦/天 + ~100 追问 |
 | 文案 | 按场景切换语气；禁止绝对预言 |
 | 牌面 | P8 插画风示意 + 混合位图（`src/data/card-art.ts` → `public/cards/{id}.webp`）；22 张大阿尔卡纳已齐；圣杯+权杖+宝剑花色全套已齐；大阿尔卡纳+四花色混合位图齐（78）；无图回退示意 |
@@ -60,12 +60,14 @@
 | P30 烛火信物 | 解读后「烛火信物」；`POST .../token` → verse+card；`token-image.ts` 1080×1920；下载/Web Share；无 migration |
 | P31 剧场软提示 | 感情/人际→关系双人、日常抉择→抉择分叉、身心→月相三问；不改 defaultSpread；COPY v1.7；设置关于同步信物/分享图 |
 | P32 回看对照 | 同题（normalizeQuestion）找更早已抽牌一卦；解读页仪式后 `ComparePriorSection` 并排上一卦/本卦；历史「可对照」；无 migration / 无 AI |
-| P33 凯尔特十字 | `celtic_cross` 十位；`draw.ts` + allowlist + 起卦 hint「十字十位 · 全景深入」；仪式 sm+ 十字+竖杖 / 移动双列；分享图 10 牌缩小+加高；P34 账号补全排队（本阶段无 OAuth） |
+| P33 凯尔特十字 | `celtic_cross` 十位；`draw.ts` + allowlist + 起卦 hint「十字十位 · 全景深入」；仪式 sm+ 十字+竖杖 / 移动双列；分享图 10 牌缩小+加高 |
+| P34 账号 OAuth | 自定义 GitHub/Google OAuth + 既有 `ct_session`；migration `20260911170000_oauth_users.sql`；登录页「或使用」；缺 env 隐藏按钮；设置页身份+provider |
 
 ### 待续讨论（仍可再抠）
 
 - 混合位图 78 张已齐；牌义「仅看已配图」已下线；后续仅按需重修个别牌面；**冻结：不要求外购整副牌面**
-- **P34 账号系统补全**（queued）：OAuth / 手机号等 — 本阶段不实现
+- 手机号登录仍后置；付费仍后置
+- **OAuth 运维**：在 GitHub/Google 创建 OAuth App，Redirect URI = `{OAUTH_BASE_URL}/api/auth/oauth/callback`；Vercel 写入 `GITHUB_OAUTH_CLIENT_ID` / `GITHUB_OAUTH_CLIENT_SECRET` / `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` / 可选 `OAUTH_BASE_URL`（生产建议显式设为 `https://candle-taro.vercel.app`）。未配置时密码登录仍可用。
 
 ---
 
@@ -92,7 +94,7 @@ Next.js (App Router) + Tailwind + shadcn in le-web/tarot
   → Vercel（独立项目，root = tarot）
   → Supabase Postgres（tarot_* 表）
   → AI：DeepSeek OpenAI 兼容 + AI SDK generateText/streamText（AI_PROVIDER=deepseek）
-  → Auth：username/password + httpOnly session（对齐 quadrant-todo）
+  → Auth：username/password + GitHub/Google OAuth + httpOnly `ct_session`
   → 仪式区/牌面：自定义组件（不用 shadcn 默认皮肤硬套）
 ```
 
@@ -102,14 +104,14 @@ AI 接线：`src/lib/ai/index.ts` 按 `AI_PROVIDER` 选 mock / deepseek（`gatew
 
 ### 数据表草案
 
-- `tarot_users` / `tarot_sessions`（或复用统一用户表，实现时再定）
+- `tarot_users`（含 `auth_provider` / `provider_user_id` / 可空 `password_hash`） / `tarot_sessions`
 - `tarot_readings`（question, scene, spread_type, spread_result, status, detail_level, ritual_speed, user_id/anonymous_id…）
 - `tarot_messages`（reading_id, role, content）
 - `tarot_usage_counters`（subject_key, day, readings_count, messages_count）
 
 ## 4. 实现阶段
 
-见 `PLAN.md` §5。P0–P33 已落地；P34 账号系统补全排队中。关键：`src/lib/ai/deepseek.ts`、`src/lib/ai/index.ts`；UI：`src/components/reading/ritual-stage.tsx`、`tarot-card-face.tsx`（含 `TarotCardBack` + 混合位图）、`src/data/card-art.ts`、`public/cards/`、`reading-client.tsx`、`src/lib/sub-card-message.ts`、`src/lib/draw.ts`（含 `drawSingleCard`）、`share-reading-button.tsx`、`candle-token-button.tsx`、`src/lib/share-reading.ts`、`src/lib/share-reading-image.ts`、`src/lib/token-image.ts`、`src/app/api/readings/[id]/token/`、`src/components/history/history-card.tsx`、`src/components/reading/compare-prior-section.tsx`、`findPriorReadingByQuestion`、`src/components/app-shell.tsx`（skip link）；`src/hooks/use-quota.ts`、`src/components/quota/quota-hint.tsx`；牌义图鉴：`src/app/cards/`、`src/components/cards/`；今日一牌：`src/lib/daily-card.ts`、`src/components/home/daily-card.tsx`；动画样式在 `src/app/globals.css`。
+见 `PLAN.md` §5。P0–P34 已落地。关键：`src/lib/auth/oauth.ts`、`src/app/api/auth/oauth/`、`src/app/login/`；其余：`src/lib/ai/deepseek.ts`、`src/lib/ai/index.ts`；UI：`src/components/reading/ritual-stage.tsx`、`tarot-card-face.tsx`（含 `TarotCardBack` + 混合位图）、`src/data/card-art.ts`、`public/cards/`、`reading-client.tsx`、`src/lib/sub-card-message.ts`、`src/lib/draw.ts`（含 `drawSingleCard`）、`share-reading-button.tsx`、`candle-token-button.tsx`、`src/lib/share-reading.ts`、`src/lib/share-reading-image.ts`、`src/lib/token-image.ts`、`src/app/api/readings/[id]/token/`、`src/components/history/history-card.tsx`、`src/components/reading/compare-prior-section.tsx`、`findPriorReadingByQuestion`、`src/components/app-shell.tsx`（skip link）；`src/hooks/use-quota.ts`、`src/components/quota/quota-hint.tsx`；牌义图鉴：`src/app/cards/`、`src/components/cards/`；今日一牌：`src/lib/daily-card.ts`、`src/components/home/daily-card.tsx`；动画样式在 `src/app/globals.css`。
 
 ## 5. 风险
 
