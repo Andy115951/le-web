@@ -1,6 +1,6 @@
-# Tarot Plan（冻结 v2.6 · 2026-09-11）
+# Tarot Plan（冻结 v2.7 · 2026-09-11）
 
-> 实现状态：P0–P26 已落地（大阿尔卡纳全套 + 圣杯 + 权杖 + 宝剑 + 星币花色混合位图齐；78 张 `CARD_ART`）。AI 默认 mock；`AI_PROVIDER=deepseek`（legacy `gateway`）对齐 stock-dashboard OpenAI 兼容接口，不再用 Vercel AI Gateway。生产需 `DEEPSEEK_API_KEY`。Vercel↔GitHub 自动部署已接通。混合位图渐进已收官（不强制外购整副）。产品决策仍按下表冻结。
+> 实现状态：P0–P27 已落地（大阿尔卡纳全套 + 圣杯 + 权杖 + 宝剑 + 星币花色混合位图齐；78 张 `CARD_ART`）。AI 默认 mock；`AI_PROVIDER=deepseek`（legacy `gateway`）对齐 stock-dashboard OpenAI 兼容接口，不再用 Vercel AI Gateway。生产需 `DEEPSEEK_API_KEY`。Vercel↔GitHub 自动部署已接通。混合位图渐进已收官（不强制外购整副）。产品决策仍按下表冻结。
 
 ## 0. 产品名
 
@@ -197,7 +197,7 @@
 ### 3.28 P23 宝剑花色混合位图（已定）
 
 - `public/cards/swords_ace.webp`–`swords_ten.webp` 与 `swords_page` / `swords_knight` / `swords_queen` / `swords_king`（同烛光写实风）
-- `CARD_ART` 登记宝剑花色全套；牌义页「仅看已配图」；星币见 P24
+- `CARD_ART` 登记宝剑花色全套；牌义「仅看已配图」曾为渐进筛选（P27 已下线）；星币见 P24
 
 ### 3.29 P24 星币 ace–seven 混合位图（已定）
 
@@ -243,10 +243,11 @@
 | P20 | 圣杯 ace–seven 混合位图 | 已完成 |
 | P21 | 圣杯八–十与宫廷混合位图（花色收官） | 已完成 |
 | P22 | 权杖花色混合位图全套（ace–king） | 已完成 |
-| P23 | 宝剑花色混合位图全套（ace–king）+ 牌义「仅看已配图」 | 已完成 |
+| P23 | 宝剑花色混合位图全套（ace–king）+ 牌义「仅看已配图」（渐进期） | 已完成 |
 | P24 | 星币 ace–seven 混合位图 | 已完成 |
 | P25 | 星币八–十与宫廷混合位图（花色收官） | 已完成 |
 | P26 | 情境五牌（五牌十字）`five_cross` | 已完成 |
+| P27 | 牌义图鉴下线「仅看已配图」与渐进补齐提示（78 张齐） | 已完成 |
 
 ## 6. 详细设计
 
