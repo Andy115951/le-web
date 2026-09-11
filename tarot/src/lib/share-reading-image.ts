@@ -1,6 +1,7 @@
 import { getCardArtSrc } from "@/data/card-art";
 import { getCard, type DeckCard, type Suit } from "@/data/deck";
 import { CUSTOM_SCENE, PRODUCT_NAME, SCENES } from "@/data/scenes";
+import { spreadLabel } from "@/lib/spread-label";
 import type { Reading } from "@/lib/types";
 
 const W = 1080;
@@ -25,12 +26,6 @@ const MAJOR_ACCENT = "#e0b35a";
 function sceneLabel(scene: string): string {
   if (scene === CUSTOM_SCENE.id) return CUSTOM_SCENE.label;
   return SCENES.find((s) => s.id === scene)?.label ?? scene;
-}
-
-function spreadLabel(spread: string): string {
-  if (spread === "single") return "单牌";
-  if (spread === "three_card") return "三牌";
-  return spread;
 }
 
 function truncate(text: string, max: number): string {
@@ -290,15 +285,15 @@ export async function renderReadingSharePng(reading: Reading): Promise<Blob> {
     metaY,
   );
 
-  // Cards
+  // Cards (wrap to two rows when 4+)
   const cards = reading.spreadResult.cards;
   const count = Math.max(1, cards.length);
-  const cardW = count === 1 ? 320 : count === 2 ? 280 : 250;
-  const cardH = count === 1 ? 420 : 380;
-  const gap = count === 1 ? 0 : 28;
-  const totalW = count * cardW + (count - 1) * gap;
-  const startX = (W - totalW) / 2;
-  const cardY = metaY + 56;
+  const cols = count <= 3 ? count : Math.ceil(count / 2);
+  const cardW = count === 1 ? 320 : count <= 3 ? 250 : 190;
+  const cardH = count === 1 ? 420 : count <= 3 ? 380 : 300;
+  const gap = count === 1 ? 0 : 20;
+  const rowGap = 24;
+  const cardY0 = metaY + 48;
 
   const arts = await Promise.all(
     cards.map(async (c) => {
@@ -308,11 +303,16 @@ export async function renderReadingSharePng(reading: Reading): Promise<Blob> {
   );
 
   cards.forEach((c, i) => {
+    const row = Math.floor(i / cols);
+    const col = i % cols;
+    const rowCount = Math.min(cols, count - row * cols);
+    const totalW = rowCount * cardW + (rowCount - 1) * gap;
+    const startX = (W - totalW) / 2;
     const deckCard = getCard(c.cardId);
     drawMiniCard(
       ctx,
-      startX + i * (cardW + gap),
-      cardY,
+      startX + col * (cardW + gap),
+      cardY0 + row * (cardH + rowGap),
       cardW,
       cardH,
       deckCard,

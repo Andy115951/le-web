@@ -41,7 +41,12 @@ export async function POST(req: Request) {
     const scene = (body.scene || "custom") as SceneId;
     const known = [...SCENES, CUSTOM_SCENE].some((s) => s.id === scene);
     if (!known) return NextResponse.json({ error: "未知场景" }, { status: 400 });
-    const spreadType = (body.spreadType || "three_card") as SpreadType;
+    const allowedSpreads: SpreadType[] = ["three_card", "single", "five_cross"];
+    const rawSpread = (body.spreadType || "three_card") as SpreadType;
+    if (!allowedSpreads.includes(rawSpread)) {
+      return NextResponse.json({ error: "未知牌阵" }, { status: 400 });
+    }
+    const spreadType = rawSpread;
     const detailLevel = (body.detailLevel || "brief") as DetailLevel;
     const ritualSpeed = (body.ritualSpeed || "normal") as RitualSpeed;
     const reading = await createReading({

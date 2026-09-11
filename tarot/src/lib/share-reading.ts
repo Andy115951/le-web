@@ -1,16 +1,11 @@
 import { getCard } from "@/data/deck";
 import { CUSTOM_SCENE, PRODUCT_NAME, SCENES } from "@/data/scenes";
+import { spreadLabel } from "@/lib/spread-label";
 import type { Reading } from "@/lib/types";
 
 function sceneLabel(scene: string): string {
   if (scene === CUSTOM_SCENE.id) return CUSTOM_SCENE.label;
   return SCENES.find((s) => s.id === scene)?.label ?? scene;
-}
-
-function spreadLabel(spread: string): string {
-  if (spread === "single") return "单牌";
-  if (spread === "three_card") return "三牌";
-  return spread;
 }
 
 /** Plain-text summary safe to copy / share (no ids, cookies, or AI internals). */

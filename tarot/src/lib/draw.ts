@@ -14,7 +14,7 @@ function secureShuffle<T>(items: T[]): T[] {
 }
 
 function coinFlip(): boolean {
-  return randomBytes(1)[0] % 2 === 1;
+  return randomBytes(1)[0]! % 2 === 1;
 }
 
 const THREE = [
@@ -25,13 +25,28 @@ const THREE = [
 
 const SINGLE = [{ position: "focus", positionLabel: "启示" }] as const;
 
+/** 情境五牌（五牌十字）：现状 / 挑战 / 过去影响 / 近期走向 / 建议 */
+const FIVE_CROSS = [
+  { position: "situation", positionLabel: "现状" },
+  { position: "challenge", positionLabel: "挑战" },
+  { position: "past_influence", positionLabel: "过去影响" },
+  { position: "near_future", positionLabel: "近期走向" },
+  { position: "advice", positionLabel: "建议" },
+] as const;
+
+function positionsFor(spread: SpreadType) {
+  if (spread === "single") return SINGLE;
+  if (spread === "five_cross") return FIVE_CROSS;
+  return THREE;
+}
+
 export function drawSpread(spread: SpreadType): SpreadResult {
-  const positions = spread === "single" ? SINGLE : THREE;
+  const positions = positionsFor(spread);
   const shuffled = secureShuffle(TAROT_DECK);
   const cards: DrawnCard[] = positions.map((p, i) => ({
     position: p.position,
     positionLabel: p.positionLabel,
-    cardId: shuffled[i].id,
+    cardId: shuffled[i]!.id,
     reversed: coinFlip(),
   }));
   return { spread, cards };

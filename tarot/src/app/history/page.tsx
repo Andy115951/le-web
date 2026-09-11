@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ensureAnonymousId, getCurrentUser } from "@/lib/auth/session";
 import { listReadings } from "@/lib/store/readings";
 import { getCard } from "@/data/deck";
+import { spreadLabel } from "@/lib/spread-label";
 import { CUSTOM_SCENE, SCENES } from "@/data/scenes";
 import { Button } from "@/components/ui/button";
 import {
@@ -67,7 +68,7 @@ export default async function HistoryPage() {
                   title: r.title,
                   question: r.question,
                   sceneLabel: sceneLabel(r.scene),
-                  spreadLabel: r.spreadType === "single" ? "单牌" : "三牌",
+                  spreadLabel: spreadLabel(r.spreadType),
                   cardNames: names,
                   updatedAt: r.updatedAt,
                 }}

@@ -125,7 +125,11 @@ export function RitualStage({
         <div
           className={cn(
             "grid gap-3",
-            cards.length === 1 ? "mx-auto max-w-xs" : "sm:grid-cols-3",
+            cards.length === 1
+              ? "mx-auto max-w-xs"
+              : cards.length === 5
+                ? "grid-cols-2 sm:grid-cols-3"
+                : "sm:grid-cols-3",
           )}
           aria-label="牌阵结果"
         >

@@ -160,10 +160,16 @@ export function NewReadingForm({
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>牌阵</Label>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button type="button" size="sm" variant={spread === "three_card" ? "default" : "outline"} onClick={() => setSpread("three_card")}>三牌</Button>
+              <Button type="button" size="sm" variant={spread === "five_cross" ? "default" : "outline"} onClick={() => setSpread("five_cross")}>情境五牌</Button>
               <Button type="button" size="sm" variant={spread === "single" ? "default" : "outline"} onClick={() => setSpread("single")}>单牌</Button>
             </div>
+            {spread === "five_cross" ? (
+              <p className="text-xs text-muted-foreground">
+                现状 · 挑战 · 过去影响 · 近期走向 · 建议
+              </p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label>解读</Label>
