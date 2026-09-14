@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getTarotAI } from "@/lib/ai";
+import type { InterpretInput } from "@/lib/ai/types";
 import {
   ndjsonStreamResponse,
   streamOptionsFromReq,
@@ -9,10 +10,26 @@ import { ensureAnonymousId, getCurrentUser } from "@/lib/auth/session";
 import {
   addMessage,
   canAccessReading,
+  findPriorReadingByQuestion,
   getReading,
   listMessages,
   updateReadingStatus,
 } from "@/lib/store/readings";
+
+function buildPriorHint(
+  prior: Awaited<ReturnType<typeof findPriorReadingByQuestion>>,
+): InterpretInput["priorHint"] {
+  if (!prior?.spreadResult) return null;
+  return {
+    createdAt: prior.createdAt,
+    spread: prior.spreadResult.spread,
+    cards: prior.spreadResult.cards.map((c) => ({
+      positionLabel: c.positionLabel,
+      cardId: c.cardId,
+      reversed: c.reversed,
+    })),
+  };
+}
 
 export async function POST(
   req: Request,
@@ -37,15 +54,25 @@ export async function POST(
       return NextResponse.json({ messages: existing, cached: true });
     }
 
+    const prior = await findPriorReadingByQuestion({
+      question: reading.question,
+      userId: user?.id ?? null,
+      anonymousId: anon,
+      excludeId: id,
+    });
+    const priorHint = buildPriorHint(prior);
+    const interpretInput: InterpretInput = {
+      question: reading.question,
+      scene: reading.scene,
+      detailLevel: reading.detailLevel,
+      spreadResult: reading.spreadResult,
+      priorHint,
+    };
+
     if (!wantsStream(req)) {
       await updateReadingStatus(id, "interpreting");
       const ai = getTarotAI();
-      const content = await ai.interpret({
-        question: reading.question,
-        scene: reading.scene,
-        detailLevel: reading.detailLevel,
-        spreadResult: reading.spreadResult,
-      });
+      const content = await ai.interpret(interpretInput);
       await addMessage(id, "assistant", content);
       await updateReadingStatus(id, "ready_for_followup");
       const messages = await listMessages(id);
@@ -57,15 +84,7 @@ export async function POST(
       await updateReadingStatus(id, "interpreting");
       const ai = getTarotAI();
       let content = "";
-      for await (const delta of ai.interpretStream(
-        {
-          question: reading.question,
-          scene: reading.scene,
-          detailLevel: reading.detailLevel,
-          spreadResult: reading.spreadResult,
-        },
-        options,
-      )) {
+      for await (const delta of ai.interpretStream(interpretInput, options)) {
         content += delta;
         write({ t: "delta", c: delta });
       }

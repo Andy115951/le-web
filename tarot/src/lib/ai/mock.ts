@@ -33,9 +33,13 @@ function sceneClosing(scene: string): string {
 
 async function interpretText(input: InterpretInput): Promise<string> {
   const lines = describeSpread(input.spreadResult);
+  const priorLine = input.priorHint
+    ? "你上次问过类似的问题；这一局仍以眼前牌面为主，只轻轻对照，不复述旧解读。"
+    : null;
   if (input.detailLevel === "brief") {
     return [
       `## 总览`,
+      priorLine,
       `围绕「${input.question}」，牌面更像在请你先看清节奏，再决定伸手的方向。`,
       "",
       `## 牌意`,
@@ -45,10 +49,13 @@ async function interpretText(input: InterpretInput): Promise<string> {
       sceneClosing(input.scene),
       "",
       DISCLAIMER,
-    ].join("\n");
+    ]
+      .filter((line): line is string => line != null)
+      .join("\n");
   }
   return [
     `## 总览`,
+    priorLine,
     `关于「${input.question}」，这一局像一盏被风吹动的烛火——**晃，但还在**。`,
     "",
     `## 牌意`,
@@ -63,7 +70,9 @@ async function interpretText(input: InterpretInput): Promise<string> {
     "- 观察三天，记下身体与情绪的细微变化",
     "",
     DISCLAIMER,
-  ].join("\n");
+  ]
+    .filter((line): line is string => line != null)
+    .join("\n");
 }
 
 async function followUpText(input: FollowUpInput): Promise<string> {

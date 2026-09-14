@@ -6,6 +6,12 @@ export type InterpretInput = {
   scene: SceneId;
   detailLevel: DetailLevel;
   spreadResult: SpreadResult;
+  /** P41: same-question prior reading summary for a light opening mention. */
+  priorHint?: {
+    createdAt: string; // ISO
+    spread: string; // spread type id
+    cards: { positionLabel: string; cardId: string; reversed: boolean }[];
+  } | null;
 };
 
 export type FollowUpInput = {

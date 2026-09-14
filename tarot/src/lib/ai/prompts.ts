@@ -1,11 +1,27 @@
 import { getCard } from "@/data/deck";
 import { SCENES, CUSTOM_SCENE, TONE_BASELINE } from "@/data/scenes";
 import type { FollowUpInput, InterpretInput, TokenVerseInput } from "@/lib/ai/types";
+import { spreadLabel } from "@/lib/spread-label";
 import {
   contentForAI,
   hasSubCardInMessages,
   parseSubSpreadMessage,
 } from "@/lib/sub-card-message";
+
+
+/** Compact prior-card lines for P41 hint (name + 正/逆 only). */
+export function describePriorCards(
+  cards: NonNullable<InterpretInput["priorHint"]>["cards"],
+): string {
+  return cards
+    .map((c) => {
+      const card = getCard(c.cardId);
+      const orient = c.reversed ? "逆位" : "正位";
+      const name = card?.nameZh ?? c.cardId;
+      return `【${c.positionLabel}】${name}（${orient}）`;
+    })
+    .join("\n");
+}
 
 export function sceneTone(scene: string): string {
   const s = [...SCENES, CUSTOM_SCENE].find((x) => x.id === scene);
@@ -47,23 +63,40 @@ export function interpretSystemPrompt(input: InterpretInput): string {
     input.detailLevel === "brief"
       ? "简要：总览一两句 + 关键牌意 + 一句综合；控制篇幅。"
       : "详细：总览、分牌叙事、综合、可执行的一小步建议；意象可更满，仍忌绝对预言。";
+  const priorRule = input.priorHint
+    ? "若有同题旧卦摘要，开篇轻提一句即可（勿复述旧解读全文、勿做成跨局长记忆聊天、勿绝对预言、仍以本局牌面为主）。"
+    : "";
   return [
     "你是 Candle Taro 的占卜解读顾问，语气仪式、温和、神秘而不夸张。",
     OUTPUT_RULES,
     `场景语气：${sceneTone(input.scene)}`,
     level,
-  ].join("\n");
+    priorRule,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 export function interpretUserPrompt(input: InterpretInput): string {
-  return [
+  const parts = [
     `问题：${input.question}`,
     `场景：${input.scene}`,
     `解读档：${input.detailLevel === "brief" ? "简要" : "详细"}`,
     "本局牌面（含牌义摘要）：",
     describeSpread(input.spreadResult),
-    "请基于以上牌面完成本局解读。",
-  ].join("\n");
+  ];
+  if (input.priorHint) {
+    const h = input.priorHint;
+    parts.push(
+      "同题上一卦（仅供轻提，勿当主解读）：",
+      `时间：${h.createdAt}`,
+      `牌阵：${spreadLabel(h.spread)}`,
+      "牌面：",
+      describePriorCards(h.cards),
+    );
+  }
+  parts.push("请基于以上牌面完成本局解读。");
+  return parts.join("\n");
 }
 
 export function followUpSystemPrompt(input: FollowUpInput): string {
