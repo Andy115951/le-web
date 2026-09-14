@@ -9,13 +9,9 @@ import {
 } from "@/lib/token-image";
 import { PRODUCT_NAME } from "@/data/scenes";
 import { Button } from "@/components/ui/button";
+import { ShareImagePreview } from "@/components/reading/share-image-preview";
 
-type TokenState =
-  | "idle"
-  | "working"
-  | "saved"
-  | "shared"
-  | "error";
+type TokenState = "idle" | "working" | "error";
 
 export function CandleTokenButton({
   reading,
@@ -25,6 +21,12 @@ export function CandleTokenButton({
   disabled?: boolean;
 }) {
   const [state, setState] = useState<TokenState>("idle");
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
+  const [previewMeta, setPreviewMeta] = useState<{
+    filename: string;
+    verse: string;
+  } | null>(null);
 
   async function onGenerate() {
     if (state === "working") return;
@@ -52,49 +54,12 @@ export function CandleTokenButton({
         positionLabel: data.positionLabel,
       });
       const card = getCard(data.cardId);
-      const file = new File(
-        [blob],
-        tokenImageFilename(reading, card?.nameZh),
-        { type: "image/png" },
-      );
-      const title = `${PRODUCT_NAME} · 烛火信物`;
+      const filename = tokenImageFilename(reading, card?.nameZh);
 
-      const canShareFiles =
-        typeof navigator !== "undefined" &&
-        typeof navigator.share === "function" &&
-        typeof navigator.canShare === "function" &&
-        navigator.canShare({ files: [file] });
-
-      if (canShareFiles) {
-        try {
-          await navigator.share({
-            title,
-            text: data.verse,
-            files: [file],
-          });
-          setState("shared");
-          window.setTimeout(() => setState("idle"), 2000);
-          return;
-        } catch (err) {
-          if (err instanceof DOMException && err.name === "AbortError") {
-            setState("idle");
-            return;
-          }
-          // Fall through to download
-        }
-      }
-
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = file.name;
-      a.rel = "noopener";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.setTimeout(() => URL.revokeObjectURL(url), 1500);
-      setState("saved");
-      window.setTimeout(() => setState("idle"), 2000);
+      setPreviewBlob(blob);
+      setPreviewMeta({ filename, verse: data.verse });
+      setPreviewOpen(true);
+      setState("idle");
     } catch {
       setState("error");
       window.setTimeout(() => setState("idle"), 2500);
@@ -104,25 +69,39 @@ export function CandleTokenButton({
   const label =
     state === "working"
       ? "点亮中…"
-      : state === "saved"
-        ? "已保存"
-        : state === "shared"
-          ? "已分享"
-          : state === "error"
-            ? "未能点亮"
-            : "烛火信物";
+      : state === "error"
+        ? "未能点亮"
+        : "烛火信物";
 
   return (
-    <Button
-      type="button"
-      size="sm"
-      variant="outline"
-      onClick={() => void onGenerate()}
-      disabled={disabled || state === "working" || state === "error"}
-      aria-label="生成烛火信物壁纸"
-      className="border-primary/40 text-primary"
-    >
-      {label}
-    </Button>
+    <>
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        onClick={() => void onGenerate()}
+        disabled={disabled || state === "working" || state === "error"}
+        aria-label="生成烛火信物壁纸，预览后保存或系统分享"
+        className="border-primary/40 text-primary"
+      >
+        {label}
+      </Button>
+      <ShareImagePreview
+        open={previewOpen}
+        onOpenChange={(open) => {
+          setPreviewOpen(open);
+          if (!open) {
+            setPreviewBlob(null);
+            setPreviewMeta(null);
+          }
+        }}
+        blob={previewBlob}
+        filename={previewMeta?.filename ?? "candle-taro-token.png"}
+        title="烛火信物"
+        shareTitle={`${PRODUCT_NAME} · 烛火信物`}
+        shareText={previewMeta?.verse}
+        previewAlt="烛火信物壁纸预览"
+      />
+    </>
   );
 }

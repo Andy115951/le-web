@@ -11,9 +11,10 @@ import {
   shareImageFilename,
 } from "@/lib/share-reading-image";
 import { Button } from "@/components/ui/button";
+import { ShareImagePreview } from "@/components/reading/share-image-preview";
 
 type ShareState = "idle" | "copied" | "shared" | "error";
-type ImageState = "idle" | "working" | "saved" | "shared" | "error";
+type ImageState = "idle" | "working" | "error";
 
 export function ShareReadingButton({
   reading,
@@ -24,6 +25,8 @@ export function ShareReadingButton({
 }) {
   const [state, setState] = useState<ShareState>("idle");
   const [imageState, setImageState] = useState<ImageState>("idle");
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
 
   async function onShareText() {
     const text = formatReadingShareText(reading);
@@ -80,47 +83,9 @@ export function ShareReadingButton({
     setImageState("working");
     try {
       const blob = await renderReadingSharePng(reading);
-      const file = new File([blob], shareImageFilename(reading), {
-        type: "image/png",
-      });
-      const title = shareReadingTitle(reading);
-
-      const canShareFiles =
-        typeof navigator !== "undefined" &&
-        typeof navigator.share === "function" &&
-        typeof navigator.canShare === "function" &&
-        navigator.canShare({ files: [file] });
-
-      if (canShareFiles) {
-        try {
-          await navigator.share({
-            title,
-            text: formatReadingShareText(reading),
-            files: [file],
-          });
-          setImageState("shared");
-          window.setTimeout(() => setImageState("idle"), 2000);
-          return;
-        } catch (err) {
-          if (err instanceof DOMException && err.name === "AbortError") {
-            setImageState("idle");
-            return;
-          }
-          // Fall through to download
-        }
-      }
-
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = file.name;
-      a.rel = "noopener";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.setTimeout(() => URL.revokeObjectURL(url), 1500);
-      setImageState("saved");
-      window.setTimeout(() => setImageState("idle"), 2000);
+      setPreviewBlob(blob);
+      setPreviewOpen(true);
+      setImageState("idle");
     } catch {
       setImageState("error");
       window.setTimeout(() => setImageState("idle"), 2500);
@@ -139,13 +104,13 @@ export function ShareReadingButton({
   const imageLabel =
     imageState === "working"
       ? "生成中…"
-      : imageState === "saved"
-        ? "已保存"
-        : imageState === "shared"
-          ? "已分享图"
-          : imageState === "error"
-            ? "未能出图"
-            : "保存分享图";
+      : imageState === "error"
+        ? "未能出图"
+        : "保存分享图";
+
+  const filename = shareImageFilename(reading);
+  const shareTitle = shareReadingTitle(reading);
+  const shareText = formatReadingShareText(reading);
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -163,12 +128,25 @@ export function ShareReadingButton({
         type="button"
         size="sm"
         variant="secondary"
-        onClick={onShareImage}
+        onClick={() => void onShareImage()}
         disabled={disabled || imageState === "working" || imageState === "error"}
-        aria-label="生成并保存本局牌阵分享图"
+        aria-label="生成牌阵分享图，预览后保存或系统分享"
       >
         {imageLabel}
       </Button>
+      <ShareImagePreview
+        open={previewOpen}
+        onOpenChange={(open) => {
+          setPreviewOpen(open);
+          if (!open) setPreviewBlob(null);
+        }}
+        blob={previewBlob}
+        filename={filename}
+        title="保存分享图"
+        shareTitle={shareTitle}
+        shareText={shareText}
+        previewAlt="本局牌阵分享图预览"
+      />
     </div>
   );
 }

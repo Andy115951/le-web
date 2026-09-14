@@ -8,14 +8,15 @@ function sceneLabel(scene: string): string {
   return SCENES.find((s) => s.id === scene)?.label ?? scene;
 }
 
-/** Plain-text summary safe to copy / share (no ids, cookies, or AI internals). */
+/** Plain-text summary safe to copy / share (no ids, cookies, or AI internals). Moments-friendly. */
 export function formatReadingShareText(reading: Reading): string {
+  const question = reading.question.trim() || reading.title || "（未命名）";
   const lines: string[] = [
     `🕯️ ${PRODUCT_NAME}`,
-    `问题：${reading.question.trim() || reading.title || "（未命名）"}`,
-    `场景：${sceneLabel(reading.scene)} · 牌阵：${spreadLabel(reading.spreadType)}`,
+    `今晚这一问：${question}`,
+    `场景 · ${sceneLabel(reading.scene)}　牌阵 · ${spreadLabel(reading.spreadType)}`,
     "",
-    "牌面：",
+    "烛下牌面：",
   ];
 
   for (const c of reading.spreadResult.cards) {
@@ -27,8 +28,9 @@ export function formatReadingShareText(reading: Reading): string {
 
   lines.push(
     "",
-    "仅供娱乐与自我反思，不构成确定预言。牌阵是当下的一面镜子，决定仍在你手里。",
-    `— 来自 ${PRODUCT_NAME}`,
+    "牌阵是当下的一面镜子，不是定论。决定仍在你手里。",
+    "仅供娱乐与自我反思，不构成确定预言。",
+    `— 来自 ${PRODUCT_NAME}，愿烛火陪你轻轻看清一步`,
   );
 
   return lines.join("\n");
@@ -36,6 +38,6 @@ export function formatReadingShareText(reading: Reading): string {
 
 export function shareReadingTitle(reading: Reading): string {
   const q = reading.question.trim() || reading.title || "占卜";
-  const short = q.length > 28 ? `${q.slice(0, 28)}…` : q;
+  const short = q.length > 24 ? `${q.slice(0, 24)}…` : q;
   return `${PRODUCT_NAME} · ${short}`;
 }

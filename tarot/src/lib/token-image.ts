@@ -138,91 +138,99 @@ export async function renderCandleTokenPng(input: TokenRenderInput): Promise<Blo
   const orient = reversed ? "逆位" : "正位";
   const pos = positionLabel ?? "启示";
 
-  // Background
+  // Background — deeper candlelight gradient
   const bg = ctx.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0, "#1a140e");
-  bg.addColorStop(0.45, "#100c09");
-  bg.addColorStop(1, "#070604");
+  bg.addColorStop(0, "#1c1610");
+  bg.addColorStop(0.4, "#110d09");
+  bg.addColorStop(1, "#060504");
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
 
   // Soft candle glow (upper)
-  const glow = ctx.createRadialGradient(W / 2, 280, 30, W / 2, 360, 640);
-  glow.addColorStop(0, "rgba(224,179,90,0.32)");
-  glow.addColorStop(0.5, "rgba(224,179,90,0.08)");
+  const glow = ctx.createRadialGradient(W / 2, 260, 24, W / 2, 340, 680);
+  glow.addColorStop(0, "rgba(224,179,90,0.36)");
+  glow.addColorStop(0.45, "rgba(224,179,90,0.1)");
   glow.addColorStop(1, "rgba(224,179,90,0)");
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, W, H);
 
   // Lower ember
-  const ember = ctx.createRadialGradient(W / 2, H - 120, 10, W / 2, H - 80, 420);
-  ember.addColorStop(0, "rgba(224,140,60,0.12)");
+  const ember = ctx.createRadialGradient(W / 2, H - 100, 8, W / 2, H - 60, 460);
+  ember.addColorStop(0, "rgba(224,140,60,0.14)");
   ember.addColorStop(1, "rgba(224,140,60,0)");
   ctx.fillStyle = ember;
   ctx.fillRect(0, 0, W, H);
 
-  // Frame
-  ctx.strokeStyle = "rgba(224,179,90,0.38)";
+  // Double frame — more breathing room from edges
+  ctx.strokeStyle = "rgba(224,179,90,0.42)";
   ctx.lineWidth = 3;
-  roundRect(ctx, 40, 40, W - 80, H - 80, 32);
+  roundRect(ctx, 48, 48, W - 96, H - 96, 36);
   ctx.stroke();
-  ctx.strokeStyle = "rgba(224,179,90,0.14)";
-  ctx.lineWidth = 1;
-  roundRect(ctx, 56, 56, W - 112, H - 112, 26);
+  ctx.strokeStyle = "rgba(224,179,90,0.16)";
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, 68, 68, W - 136, H - 136, 28);
   ctx.stroke();
 
-  // Brand
+  // Brand header
   ctx.textAlign = "center";
   ctx.fillStyle = "#e0b35a";
-  ctx.font = "28px Georgia, 'Times New Roman', serif";
-  ctx.fillText("✧", W / 2, 130);
-  ctx.font = "bold 44px 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif";
-  ctx.fillText(PRODUCT_NAME, W / 2, 186);
-  ctx.fillStyle = "rgba(232,214,176,0.65)";
-  ctx.font = "24px 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif";
-  ctx.fillText("烛火信物", W / 2, 236);
+  ctx.font = "30px Georgia, 'Times New Roman', serif";
+  ctx.fillText("✧", W / 2, 128);
+  ctx.font = "bold 46px 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif";
+  ctx.fillText(PRODUCT_NAME, W / 2, 188);
+  ctx.fillStyle = "rgba(232,214,176,0.72)";
+  ctx.font = "26px 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif";
+  ctx.fillText("烛火信物", W / 2, 242);
 
-  // Meta
-  ctx.fillStyle = "rgba(232,214,176,0.55)";
+  // Meta — quieter
+  ctx.fillStyle = "rgba(232,214,176,0.5)";
   ctx.font = "22px 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif";
-  ctx.fillText(spreadLabel(reading.spreadType), W / 2, 280);
+  ctx.fillText(spreadLabel(reading.spreadType), W / 2, 288);
 
-  // Focal card plate
-  const cardW = 520;
-  const cardH = 780;
+  // Focal card plate — slightly larger, tighter framing
+  const cardW = 540;
+  const cardH = 800;
   const cardX = (W - cardW) / 2;
-  const cardY = 320;
+  const cardY = 330;
 
-  roundRect(ctx, cardX, cardY, cardW, cardH, 24);
+  // Soft plate shadow
+  ctx.save();
+  ctx.shadowColor = "rgba(0,0,0,0.45)";
+  ctx.shadowBlur = 36;
+  ctx.shadowOffsetY = 12;
+  roundRect(ctx, cardX, cardY, cardW, cardH, 26);
   const plate = ctx.createLinearGradient(cardX, cardY, cardX, cardY + cardH);
-  plate.addColorStop(0, "rgba(224,179,90,0.2)");
-  plate.addColorStop(0.4, "rgba(28,22,16,0.96)");
-  plate.addColorStop(1, "rgba(12,10,8,0.98)");
+  plate.addColorStop(0, "rgba(224,179,90,0.22)");
+  plate.addColorStop(0.35, "rgba(28,22,16,0.97)");
+  plate.addColorStop(1, "rgba(10,8,6,0.99)");
   ctx.fillStyle = plate;
   ctx.fill();
-  ctx.strokeStyle = "rgba(224,179,90,0.5)";
-  ctx.lineWidth = 2;
+  ctx.restore();
+
+  roundRect(ctx, cardX, cardY, cardW, cardH, 26);
+  ctx.strokeStyle = "rgba(224,179,90,0.55)";
+  ctx.lineWidth = 2.5;
   ctx.stroke();
-  roundRect(ctx, cardX + 14, cardY + 14, cardW - 28, cardH - 28, 16);
-  ctx.strokeStyle = "rgba(224,179,90,0.22)";
+  roundRect(ctx, cardX + 16, cardY + 16, cardW - 32, cardH - 32, 18);
+  ctx.strokeStyle = "rgba(224,179,90,0.24)";
   ctx.lineWidth = 1;
   ctx.stroke();
 
   // Position
-  ctx.fillStyle = "rgba(232,214,176,0.75)";
+  ctx.fillStyle = "rgba(232,214,176,0.8)";
   ctx.font = "26px 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif";
-  ctx.fillText(truncate(pos, 12), W / 2, cardY + 48);
+  ctx.fillText(truncate(pos, 12), W / 2, cardY + 52);
 
   const artSrc = getCardArtSrc(cardId);
   const art = artSrc ? await loadImage(artSrc) : null;
-  const artX = cardX + 48;
-  const artY = cardY + 90;
-  const artW = cardW - 96;
-  const artH = 480;
+  const artX = cardX + 52;
+  const artY = cardY + 96;
+  const artW = cardW - 104;
+  const artH = 500;
 
   if (art) {
     ctx.save();
-    roundRect(ctx, artX, artY, artW, artH, 14);
+    roundRect(ctx, artX, artY, artW, artH, 16);
     ctx.clip();
     if (reversed) {
       ctx.translate(artX + artW / 2, artY + artH / 2);
@@ -232,58 +240,76 @@ export async function renderCandleTokenPng(input: TokenRenderInput): Promise<Blo
       ctx.drawImage(art, artX, artY, artW, artH);
     }
     ctx.restore();
+    // Art rim
+    roundRect(ctx, artX, artY, artW, artH, 16);
+    ctx.strokeStyle = "rgba(224,179,90,0.35)";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
   } else {
     const cx = W / 2;
     const cy = artY + artH / 2;
     ctx.beginPath();
-    ctx.arc(cx, cy, 72, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(18,14,10,0.75)";
+    ctx.arc(cx, cy, 78, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(18,14,10,0.78)";
     ctx.fill();
     ctx.strokeStyle = accent;
     ctx.lineWidth = 3;
     ctx.stroke();
     ctx.fillStyle = accent;
-    ctx.font = "56px Georgia, 'Times New Roman', serif";
+    ctx.font = "60px Georgia, 'Times New Roman', serif";
     ctx.textBaseline = "middle";
     ctx.fillText(cardGlyph(card), cx, cy + 2);
     ctx.textBaseline = "alphabetic";
   }
 
   ctx.fillStyle = "#f3e7c7";
-  ctx.font = "bold 44px 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif";
-  ctx.fillText(truncate(name, 10), W / 2, cardY + cardH - 110);
+  ctx.font = "bold 46px 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif";
+  ctx.fillText(truncate(name, 10), W / 2, cardY + cardH - 118);
   ctx.fillStyle = reversed ? "rgba(232,120,100,0.95)" : "rgba(224,179,90,0.95)";
-  ctx.font = "26px 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif";
-  ctx.fillText(orient, W / 2, cardY + cardH - 58);
+  ctx.font = "28px 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif";
+  ctx.fillText(orient, W / 2, cardY + cardH - 62);
 
-  // Verse plate
-  const verseY = cardY + cardH + 56;
-  roundRect(ctx, 100, verseY, W - 200, 220, 18);
-  ctx.fillStyle = "rgba(20,16,12,0.72)";
+  // Verse plate — more padding, letter-spacing feel via line height
+  const verseY = cardY + cardH + 48;
+  const verseH = 248;
+  roundRect(ctx, 88, verseY, W - 176, verseH, 20);
+  ctx.fillStyle = "rgba(16,13,10,0.78)";
   ctx.fill();
-  ctx.strokeStyle = "rgba(224,179,90,0.28)";
+  ctx.strokeStyle = "rgba(224,179,90,0.32)";
   ctx.lineWidth = 1.5;
   ctx.stroke();
+  // Inner hairline
+  roundRect(ctx, 100, verseY + 12, W - 200, verseH - 24, 14);
+  ctx.strokeStyle = "rgba(224,179,90,0.12)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
 
-  ctx.fillStyle = "#f6edd8";
-  ctx.font = "34px 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif";
-  wrapText(ctx, verse.trim(), W / 2, verseY + 70, W - 280, 52, 3);
+  ctx.fillStyle = "rgba(224,179,90,0.7)";
+  ctx.font = "22px Georgia, 'Times New Roman', serif";
+  ctx.fillText("✦", W / 2, verseY + 44);
 
-  // Footer
-  ctx.fillStyle = "rgba(232,214,176,0.5)";
+  ctx.fillStyle = "#f8f0dc";
+  ctx.font = "36px 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif";
+  wrapText(ctx, verse.trim(), W / 2, verseY + 92, W - 260, 54, 3);
+
+  // Brand footer — clearer hierarchy
+  ctx.fillStyle = "rgba(232,214,176,0.48)";
   ctx.font = "22px 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif";
   wrapText(
     ctx,
     "仅供娱乐与自我反思，不构成确定预言。",
     W / 2,
-    H - 160,
-    W - 200,
+    H - 168,
+    W - 220,
     34,
     1,
   );
-  ctx.fillStyle = "rgba(224,179,90,0.8)";
-  ctx.font = "24px 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif";
-  ctx.fillText(`— 来自 ${PRODUCT_NAME}`, W / 2, H - 100);
+  ctx.fillStyle = "rgba(224,179,90,0.55)";
+  ctx.font = "20px Georgia, 'Times New Roman', serif";
+  ctx.fillText("✧", W / 2, H - 118);
+  ctx.fillStyle = "rgba(224,179,90,0.88)";
+  ctx.font = "26px 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif";
+  ctx.fillText(`— 来自 ${PRODUCT_NAME}`, W / 2, H - 82);
 
   return await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
