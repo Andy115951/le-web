@@ -92,6 +92,9 @@ export default async function SettingsPage() {
           <p>
             对外文案用「占卜 / 牌阵 / 解读」；解读完成后可用「分享牌阵」复制摘要、「保存分享图」或「烛火信物」生成竖版壁纸（均不含账号与内部 id）。
           </p>
+          <p>
+            可把 Candle Taro 添加到手机主屏幕，以独立窗口打开；弱网时会缓存首页壳与静态资源，方便再点亮烛火。
+          </p>
           <p className="text-xs opacity-80">
             主题切换明显时，顾问可能温和建议点「新占卜」再起一卦，不强制。
           </p>
