@@ -169,9 +169,9 @@
 ### 3.22 P17 混合卡面桥接（已定）
 
 - `TarotCardFace`：若 `getCardArtSrc(card.id)` 有值，中心叠 `public/cards/{id}.webp`，保留烛光框/角饰/正逆位角标；无图则 glyph 示意不变
-- `CARD_ART`（`src/data/card-art.ts`）**只列已有文件**；大阿尔卡纳 `major_00`–`major_21` 已齐；小阿卡纳渐进补表
+- `CARD_ART`（`src/data/card-art.ts`）**只列已有文件**；大阿尔卡纳 `major_00`–`major_21` 已齐；小阿卡纳四花色已齐（78 张）
 - 分享 PNG（`share-reading-image.ts`）同桥：有位图则画入，否则花色示意
-- **冻结**：不要求外购整副；后续按需渐进补位图即可
+- **冻结**：不要求外购整副；78 张已收官，后续仅按需重修个别牌面
 
 ### 3.23 P18 牌库加厚 + 今日一牌（已定）
 
