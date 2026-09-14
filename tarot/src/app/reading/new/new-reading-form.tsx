@@ -59,6 +59,7 @@ export function NewReadingForm({
   const [silentReveal, setSilentReveal] = useState(
     DEFAULT_USER_PREFS.silentReveal,
   );
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [quotaBlocked, setQuotaBlocked] = useState(false);
@@ -117,10 +118,11 @@ export function NewReadingForm({
         }
         throw new Error(data.error || "起卦没能完成，请稍后再试。");
       }
-      router.push(`/reading/${data.reading.id}`);
+      const dest = `/reading/${data.reading.id}`;
+      router.prefetch(dest);
+      router.push(dest);
     } catch (err) {
       setError(err instanceof Error ? err.message : "起卦没能完成，请稍后再试。");
-    } finally {
       setLoading(false);
     }
   }
@@ -163,115 +165,151 @@ export function NewReadingForm({
         />
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">本次选项</CardTitle>
-          <CardDescription>可临时覆盖默认</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label>牌阵</Label>
-            <div className="flex flex-wrap gap-2">
-              {(
-                [
-                  ["three_card", "三牌"],
-                  ["single", "单牌"],
-                  ["five_cross", "情境五牌"],
-                  ["relation_dual", "关系双人"],
-                  ["choice_fork", "抉择分叉"],
-                  ["moon_triad", "月相三问"],
-                  ["celtic_cross", "凯尔特十字"],
-                ] as const
-              ).map(([v, label]) => (
-                <Button
-                  key={v}
-                  type="button"
-                  size="sm"
-                  variant={spread === v ? "default" : "outline"}
-                  onClick={() => setSpread(v)}
-                >
-                  {label}
-                </Button>
-              ))}
-            </div>
-            {spreadHint(spread) ? (
-              <p className="text-xs text-muted-foreground">{spreadHint(spread)}</p>
-            ) : null}
-            {(() => {
-              const theaterSuggest = suggestedTheaterSpread(sceneId);
-              const tip = theaterSoftTip(sceneId);
-              if (!theaterSuggest || !tip || spread === theaterSuggest) return null;
-              return (
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-xs text-muted-foreground">{tip}</p>
+      <div className="rounded-xl border border-border/60 bg-card/40">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm text-foreground hover:bg-accent/20"
+          aria-expanded={advancedOpen}
+          onClick={() => setAdvancedOpen((o) => !o)}
+        >
+          <span className="font-medium">牌阵与仪式（可选）</span>
+          <span className="text-xs text-muted-foreground">
+            {advancedOpen ? "收起" : "展开"} · {spreadLabel(spread)}
+          </span>
+        </button>
+        {advancedOpen ? (
+          <Card className="border-0 border-t border-border/60 shadow-none">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">本次选项</CardTitle>
+              <CardDescription>可临时覆盖默认；收起时仍沿用偏好与场景默认</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>牌阵</Label>
+                <div className="flex flex-wrap gap-2">
+                  {(
+                    [
+                      ["three_card", "三牌"],
+                      ["single", "单牌"],
+                      ["five_cross", "情境五牌"],
+                      ["relation_dual", "关系双人"],
+                      ["choice_fork", "抉择分叉"],
+                      ["moon_triad", "月相三问"],
+                      ["celtic_cross", "凯尔特十字"],
+                    ] as const
+                  ).map(([v, label]) => (
+                    <Button
+                      key={v}
+                      type="button"
+                      size="sm"
+                      variant={spread === v ? "default" : "outline"}
+                      onClick={() => setSpread(v)}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+                {spreadHint(spread) ? (
+                  <p className="text-xs text-muted-foreground">{spreadHint(spread)}</p>
+                ) : null}
+                {(() => {
+                  const theaterSuggest = suggestedTheaterSpread(sceneId);
+                  const tip = theaterSoftTip(sceneId);
+                  if (!theaterSuggest || !tip || spread === theaterSuggest) return null;
+                  return (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-xs text-muted-foreground">{tip}</p>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs text-primary"
+                        onClick={() => setSpread(theaterSuggest)}
+                      >
+                        改用{spreadLabel(theaterSuggest)}
+                      </Button>
+                    </div>
+                  );
+                })()}
+              </div>
+              <div className="space-y-2">
+                <Label>解读</Label>
+                <div className="flex gap-2">
+                  {(["brief", "detailed"] as DetailLevel[]).map((d) => (
+                    <Button
+                      key={d}
+                      type="button"
+                      size="sm"
+                      variant={detail === d ? "default" : "outline"}
+                      onClick={() => setDetail(d)}
+                    >
+                      {d === "brief" ? "简要" : "详细"}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>仪式速度</Label>
+                <div className="flex gap-2">
+                  {(
+                    [
+                      ["slow", "慢"],
+                      ["normal", "常"],
+                      ["fast", "快"],
+                    ] as const
+                  ).map(([v, label]) => (
+                    <Button
+                      key={v}
+                      type="button"
+                      size="sm"
+                      variant={speed === v ? "default" : "outline"}
+                      onClick={() => setSpeed(v)}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>静默揭晓</Label>
+                <div className="flex gap-2">
                   <Button
                     type="button"
                     size="sm"
-                    variant="ghost"
-                    className="h-7 px-2 text-xs text-primary"
-                    onClick={() => setSpread(theaterSuggest)}
+                    variant={!silentReveal ? "default" : "outline"}
+                    onClick={() => setSilentReveal(false)}
                   >
-                    改用{spreadLabel(theaterSuggest)}
+                    自动解读
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={silentReveal ? "default" : "outline"}
+                    onClick={() => setSilentReveal(true)}
+                  >
+                    静默模式
                   </Button>
                 </div>
-              );
-            })()}
-          </div>
-          <div className="space-y-2">
-            <Label>解读</Label>
-            <div className="flex gap-2">
-              {(["brief", "detailed"] as DetailLevel[]).map((d) => (
-                <Button key={d} type="button" size="sm" variant={detail === d ? "default" : "outline"} onClick={() => setDetail(d)}>
-                  {d === "brief" ? "简要" : "详细"}
-                </Button>
-              ))}
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label>仪式速度</Label>
-            <div className="flex gap-2">
-              {([["slow", "慢"], ["normal", "常"], ["fast", "快"]] as const).map(([v, label]) => (
-                <Button key={v} type="button" size="sm" variant={speed === v ? "default" : "outline"} onClick={() => setSpeed(v)}>
-                  {label}
-                </Button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>静默揭晓</Label>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant={!silentReveal ? "default" : "outline"}
-                onClick={() => setSilentReveal(false)}
-              >
-                自动解读
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={silentReveal ? "default" : "outline"}
-                onClick={() => setSilentReveal(true)}
-              >
-                静默模式
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              静默时先静静看牌，准备好再请烛火开口。
-            </p>
-          </div>
-          <Badge variant="secondary">场景：{scene.label}</Badge>
-        </CardContent>
-      </Card>
+                <p className="text-xs text-muted-foreground">
+                  静默时先静静看牌，准备好再请烛火开口。
+                </p>
+              </div>
+              <Badge variant="secondary">场景：{scene.label}</Badge>
+            </CardContent>
+          </Card>
+        ) : null}
+      </div>
 
       {error && (
         <div className="space-y-1" role="alert">
           <p className="text-sm text-destructive">{error}</p>
           {quotaBlocked && !quotaState.user ? (
             <p className="text-sm text-muted-foreground">
-              <Link href="/login" className="text-primary underline-offset-2 hover:underline">
+              <Link
+                href="/login"
+                className="text-primary underline-offset-2 hover:underline"
+              >
                 去登录
               </Link>
               ，历史会自动合并，每日可起更多卦。

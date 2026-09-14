@@ -11,9 +11,9 @@ import { spreadLabel } from "@/lib/spread-label";
 import { cn } from "@/lib/utils";
 
 const SPEEDS: Record<RitualSpeed, number> = {
-  slow: 1600,
-  normal: 900,
-  fast: 400,
+  slow: 1200,
+  normal: 650,
+  fast: 280,
 };
 
 const STEPS = ["静心…", "洗牌…", "问牌…", "翻开牌面…"] as const;
@@ -99,7 +99,7 @@ export function RitualStage({
   onDone: () => void;
   alreadyDone?: boolean;
 }) {
-  const delay = SPEEDS[speed] ?? 900;
+  const delay = SPEEDS[speed] ?? 650;
   const cards = useMemo(() => spread.cards, [spread]);
   const isCeltic = spread.spread === "celtic_cross";
   const [step, setStep] = useState(alreadyDone ? STEPS.length : 0);
@@ -121,7 +121,7 @@ export function RitualStage({
     }
     if (flipping) {
       if (revealedCount < cards.length) return;
-      const t = setTimeout(() => setStep((s) => s + 1), Math.max(280, Math.floor(delay * 0.35)));
+      const t = setTimeout(() => setStep((s) => s + 1), Math.max(200, Math.floor(delay * 0.35)));
       return () => clearTimeout(t);
     }
     if (done) {
@@ -140,7 +140,7 @@ export function RitualStage({
     if (revealedCount >= cards.length) return;
     const t = setTimeout(
       () => setRevealedCount((n) => n + 1),
-      Math.max(220, Math.floor(delay * 0.55)),
+      Math.max(160, Math.floor(delay * 0.55)),
     );
     return () => clearTimeout(t);
   }, [alreadyDone, flipping, revealedCount, cards.length, delay]);

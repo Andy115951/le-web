@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { DailyCardSection } from "@/components/home/daily-card";
+import { QuickStartButton } from "@/components/home/quick-start-button";
 import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -25,32 +27,48 @@ export default async function HomePage() {
         <p className="mx-auto max-w-md text-muted-foreground">
           烛火未熄。选一个场景，把问题轻轻放下；牌阵会替你照见当下。
         </p>
-        <div className="flex justify-center gap-3 pt-2">
+        <div className="flex flex-wrap justify-center gap-3 pt-2">
           <Button asChild size="lg">
-            <Link href="/reading/new">开始占卜</Link>
+            <Link href="/reading/new" prefetch>
+              开始占卜
+            </Link>
           </Button>
           <Button asChild size="lg" variant="outline">
-            <Link href="/history">查看历史</Link>
+            <Link href="/history" prefetch>
+              查看历史
+            </Link>
           </Button>
         </div>
+        <div className="flex justify-center pt-1">
+          <QuickStartButton sceneId="choice" className="text-left" />
+        </div>
+        <p className="text-xs text-muted-foreground">
+          快速起卦用「日常抉择」示例问题与默认单牌；想改问题请点场景卡片。
+        </p>
       </section>
 
       <DailyCardSection draw={daily} />
 
       <section className="grid gap-3 sm:grid-cols-2">
         {SCENES.map((scene) => (
-          <Link key={scene.id} href={`/reading/new?scene=${scene.id}`}>
-            <Card className="h-full transition-colors hover:border-primary/40 hover:bg-accent/30">
-              <CardHeader>
+          <Card
+            key={scene.id}
+            className="h-full transition-colors hover:border-primary/40 hover:bg-accent/30"
+          >
+            <Link href={`/reading/new?scene=${scene.id}`} prefetch className="block">
+              <CardHeader className="pb-3">
                 <CardTitle className="text-lg">{scene.label}</CardTitle>
                 <CardDescription className="line-clamp-2">
                   {scene.exampleQuestion}
                 </CardDescription>
               </CardHeader>
-            </Card>
-          </Link>
+            </Link>
+            <CardContent className="pt-0">
+              <QuickStartButton sceneId={scene.id} />
+            </CardContent>
+          </Card>
         ))}
-        <Link href="/reading/new?scene=custom">
+        <Link href="/reading/new?scene=custom" prefetch>
           <Card className="h-full border-dashed transition-colors hover:border-primary/40">
             <CardHeader>
               <CardTitle className="text-lg">自定义</CardTitle>

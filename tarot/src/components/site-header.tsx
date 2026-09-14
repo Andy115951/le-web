@@ -14,13 +14,13 @@ export async function SiteHeader() {
         </Link>
         <nav className="flex items-center gap-1 sm:gap-2" aria-label="主导航">
           <Button asChild variant="ghost" size="sm">
-            <Link href="/cards">牌义</Link>
+            <Link href="/cards" prefetch>牌义</Link>
           </Button>
           <Button asChild variant="ghost" size="sm">
-            <Link href="/history">历史</Link>
+            <Link href="/history" prefetch>历史</Link>
           </Button>
           <Button asChild variant="ghost" size="sm">
-            <Link href="/settings">设置</Link>
+            <Link href="/settings" prefetch>设置</Link>
           </Button>
           {user ? (
             <>
@@ -34,11 +34,11 @@ export async function SiteHeader() {
             </>
           ) : (
             <Button asChild variant="ghost" size="sm">
-              <Link href="/login">登录</Link>
+              <Link href="/login" prefetch>登录</Link>
             </Button>
           )}
           <Button asChild size="sm">
-            <Link href="/reading/new">新占卜</Link>
+            <Link href="/reading/new" prefetch>新占卜</Link>
           </Button>
         </nav>
       </div>
