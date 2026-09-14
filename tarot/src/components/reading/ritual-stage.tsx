@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import type { RitualSpeed } from "@/data/scenes";
+import type { RitualSpeed, SceneId } from "@/data/scenes";
+import { sceneScript } from "@/data/scenes";
 import type { DrawnCard, SpreadResult } from "@/lib/types";
 import { getCard } from "@/data/deck";
 import { Badge } from "@/components/ui/badge";
@@ -91,15 +92,18 @@ function SpreadCard({
 export function RitualStage({
   speed,
   spread,
+  scene,
   onDone,
   alreadyDone = false,
 }: {
   speed: RitualSpeed;
   spread: SpreadResult;
+  scene: SceneId;
   onDone: () => void;
   alreadyDone?: boolean;
 }) {
   const delay = SPEEDS[speed] ?? 650;
+  const script = useMemo(() => sceneScript(scene), [scene]);
   const cards = useMemo(() => spread.cards, [spread]);
   const isCeltic = spread.spread === "celtic_cross";
   const [step, setStep] = useState(alreadyDone ? STEPS.length : 0);
@@ -164,6 +168,15 @@ export function RitualStage({
         <div className="ritual-glow pointer-events-none absolute inset-0" aria-hidden />
         <p className="relative text-sm tracking-[0.35em] text-primary/80">仪式</p>
         <p className="relative mt-3 text-lg text-foreground">{stageLabel}</p>
+        {!done ? (
+          <p className="relative mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
+            {script.opening}
+          </p>
+        ) : (
+          <p className="relative mx-auto mt-3 max-w-md text-sm leading-relaxed text-amber-100/80">
+            {script.settle}
+          </p>
+        )}
         <div
           className="relative mx-auto mt-4 h-1 max-w-xs overflow-hidden rounded-full bg-muted"
           role="progressbar"

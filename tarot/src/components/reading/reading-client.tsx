@@ -335,6 +335,7 @@ export function ReadingClient({
       <RitualStage
         speed={reading.ritualSpeed}
         spread={reading.spreadResult}
+        scene={reading.scene}
         alreadyDone={initialMessages.length > 0}
         onDone={() => setRitualDone(true)}
       />
