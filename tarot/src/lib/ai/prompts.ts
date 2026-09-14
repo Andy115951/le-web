@@ -38,6 +38,8 @@ const OUTPUT_RULES = [
   "用途：娱乐与自我反思；文末可轻点免责，勿喧宾夺主。",
   TONE_BASELINE,
   "牌义以提供的摘要为准，可延伸意象，勿编造与牌库明显冲突的含义。",
+  "格式：可用轻量 Markdown——短 ## 小节、**强调**、- 列表；小节标题优先中文如 总览 / 牌意 / 综合 / 建议。",
+  "禁止：代码围栏（```）、表格、HTML、四级及以上标题（####+）；勿堆砌标题；篇幅仍克制。",
 ].join("\n");
 
 export function interpretSystemPrompt(input: InterpretInput): string {

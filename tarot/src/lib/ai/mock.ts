@@ -35,25 +35,32 @@ async function interpretText(input: InterpretInput): Promise<string> {
   const lines = describeSpread(input.spreadResult);
   if (input.detailLevel === "brief") {
     return [
-      `总览：围绕「${input.question}」，牌面更像在请你先看清节奏，再决定伸手的方向。`,
+      `## 总览`,
+      `围绕「${input.question}」，牌面更像在请你先看清节奏，再决定伸手的方向。`,
       "",
+      `## 牌意`,
       lines,
       "",
-      `综合：${sceneClosing(input.scene)}`,
+      `## 综合`,
+      sceneClosing(input.scene),
       "",
       DISCLAIMER,
     ].join("\n");
   }
   return [
-    `总览：关于「${input.question}」，这一局像一盏被风吹动的烛火——晃，但还在。`,
+    `## 总览`,
+    `关于「${input.question}」，这一局像一盏被风吹动的烛火——**晃，但还在**。`,
     "",
-    "分牌：",
+    `## 牌意`,
     lines,
     "",
-    "综合：先承认已经走过的部分，再把注意力收回你真正能移动的一步。",
+    `## 综合`,
+    "先承认已经走过的部分，再把注意力收回你真正能移动的一步。",
     sceneClosing(input.scene),
     "",
-    "建议：选一个最小的行动（或一个明确的暂停），观察三天。",
+    `## 建议`,
+    "- 选一个**最小的行动**（或一个明确的暂停）",
+    "- 观察三天，记下身体与情绪的细微变化",
     "",
     DISCLAIMER,
   ].join("\n");
@@ -77,11 +84,15 @@ async function followUpText(input: FollowUpInput): Promise<string> {
       "我会把这张象征牌当作本轮追问的额外锚点，仍以本局主牌阵为根基。";
   }
   return [
-    `我仍以本局（${anchor}）为锚来听你说的：`,
+    `## 回应`,
+    `我仍以本局（**${anchor}**）为锚来听你说的：`,
     heard,
     "",
     subNote,
-    "可能的方向是：把问题拆成「我能影响的」与「我只能观察的」。前者试一小步，后者允许暂时只看着。",
+    `## 可能方向`,
+    "- 把问题拆成「我能影响的」与「我只能观察的」",
+    "- 前者试一小步，后者允许暂时只看着",
+    "",
     sceneClosing(input.scene),
     "",
     "若你其实在谈一个全新主题，也可以点「新占卜」再起一卦。",

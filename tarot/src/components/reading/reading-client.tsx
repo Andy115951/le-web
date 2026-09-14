@@ -11,6 +11,7 @@ import { ShareReadingButton } from "@/components/reading/share-reading-button";
 import { CandleTokenButton } from "@/components/reading/candle-token-button";
 import { ComparePriorSection } from "@/components/reading/compare-prior-section";
 import { TarotCardFace } from "@/components/reading/tarot-card-face";
+import { AdvisorMarkdown } from "@/components/reading/advisor-markdown";
 import { getCard } from "@/data/deck";
 import {
   displayTextForUser,
@@ -445,7 +446,7 @@ export function ReadingClient({
                       className={
                         isUser
                           ? "max-w-[95%] rounded-2xl rounded-br-md border border-primary/35 bg-primary/15 px-3.5 py-2.5 text-sm text-foreground shadow-[inset_0_0_18px_oklch(0.78_0.12_75/8%)]"
-                          : "max-w-[95%] whitespace-pre-wrap rounded-2xl rounded-bl-md border border-amber-500/25 bg-card/55 px-3.5 py-2.5 text-sm leading-relaxed text-foreground/95 shadow-[inset_0_0_22px_oklch(0.78_0.12_75/10%)]"
+                          : "max-w-[95%] rounded-2xl rounded-bl-md border border-amber-500/25 bg-card/55 px-3.5 py-2.5 text-sm leading-relaxed text-foreground/95 shadow-[inset_0_0_22px_oklch(0.78_0.12_75/10%)]"
                       }
                     >
                       {sub.kind === "chain" ? (
@@ -516,8 +517,10 @@ export function ReadingClient({
                             <p className="whitespace-pre-wrap">{bubbleText}</p>
                           ) : null}
                         </div>
+                      ) : isUser ? (
+                        <p className="whitespace-pre-wrap">{m.content}</p>
                       ) : (
-                        m.content
+                        <AdvisorMarkdown>{m.content}</AdvisorMarkdown>
                       )}
                     </div>
                   </div>
@@ -529,10 +532,10 @@ export function ReadingClient({
                     烛火解读
                   </span>
                   <div
-                    className="max-w-[95%] whitespace-pre-wrap rounded-2xl rounded-bl-md border border-amber-500/35 bg-card/55 px-3.5 py-2.5 text-sm leading-relaxed shadow-[inset_0_0_22px_oklch(0.78_0.12_75/10%)]"
+                    className="max-w-[95%] rounded-2xl rounded-bl-md border border-amber-500/35 bg-card/55 px-3.5 py-2.5 text-sm leading-relaxed shadow-[inset_0_0_22px_oklch(0.78_0.12_75/10%)]"
                     aria-label="正在浮现的解读"
                   >
-                    {streamingText}
+                    <AdvisorMarkdown>{streamingText}</AdvisorMarkdown>
                     <span
                       className="ml-0.5 inline-block h-3 w-1.5 animate-pulse bg-amber-400/80 align-middle"
                       aria-hidden
