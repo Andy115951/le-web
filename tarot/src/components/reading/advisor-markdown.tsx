@@ -2,6 +2,9 @@
 
 import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
+import { prepareAdvisorMarkdown } from "@/lib/prepare-advisor-markdown";
 import { cn } from "@/lib/utils";
 
 const components: Components = {
@@ -82,6 +85,11 @@ const components: Components = {
   ),
 };
 
+const sanitizeSchema = {
+  ...defaultSchema,
+  tagNames: [...(defaultSchema.tagNames ?? []), "strong", "em"],
+};
+
 type AdvisorMarkdownProps = {
   children: string;
   className?: string;
@@ -89,9 +97,15 @@ type AdvisorMarkdownProps = {
 
 /** Candle-themed Markdown for advisor (assistant) chat bubbles. */
 export function AdvisorMarkdown({ children, className }: AdvisorMarkdownProps) {
+  const prepared = prepareAdvisorMarkdown(children);
   return (
     <div className={cn("advisor-md text-sm leading-relaxed", className)}>
-      <ReactMarkdown components={components}>{children}</ReactMarkdown>
+      <ReactMarkdown
+        components={components}
+        rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}
+      >
+        {prepared}
+      </ReactMarkdown>
     </div>
   );
 }
