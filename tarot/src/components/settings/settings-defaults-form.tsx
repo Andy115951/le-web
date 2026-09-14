@@ -81,6 +81,31 @@ export function SettingsDefaultsForm() {
             ))}
           </div>
         </div>
+
+        <div className="space-y-2">
+          <Label>静默揭晓</Label>
+          <p className="text-xs text-muted-foreground">
+            开启后，牌面揭晓不会立刻解读；点「请烛火开口」再请烛火开口。
+          </p>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={!prefs.silentReveal ? "default" : "outline"}
+              onClick={() => setPrefs((p) => ({ ...p, silentReveal: false }))}
+            >
+              自动解读
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={prefs.silentReveal ? "default" : "outline"}
+              onClick={() => setPrefs((p) => ({ ...p, silentReveal: true }))}
+            >
+              静默模式
+            </Button>
+          </div>
+        </div>
         <div className="flex items-center gap-3">
           <Button type="button" onClick={save}>
             保存

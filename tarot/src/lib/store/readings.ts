@@ -16,6 +16,7 @@ function mapReading(row: Record<string, unknown>): Reading {
     status: row.status as ReadingStatus,
     detailLevel: row.detail_level as DetailLevel,
     ritualSpeed: row.ritual_speed as RitualSpeed,
+    silentReveal: Boolean(row.silent_reveal),
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
     deletedAt: (row.deleted_at as string) ?? null,
@@ -40,6 +41,7 @@ export async function createReading(input: {
   spreadType: SpreadType;
   detailLevel: DetailLevel;
   ritualSpeed: RitualSpeed;
+  silentReveal?: boolean;
 }) {
   const supabase = getSupabaseAdmin();
   const spreadResult = drawSpread(input.spreadType);
@@ -58,6 +60,7 @@ export async function createReading(input: {
       status: "revealed",
       detail_level: input.detailLevel,
       ritual_speed: input.ritualSpeed,
+      silent_reveal: Boolean(input.silentReveal),
     })
     .select("*")
     .single();

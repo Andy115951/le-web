@@ -34,6 +34,7 @@ export type Reading = {
   status: ReadingStatus;
   detailLevel: DetailLevel;
   ritualSpeed: RitualSpeed;
+  silentReveal: boolean;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;

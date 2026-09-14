@@ -57,6 +57,7 @@ export async function POST(req: Request) {
     const spreadType = rawSpread;
     const detailLevel = (body.detailLevel || "brief") as DetailLevel;
     const ritualSpeed = (body.ritualSpeed || "normal") as RitualSpeed;
+    const silentReveal = Boolean(body.silentReveal);
     const reading = await createReading({
       userId: user?.id ?? null,
       anonymousId: anon,
@@ -65,6 +66,7 @@ export async function POST(req: Request) {
       spreadType,
       detailLevel,
       ritualSpeed,
+      silentReveal,
     });
     await bumpUsage(subject, "reading");
     return NextResponse.json({ reading });

@@ -198,10 +198,21 @@ export function ReadingClient({
   }, [reading.id, streamQuery]);
 
   useEffect(() => {
-    if (ritualDone && messages.length === 0 && !interpreting) {
+    if (
+      ritualDone &&
+      messages.length === 0 &&
+      !interpreting &&
+      !reading.silentReveal
+    ) {
       void runInterpret();
     }
-  }, [ritualDone, messages.length, interpreting, runInterpret]);
+  }, [
+    ritualDone,
+    messages.length,
+    interpreting,
+    reading.silentReveal,
+    runInterpret,
+  ]);
 
   async function sendFollowUp(opts?: {
     withSubSpread?: false | "single" | "chain";
@@ -303,6 +314,11 @@ export function ReadingClient({
           <Badge variant="secondary" aria-label={`仪式速度：${speedLabel}`}>
             {speedLabel}
           </Badge>
+          {reading.silentReveal ? (
+            <Badge variant="outline" aria-label="静默模式">
+              静默
+            </Badge>
+          ) : null}
           {ritualDone && messages.some((m) => m.role === "assistant") ? (
             <>
               <ShareReadingButton reading={reading} />
@@ -336,12 +352,36 @@ export function ReadingClient({
                   ? "烛火摇曳，字句正浮现…"
                   : "烛火摇曳，正在生成…"
                 : messages.length === 0
-                  ? "牌已揭晓，解读即将到来…"
+                  ? reading.silentReveal
+                    ? "先静静看牌，准备好再请烛火开口"
+                    : "牌已揭晓，解读即将到来…"
                   : "可继续追问"}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {messages.length === 0 && !interpreting && !streamingText && !error ? (
+            {messages.length === 0 &&
+            !interpreting &&
+            !streamingText &&
+            !error &&
+            reading.silentReveal ? (
+              <div className="flex flex-col items-start gap-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-4">
+                <p className="text-sm text-muted-foreground">
+                  先静静看牌，准备好再请烛火开口。
+                </p>
+                <Button
+                  type="button"
+                  onClick={() => void runInterpret()}
+                  aria-label="请烛火开口，开始解读"
+                >
+                  请烛火开口
+                </Button>
+              </div>
+            ) : null}
+            {messages.length === 0 &&
+            !interpreting &&
+            !streamingText &&
+            !error &&
+            !reading.silentReveal ? (
               <p className="text-sm text-muted-foreground">
                 烛火还在酝酿。若迟迟没有字句，可以稍后再试。
               </p>

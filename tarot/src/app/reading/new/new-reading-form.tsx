@@ -56,6 +56,9 @@ export function NewReadingForm({
   const [speed, setSpeed] = useState<RitualSpeed>(
     DEFAULT_USER_PREFS.ritualSpeed,
   );
+  const [silentReveal, setSilentReveal] = useState(
+    DEFAULT_USER_PREFS.silentReveal,
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [quotaBlocked, setQuotaBlocked] = useState(false);
@@ -64,6 +67,7 @@ export function NewReadingForm({
     const prefs = readUserPrefs();
     setDetail(prefs.detailLevel);
     setSpeed(prefs.ritualSpeed);
+    setSilentReveal(prefs.silentReveal);
   }, []);
 
   function onPickScene(id: SceneId) {
@@ -102,6 +106,7 @@ export function NewReadingForm({
           spreadType: spread,
           detailLevel: detail,
           ritualSpeed: speed,
+          silentReveal,
         }),
       });
       const data = await res.json();
@@ -231,6 +236,31 @@ export function NewReadingForm({
                 </Button>
               ))}
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>静默揭晓</Label>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={!silentReveal ? "default" : "outline"}
+                onClick={() => setSilentReveal(false)}
+              >
+                自动解读
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={silentReveal ? "default" : "outline"}
+                onClick={() => setSilentReveal(true)}
+              >
+                静默模式
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              静默时先静静看牌，准备好再请烛火开口。
+            </p>
           </div>
           <Badge variant="secondary">场景：{scene.label}</Badge>
         </CardContent>

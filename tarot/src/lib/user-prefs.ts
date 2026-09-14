@@ -5,11 +5,13 @@ const STORAGE_KEY = "candle-taro:user-prefs";
 export type UserPrefs = {
   ritualSpeed: RitualSpeed;
   detailLevel: DetailLevel;
+  silentReveal: boolean;
 };
 
 export const DEFAULT_USER_PREFS: UserPrefs = {
   ritualSpeed: "normal",
   detailLevel: "brief",
+  silentReveal: false,
 };
 
 function isRitualSpeed(v: unknown): v is RitualSpeed {
@@ -33,6 +35,10 @@ export function readUserPrefs(): UserPrefs {
       detailLevel: isDetailLevel(parsed.detailLevel)
         ? parsed.detailLevel
         : DEFAULT_USER_PREFS.detailLevel,
+      silentReveal:
+        typeof parsed.silentReveal === "boolean"
+          ? parsed.silentReveal
+          : DEFAULT_USER_PREFS.silentReveal,
     };
   } catch {
     return { ...DEFAULT_USER_PREFS };
