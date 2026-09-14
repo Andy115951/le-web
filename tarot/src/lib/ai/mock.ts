@@ -8,7 +8,7 @@ import type {
   TokenVerseInput,
 } from "@/lib/ai/types";
 import { describeSpread } from "@/lib/ai/prompts";
-import { contentForAI, parseSubCardMessage } from "@/lib/sub-card-message";
+import { contentForAI, parseSubSpreadMessage } from "@/lib/sub-card-message";
 
 const DISCLAIMER = "以上解读供娱乐与自我反思，并不构成确定预言。";
 
@@ -64,11 +64,18 @@ async function followUpText(input: FollowUpInput): Promise<string> {
     ? getCard(input.spreadResult.cards[0].cardId)?.nameZh
     : null;
   const anchor = tip ? `尤其是「${tip}」` : "本局牌面";
-  const { meta, text } = parseSubCardMessage(input.userMessage);
-  const heard = meta ? contentForAI(input.userMessage) : text;
-  const subNote = meta
-    ? "我会把这张象征牌当作本轮追问的额外锚点，仍以本局主牌阵为根基。"
-    : null;
+  const parsed = parseSubSpreadMessage(input.userMessage);
+  const heard = parsed.kind
+    ? contentForAI(input.userMessage)
+    : parsed.text;
+  let subNote: string | null = null;
+  if (parsed.kind === "chain") {
+    subNote =
+      "我会把这三条象征牌当作短象征链，锚定本轮追问，仍以本局主牌阵为根基——不是新的完整起卦。";
+  } else if (parsed.kind === "single") {
+    subNote =
+      "我会把这张象征牌当作本轮追问的额外锚点，仍以本局主牌阵为根基。";
+  }
   return [
     `我仍以本局（${anchor}）为锚来听你说的：`,
     heard,

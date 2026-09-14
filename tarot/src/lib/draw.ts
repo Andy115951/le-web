@@ -105,3 +105,35 @@ export function drawSingleCard(excludeCardIds: string[] = []): DrawnCard {
     reversed: coinFlip(),
   };
 }
+
+/** Draw n distinct symbolic cards, excluding given ids (and within the draw). */
+export function drawSingleCards(
+  n: number,
+  excludeCardIds: string[] = [],
+): DrawnCard[] {
+  const exclude = new Set(excludeCardIds);
+  const available = TAROT_DECK.filter((c) => !exclude.has(c.id));
+  let pool = available.length >= n ? available : [...TAROT_DECK];
+  const shuffled = secureShuffle(pool);
+  const labels = ["象征一", "象征二", "象征三"] as const;
+  const out: DrawnCard[] = [];
+  const used = new Set<string>();
+  for (let i = 0; i < n; i++) {
+    let picked = shuffled.find((c) => !used.has(c.id));
+    if (!picked) {
+      // Exhausted pool — reshuffle full deck minus used
+      const fallback = secureShuffle(
+        TAROT_DECK.filter((c) => !used.has(c.id)),
+      );
+      picked = fallback[0] ?? shuffled[i % shuffled.length]!;
+    }
+    used.add(picked.id);
+    out.push({
+      position: "symbol",
+      positionLabel: labels[i] ?? `象征${i + 1}`,
+      cardId: picked.id,
+      reversed: coinFlip(),
+    });
+  }
+  return out;
+}

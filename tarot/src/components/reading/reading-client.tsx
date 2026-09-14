@@ -14,7 +14,7 @@ import { TarotCardFace } from "@/components/reading/tarot-card-face";
 import { getCard } from "@/data/deck";
 import {
   displayTextForUser,
-  parseSubCardMessage,
+  parseSubSpreadMessage,
 } from "@/lib/sub-card-message";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -203,16 +203,21 @@ export function ReadingClient({
     }
   }, [ritualDone, messages.length, interpreting, runInterpret]);
 
-  async function sendFollowUp(opts?: { withSubSpread?: boolean }) {
-    const withSubSpread = opts?.withSubSpread === true;
+  async function sendFollowUp(opts?: {
+    withSubSpread?: false | "single" | "chain";
+  }) {
+    const subKind = opts?.withSubSpread ?? false;
     const text = draft.trim();
-    if (!withSubSpread && !text) return;
-    if (!quotaState.loading && quotaState.remaining.messages <= 0) {
+    if (!subKind && !text) return;
+    const cost = subKind === "chain" ? 3 : 1;
+    if (!quotaState.loading && quotaState.remaining.messages < cost) {
       setQuotaBlocked(true);
       setError(
-        quotaState.user
-          ? "今日追问额度已用尽，可以先回看这卦，或明天再续。"
-          : "访客追问额度已用尽，请登录后继续。",
+        subKind === "chain" && quotaState.remaining.messages > 0
+          ? "抽象征牌链需要至少 3 次追问额度，今日剩余不足。"
+          : quotaState.user
+            ? "今日追问额度已用尽，可以先回看这卦，或明天再续。"
+            : "访客追问额度已用尽，请登录后继续。",
       );
       return;
     }
@@ -220,9 +225,12 @@ export function ReadingClient({
     setError("");
     setQuotaBlocked(false);
     setStreamingText("");
-    const optimisticContent = withSubSpread
-      ? `【子牌阵】${text || "象征牌抽取中…"}`
-      : text;
+    const optimisticContent =
+      subKind === "chain"
+        ? `【象征牌链】${text || "象征牌链抽取中…"}`
+        : subKind === "single"
+          ? `【子牌阵】${text || "象征牌抽取中…"}`
+          : text;
     const optimistic: Message = {
       id: `local-${Date.now()}`,
       readingId: reading.id,
@@ -233,10 +241,10 @@ export function ReadingClient({
     setMessages((prev) => [...prev, optimistic]);
     setDraft("");
     try {
-      const body: { content: string; subSpread?: "single" } = {
+      const body: { content: string; subSpread?: "single" | "chain" } = {
         content: text,
       };
-      if (withSubSpread) body.subSpread = "single";
+      if (subKind === "single" || subKind === "chain") body.subSpread = subKind;
       const res = await fetch(
         `/api/readings/${reading.id}/messages${streamQuery}`,
         {
@@ -276,6 +284,8 @@ export function ReadingClient({
   const speedLabel = SPEED_LABEL[reading.ritualSpeed] ?? reading.ritualSpeed;
   const messagesExhausted =
     !quotaState.loading && quotaState.remaining.messages <= 0;
+  const chainExhausted =
+    !quotaState.loading && quotaState.remaining.messages < 3;
 
   return (
     <div className="space-y-6">
@@ -339,17 +349,40 @@ export function ReadingClient({
             <div className="space-y-3" aria-live="polite" aria-relevant="additions">
               {messages.map((m) => {
                 const isUser = m.role === "user";
+                const optimisticSingle =
+                  isUser && m.content.startsWith("【子牌阵】");
+                const optimisticChain =
+                  isUser && m.content.startsWith("【象征牌链】");
+                const optimisticSub = optimisticSingle || optimisticChain;
                 const sub =
-                  isUser && !m.content.startsWith("【子牌阵】")
-                    ? parseSubCardMessage(m.content)
-                    : { meta: null as null, text: m.content };
-                const optimisticSub = isUser && m.content.startsWith("【子牌阵】");
-                const bubbleText = sub.meta
+                  isUser && !optimisticSub
+                    ? parseSubSpreadMessage(m.content)
+                    : {
+                        kind: null as null,
+                        cards: [] as {
+                          cardId: string;
+                          reversed: boolean;
+                          positionLabel: string;
+                        }[],
+                        text: m.content,
+                      };
+                const bubbleText = sub.kind
                   ? displayTextForUser(m.content)
-                  : optimisticSub
-                    ? m.content.replace(/^【子牌阵】/, "").trim() || "象征牌抽取中…"
-                    : m.content;
-                const subCard = sub.meta ? getCard(sub.meta.cardId) : undefined;
+                  : optimisticChain
+                    ? m.content.replace(/^【象征牌链】/, "").trim() ||
+                      "象征牌链抽取中…"
+                    : optimisticSingle
+                      ? m.content.replace(/^【子牌阵】/, "").trim() ||
+                        "象征牌抽取中…"
+                      : m.content;
+                const tagLabel = (() => {
+                  if (!isUser) return "烛火解读";
+                  if (sub.kind === "chain" || optimisticChain)
+                    return "象征牌链 · 追问";
+                  if (sub.kind === "single" || optimisticSingle)
+                    return "子牌阵 · 追问";
+                  return "你的追问";
+                })();
                 return (
                   <div
                     key={m.id}
@@ -366,11 +399,7 @@ export function ReadingClient({
                           : "px-1 text-[10px] tracking-wider text-amber-200/70"
                       }
                     >
-                      {isUser
-                        ? sub.meta || optimisticSub
-                          ? "子牌阵 · 追问"
-                          : "你的追问"
-                        : "烛火解读"}
+                      {tagLabel}
                     </span>
                     <div
                       className={
@@ -379,21 +408,55 @@ export function ReadingClient({
                           : "max-w-[95%] whitespace-pre-wrap rounded-2xl rounded-bl-md border border-amber-500/25 bg-card/55 px-3.5 py-2.5 text-sm leading-relaxed text-foreground/95 shadow-[inset_0_0_22px_oklch(0.78_0.12_75/10%)]"
                       }
                     >
-                      {sub.meta ? (
+                      {sub.kind === "chain" ? (
+                        <div className="flex flex-col items-end gap-2">
+                          <div className="flex flex-wrap items-end justify-end gap-2">
+                            {sub.cards.map((c) => {
+                              const face = getCard(c.cardId);
+                              return (
+                                <div
+                                  key={`${c.cardId}-${c.positionLabel}`}
+                                  className="flex flex-col items-center gap-1"
+                                >
+                                  <div className="text-center text-[10px] leading-snug text-muted-foreground">
+                                    <div className="font-medium text-foreground/90">
+                                      {c.positionLabel || "象征"}
+                                    </div>
+                                    <div>
+                                      {face?.nameZh ?? c.cardId} ·{" "}
+                                      {c.reversed ? "逆位" : "正位"}
+                                    </div>
+                                  </div>
+                                  <TarotCardFace
+                                    card={face}
+                                    reversed={c.reversed}
+                                    compact
+                                    className="w-14 shrink-0 sm:w-16"
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <p className="w-full whitespace-pre-wrap text-left">
+                            {bubbleText}
+                          </p>
+                        </div>
+                      ) : sub.kind === "single" && sub.cards[0] ? (
                         <div className="flex flex-col items-end gap-2">
                           <div className="flex items-end gap-2">
                             <div className="text-right text-[11px] leading-snug text-muted-foreground">
                               <div className="font-medium text-foreground/90">
-                                {sub.meta.positionLabel || "象征"}
+                                {sub.cards[0].positionLabel || "象征"}
                               </div>
                               <div>
-                                {subCard?.nameZh ?? sub.meta.cardId} ·{" "}
-                                {sub.meta.reversed ? "逆位" : "正位"}
+                                {getCard(sub.cards[0].cardId)?.nameZh ??
+                                  sub.cards[0].cardId}{" "}
+                                · {sub.cards[0].reversed ? "逆位" : "正位"}
                               </div>
                             </div>
                             <TarotCardFace
-                              card={subCard}
-                              reversed={sub.meta.reversed}
+                              card={getCard(sub.cards[0].cardId)}
+                              reversed={sub.cards[0].reversed}
                               compact
                               className="w-16 shrink-0 sm:w-20"
                             />
@@ -404,7 +467,11 @@ export function ReadingClient({
                         </div>
                       ) : optimisticSub ? (
                         <div className="space-y-1">
-                          <p className="text-[11px] text-primary/80">子牌阵 · 象征牌抽取中…</p>
+                          <p className="text-[11px] text-primary/80">
+                            {optimisticChain
+                              ? "象征牌链 · 抽取中…"
+                              : "子牌阵 · 象征牌抽取中…"}
+                          </p>
                           {bubbleText ? (
                             <p className="whitespace-pre-wrap">{bubbleText}</p>
                           ) : null}
@@ -508,7 +575,7 @@ export function ReadingClient({
                       placeholder={
                         messagesExhausted
                           ? "今日追问额度已用尽…"
-                          : "继续追问…（子牌阵可留空）"
+                          : "继续追问…（象征牌 / 牌链可留空）"
                       }
                       rows={2}
                       className="resize-none"
@@ -516,7 +583,8 @@ export function ReadingClient({
                       aria-label="追问内容"
                     />
                     <p className="hidden text-xs text-muted-foreground sm:block">
-                      Enter 发送 · Shift / Ctrl + Enter 换行 · 子牌阵消耗 1 次追问
+                      Enter 发送 · Shift / Ctrl + Enter 换行 · 象征牌 1 次 / 牌链 3
+                      次追问
                     </p>
                   </div>
                   <div className="flex shrink-0 flex-col gap-2 sm:w-auto">
@@ -535,12 +603,26 @@ export function ReadingClient({
                     <Button
                       type="button"
                       variant="secondary"
-                      onClick={() => void sendFollowUp({ withSubSpread: true })}
+                      onClick={() =>
+                        void sendFollowUp({ withSubSpread: "single" })
+                      }
                       disabled={sending || interpreting || messagesExhausted}
                       aria-label="抽一张象征牌，子牌阵，消耗一次追问额度，文字可选"
                       title="抽一张象征牌（消耗 1 次追问，文字可选）"
                     >
                       抽一张象征牌
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() =>
+                        void sendFollowUp({ withSubSpread: "chain" })
+                      }
+                      disabled={sending || interpreting || chainExhausted}
+                      aria-label="抽象征牌链，连抽三张象征牌，消耗三次追问额度，文字可选"
+                      title="抽象征牌链（消耗 3 次追问，文字可选）"
+                    >
+                      抽象征牌链
                     </Button>
                   </div>
                 </div>

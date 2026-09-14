@@ -4,7 +4,7 @@ import type { FollowUpInput, InterpretInput, TokenVerseInput } from "@/lib/ai/ty
 import {
   contentForAI,
   hasSubCardInMessages,
-  parseSubCardMessage,
+  parseSubSpreadMessage,
 } from "@/lib/sub-card-message";
 
 export function sceneTone(scene: string): string {
@@ -66,11 +66,18 @@ export function interpretUserPrompt(input: InterpretInput): string {
 
 export function followUpSystemPrompt(input: FollowUpInput): string {
   const historyHasSub = hasSubCardInMessages(input.history);
-  const currentHasSub = parseSubCardMessage(input.userMessage).meta != null;
-  const subCardRule =
-    historyHasSub || currentHasSub
-      ? "若追问含【象征】子牌（子牌阵），将其视为锚定本轮追问的额外象征牌，仍以本局主牌阵为根基回应；勿当作新的完整起卦或另开一局解读。"
-      : "";
+  const current = parseSubSpreadMessage(input.userMessage);
+  const currentHasSub = current.kind != null;
+  let subCardRule = "";
+  if (historyHasSub || currentHasSub) {
+    if (current.kind === "chain" || historyHasSub) {
+      subCardRule =
+        "若追问含【象征】子牌或【象征牌链】（三条短链），将其视为锚定本轮追问的额外象征，仍以本局主牌阵为根基回应；象征牌链是短象征链，勿当作新的完整起卦或另开一局解读。";
+    } else {
+      subCardRule =
+        "若追问含【象征】子牌（子牌阵），将其视为锚定本轮追问的额外象征牌，仍以本局主牌阵为根基回应；勿当作新的完整起卦或另开一局解读。";
+    }
+  }
   return [
     "你是 Candle Taro 的追问顾问。仍以本局牌阵为锚，像持续顾问对话般回应。",
     OUTPUT_RULES,

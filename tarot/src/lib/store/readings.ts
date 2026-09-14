@@ -164,7 +164,10 @@ export async function canAccessReading(
 export async function bumpUsage(
   subjectKey: string,
   kind: "reading" | "message",
+  /** How many units to add (default 1). Used e.g. for symbolic chain = 3. */
+  amount = 1,
 ) {
+  const n = Math.max(1, Math.floor(amount));
   const supabase = getSupabaseAdmin();
   const day = new Date().toISOString().slice(0, 10);
   const { data } = await supabase
@@ -177,13 +180,16 @@ export async function bumpUsage(
     await supabase.from("tarot_usage_counters").insert({
       subject_key: subjectKey,
       day,
-      readings_count: kind === "reading" ? 1 : 0,
-      messages_count: kind === "message" ? 1 : 0,
+      readings_count: kind === "reading" ? n : 0,
+      messages_count: kind === "message" ? n : 0,
     });
-    return { readings: kind === "reading" ? 1 : 0, messages: kind === "message" ? 1 : 0 };
+    return {
+      readings: kind === "reading" ? n : 0,
+      messages: kind === "message" ? n : 0,
+    };
   }
-  const readings = data.readings_count + (kind === "reading" ? 1 : 0);
-  const messages = data.messages_count + (kind === "message" ? 1 : 0);
+  const readings = data.readings_count + (kind === "reading" ? n : 0);
+  const messages = data.messages_count + (kind === "message" ? n : 0);
   await supabase
     .from("tarot_usage_counters")
     .update({ readings_count: readings, messages_count: messages })

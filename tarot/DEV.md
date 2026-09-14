@@ -1,6 +1,6 @@
-# leweb · tarot — 开发文档（冻结产品决策 v2.13 · 2026-09-11）
+# leweb · tarot — 开发文档（冻结产品决策 v2.14 · 2026-09-14）
 
-> 状态：**P0–P34 已实现**（P19：22 张大阿尔卡纳；P20–P21：圣杯；P22：权杖；P23：宝剑；P24–P25：星币花色全套 `pentacles_ace`–`pentacles_king` 混合位图；78 张 `CARD_ART` 齐；P28 追问子牌阵；P29 牌阵剧场三阵；P30 烛火信物；P31 场景剧场软提示 + COPY v1.7；P32 同题回看对照；P33 凯尔特十字十位；P34 GitHub/Google OAuth）。AI 默认 `AI_PROVIDER=mock`；`AI_PROVIDER=deepseek`（legacy 别名 `gateway`）走 DeepSeek OpenAI 兼容接口（对齐 stock-dashboard：`DEEPSEEK_API_KEY` / `DEEPSEEK_API_URL` / `DEEPSEEK_MODEL`），失败回退 mock。P13 起不再使用 Vercel AI Gateway。P17 混合桥接；P18 牌库加厚 + 今日一牌；P19–P25 渐进 `CARD_ART` 收官。生产已可配 `DEEPSEEK_API_KEY`；Vercel↔GitHub 自动部署已接通。
+> 状态：**P0–P35 已实现**（P19：22 张大阿尔卡纳；P20–P21：圣杯；P22：权杖；P23：宝剑；P24–P25：星币花色全套 `pentacles_ace`–`pentacles_king` 混合位图；78 张 `CARD_ART` 齐；P28 追问子牌阵；P35 象征牌链；P29 牌阵剧场三阵；P30 烛火信物；P31 场景剧场软提示 + COPY v1.7；P32 同题回看对照；P33 凯尔特十字十位；P34 GitHub/Google OAuth）。AI 默认 `AI_PROVIDER=mock`；`AI_PROVIDER=deepseek`（legacy 别名 `gateway`）走 DeepSeek OpenAI 兼容接口（对齐 stock-dashboard：`DEEPSEEK_API_KEY` / `DEEPSEEK_API_URL` / `DEEPSEEK_MODEL`），失败回退 mock。P13 起不再使用 Vercel AI Gateway。P17 混合桥接；P18 牌库加厚 + 今日一牌；P19–P25 渐进 `CARD_ART` 收官。生产已可配 `DEEPSEEK_API_KEY`；Vercel↔GitHub 自动部署已接通。
 > 仓库路径：`Andy115951/le-web/tarot/`
 
 ---
@@ -18,7 +18,7 @@
 | 场景 | 感情/事业/学业/人际/日常抉择/身心状态 + 自定义；场景带可编辑示例问题 |
 | 牌阵 | 默认三牌；日常抉择默认单牌；可改：单牌/三牌/情境五牌/关系双人/抉择分叉/月相三问/凯尔特十字 |
 | 解读 | 简要/详细；设置默认 + 每局可改 |
-| 追问 | 自由顾问对话；P28 可抽单张象征牌（子牌阵，计 1 额度） |
+| 追问 | 自由顾问对话；P28 单张象征牌（计 1 额度）；P35 象征牌链三张（计 3 额度） |
 | 新局 | 常驻按钮 + 主题切换时软提示重抽 |
 | 历史 | 卡片：标题 + 牌阵 + 关键牌；P32 可对照 chip |
 | 访客 | 1 卦/天 + ~5 追问 → 促登录 |
@@ -56,6 +56,7 @@
 | P26 情境五牌 | `SpreadType` 增 `five_cross`；抽牌位：现状/挑战/过去影响/近期走向/建议；起卦可选；仪式网格与分享图适配 |
 | P27 牌义筛选清理 | 78 张 `CARD_ART` 齐后，下线牌义页「仅看已配图」与「渐进补齐中」提示 |
 | P28 追问子牌阵 | 追问区「抽一张象征牌」；`drawSingleCard`；content 头 `⟦SUBCARD⟧`；计 1 message 额度；文字可选；气泡展示牌面；AI 以主阵+象征牌为锚 |
+| P35 象征牌链 | 追问区「抽象征牌链」；`drawSingleCards(3)`；`⟦SUBCHAIN⟧`；计 3 message 额度；剩余 <3 拦截；气泡三张 compact；AI 短象征链锚定追问 |
 | P29 牌阵剧场 | `relation_dual` / `choice_fork` / `moon_triad`；`draw.ts` 三位；`spread-label` + 起卦剧场提示；仪式三牌网格；分享/历史走 label |
 | P30 烛火信物 | 解读后「烛火信物」；`POST .../token` → verse+card；`token-image.ts` 1080×1920；下载/Web Share；无 migration |
 | P31 剧场软提示 | 感情/人际→关系双人、日常抉择→抉择分叉、身心→月相三问；不改 defaultSpread；COPY v1.7；设置关于同步信物/分享图 |

@@ -6,10 +6,13 @@ import {
   wantsStream,
 } from "@/lib/ai/ndjson-stream";
 import { ensureAnonymousId, getCurrentUser } from "@/lib/auth/session";
-import { drawSingleCard } from "@/lib/draw";
+import { drawSingleCard, drawSingleCards } from "@/lib/draw";
 import {
+  CHAIN_LABELS,
   DEFAULT_SUB_CARD_PROMPT,
+  DEFAULT_SUB_CHAIN_PROMPT,
   encodeSubCardMessage,
+  encodeSubChainMessage,
 } from "@/lib/sub-card-message";
 import {
   QUOTAS,
@@ -22,6 +25,14 @@ import {
   updateReadingStatus,
 } from "@/lib/store/readings";
 
+type SubSpreadKind = "single" | "chain" | null;
+
+function parseSubSpread(raw: unknown): SubSpreadKind {
+  if (raw === "single") return "single";
+  if (raw === "chain") return "chain";
+  return null;
+}
+
 export async function POST(
   req: Request,
   ctx: { params: Promise<{ id: string }> },
@@ -31,9 +42,9 @@ export async function POST(
     const body = await req.json();
     const rawContent = String(body.content ?? "");
     const text = rawContent.trim();
-    const subSpread = body.subSpread === "single" ? "single" : null;
+    const subSpread = parseSubSpread(body.subSpread);
 
-    if (subSpread === "single") {
+    if (subSpread === "single" || subSpread === "chain") {
       if (text.length > 500) {
         return NextResponse.json({ error: "消息长度不合适" }, { status: 400 });
       }
@@ -46,12 +57,23 @@ export async function POST(
     const subject = user ? `user:${user.id}` : `anon:${anon}`;
     const usage = await getUsage(subject);
     const quota = user ? QUOTAS.user : QUOTAS.guest;
-    if (usage.messages >= quota.messages) {
+    const cost = subSpread === "chain" ? 3 : 1;
+    const remaining = quota.messages - usage.messages;
+
+    if (remaining < cost) {
+      const chainShort =
+        subSpread === "chain"
+          ? remaining < 3
+            ? "抽象征牌链需要至少 3 次追问额度，今日剩余不足。"
+            : null
+          : null;
       return NextResponse.json(
         {
-          error: user
-            ? "今日追问额度已用尽，可以先回看这卦，或明天再续。"
-            : "访客追问额度已用尽，请登录后继续。",
+          error:
+            chainShort ??
+            (user
+              ? "今日追问额度已用尽，可以先回看这卦，或明天再续。"
+              : "访客追问额度已用尽，请登录后继续。"),
           code: "quota",
           usage,
           quota,
@@ -59,6 +81,7 @@ export async function POST(
         { status: 429 },
       );
     }
+
     const reading = await getReading(id);
     if (!reading || !(await canAccessReading(reading, user?.id ?? null, anon))) {
       return NextResponse.json({ error: "未找到" }, { status: 404 });
@@ -79,13 +102,25 @@ export async function POST(
         },
         text,
       );
+    } else if (subSpread === "chain") {
+      const exclude = reading.spreadResult.cards.map((c) => c.cardId);
+      const drawn = drawSingleCards(3, exclude);
+      visibleText = text || DEFAULT_SUB_CHAIN_PROMPT;
+      storedContent = encodeSubChainMessage(
+        drawn.map((d, i) => ({
+          cardId: d.cardId,
+          reversed: d.reversed,
+          positionLabel: CHAIN_LABELS[i] ?? d.positionLabel,
+        })),
+        text,
+      );
     } else {
       storedContent = text;
       visibleText = text;
     }
 
     await addMessage(id, "user", storedContent);
-    await bumpUsage(subject, "message");
+    await bumpUsage(subject, "message", cost);
     const history = await listMessages(id);
     const ai = getTarotAI();
     const softHint = /换个问题|另一件事|完全不同/.test(visibleText);
