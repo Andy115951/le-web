@@ -6,6 +6,7 @@ import type { RitualSpeed } from "@/data/scenes";
 import type { Message, Reading } from "@/lib/types";
 import { useQuota } from "@/hooks/use-quota";
 import { QuotaHint } from "@/components/quota/quota-hint";
+import { GuestLoginCta } from "@/components/quota/guest-login-cta";
 import { RitualStage } from "@/components/reading/ritual-stage";
 import { ShareReadingButton } from "@/components/reading/share-reading-button";
 import { CandleTokenButton } from "@/components/reading/candle-token-button";
@@ -229,7 +230,7 @@ export function ReadingClient({
           ? "抽象征牌链需要至少 3 次追问额度，今日剩余不足。"
           : quotaState.user
             ? "今日追问额度已用尽，可以先回看这卦，或明天再续。"
-            : "访客追问额度已用尽，请登录后继续。",
+            : "访客今日追问的烛火已用尽。登录后还能轻声多问几句。",
       );
       return;
     }
@@ -582,18 +583,15 @@ export function ReadingClient({
               )}
             </div>
             {error && (
-              <div className="space-y-1" role="alert">
+              <div className="space-y-2" role="alert">
                 <p className="text-sm text-destructive">{error}</p>
                 {quotaBlocked && !quotaState.user ? (
-                  <p className="text-sm text-muted-foreground">
-                    <Link
-                      href="/login"
-                      className="text-primary underline-offset-2 hover:underline"
-                    >
-                      去登录
-                    </Link>
-                    ，历史会自动合并，追问额度也会更宽裕。
-                  </p>
+                  <GuestLoginCta
+                    nextPath={`/reading/${reading.id}`}
+                    githubEnabled={quotaState.oauth.github}
+                    tip="轻轻登录，马上可以继续追问；历史会合并，额度也会更宽裕。"
+                    compact
+                  />
                 ) : null}
               </div>
             )}
@@ -630,6 +628,7 @@ export function ReadingClient({
                   usage={quotaState.usage}
                   quota={quotaState.quota}
                   remaining={quotaState.remaining}
+                  oauth={quotaState.oauth}
                   focus="messages"
                 />
                 <div className="flex flex-col gap-2 sm:flex-row">
@@ -654,7 +653,9 @@ export function ReadingClient({
                       }}
                       placeholder={
                         messagesExhausted
-                          ? "今日追问额度已用尽…"
+                          ? (!quotaState.user
+                              ? "访客追问烛火已用尽，可轻轻登录继续…"
+                              : "今日追问额度已用尽…")
                           : "继续追问…（象征牌 / 牌链可留空）"
                       }
                       rows={2}

@@ -26,7 +26,7 @@ export async function POST(req: Request) {
         {
           error: user
             ? "今日新占卜额度已用尽，明天再来点亮一盏吧。"
-            : "访客今日起卦额度已用尽，请登录后继续。",
+            : "访客今日起卦的烛火已用尽。登录后可以继续点亮。",
           code: "quota",
           usage,
           quota,

@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CUSTOM_SCENE, SCENES, type SceneId } from "@/data/scenes";
 import { readUserPrefs } from "@/lib/user-prefs";
 import { useQuota } from "@/hooks/use-quota";
+import { GuestLoginCta } from "@/components/quota/guest-login-cta";
 import { Button } from "@/components/ui/button";
 
 const ALL = [...SCENES, CUSTOM_SCENE];
@@ -39,7 +39,7 @@ export function QuickStartButton({
       setError(
         quotaState.user
           ? "今日新占卜额度已用尽，明天再来点亮一盏吧。"
-          : "访客今日起卦额度已用尽，请登录后继续。",
+          : "访客今日起卦的烛火已用尽。登录后可以继续点亮。",
       );
       return;
     }
@@ -90,19 +90,26 @@ export function QuickStartButton({
         {loading ? "起卦中…" : readingsExhausted ? "今日额度已用尽" : "快速起卦"}
       </Button>
       {error ? (
-        <div className="mt-2 space-y-1" role="alert">
+        <div className="mt-2 space-y-2" role="alert">
           <p className="text-xs text-destructive">{error}</p>
           {quotaBlocked && !quotaState.user ? (
-            <p className="text-xs text-muted-foreground">
-              <Link
-                href="/login"
-                className="text-primary underline-offset-2 hover:underline"
-              >
-                去登录
-              </Link>
-              ，历史会自动合并，每日可起更多卦。
-            </p>
+            <GuestLoginCta
+              nextPath="/"
+              githubEnabled={quotaState.oauth.github}
+              tip="轻轻登录，马上可以继续起卦；历史会合并，每日额度也会更宽。"
+              compact
+            />
           ) : null}
+        </div>
+      ) : null}
+      {readingsExhausted && !quotaState.user && !error ? (
+        <div className="mt-2">
+          <GuestLoginCta
+            nextPath="/"
+            githubEnabled={quotaState.oauth.github}
+            tip="今日访客烛火已燃尽。轻轻登录，即可继续点亮。"
+            compact
+          />
         </div>
       ) : null}
     </div>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   CUSTOM_SCENE,
@@ -20,6 +19,7 @@ import {
 import { DEFAULT_USER_PREFS, readUserPrefs } from "@/lib/user-prefs";
 import { useQuota } from "@/hooks/use-quota";
 import { QuotaHint } from "@/components/quota/quota-hint";
+import { GuestLoginCta } from "@/components/quota/guest-login-cta";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -90,7 +90,7 @@ export function NewReadingForm({
       setError(
         quotaState.user
           ? "今日新占卜额度已用尽，明天再来点亮一盏吧。"
-          : "访客今日起卦额度已用尽，请登录后继续。",
+          : "访客今日起卦的烛火已用尽。登录后可以继续点亮。",
       );
       return;
     }
@@ -135,6 +135,7 @@ export function NewReadingForm({
         usage={quotaState.usage}
         quota={quotaState.quota}
         remaining={quotaState.remaining}
+        oauth={quotaState.oauth}
         focus="readings"
       />
 
@@ -302,21 +303,25 @@ export function NewReadingForm({
       </div>
 
       {error && (
-        <div className="space-y-1" role="alert">
+        <div className="space-y-2" role="alert">
           <p className="text-sm text-destructive">{error}</p>
           {quotaBlocked && !quotaState.user ? (
-            <p className="text-sm text-muted-foreground">
-              <Link
-                href="/login"
-                className="text-primary underline-offset-2 hover:underline"
-              >
-                去登录
-              </Link>
-              ，历史会自动合并，每日可起更多卦。
-            </p>
+            <GuestLoginCta
+              nextPath="/reading/new"
+              githubEnabled={quotaState.oauth.github}
+              tip="轻轻登录，马上可以继续起卦；历史会合并，每日额度也会更宽。"
+              compact
+            />
           ) : null}
         </div>
       )}
+      {readingsExhausted && !quotaState.user && !quotaBlocked ? (
+        <GuestLoginCta
+          nextPath="/reading/new"
+          githubEnabled={quotaState.oauth.github}
+          tip="今日访客烛火已燃尽。轻轻登录，即可继续点亮。"
+        />
+      ) : null}
       <Button
         type="submit"
         size="lg"

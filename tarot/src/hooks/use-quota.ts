@@ -8,21 +8,29 @@ export type QuotaBucket = {
   messages: number;
 };
 
+export type OAuthAvailability = {
+  github: boolean;
+  google: boolean;
+};
+
 export type QuotaSnapshot = {
   user: PublicUser | null;
   usage: QuotaBucket;
   quota: QuotaBucket;
   remaining: QuotaBucket;
+  oauth: OAuthAvailability;
   loading: boolean;
   error: string | null;
 };
 
 const EMPTY: QuotaBucket = { readings: 0, messages: 0 };
+const OAUTH_EMPTY: OAuthAvailability = { github: false, google: false };
 
 export function useQuota(): QuotaSnapshot & { refresh: () => Promise<void> } {
   const [user, setUser] = useState<PublicUser | null>(null);
   const [usage, setUsage] = useState<QuotaBucket>(EMPTY);
   const [quota, setQuota] = useState<QuotaBucket>(EMPTY);
+  const [oauth, setOauth] = useState<OAuthAvailability>(OAUTH_EMPTY);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,6 +44,10 @@ export function useQuota(): QuotaSnapshot & { refresh: () => Promise<void> } {
       setUser(data.user ?? null);
       setUsage(nextUsage);
       setQuota(nextQuota);
+      setOauth({
+        github: Boolean(data.oauth?.github),
+        google: Boolean(data.oauth?.google),
+      });
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "额度暂不可用");
@@ -56,6 +68,7 @@ export function useQuota(): QuotaSnapshot & { refresh: () => Promise<void> } {
       readings: Math.max(0, quota.readings - usage.readings),
       messages: Math.max(0, quota.messages - usage.messages),
     },
+    oauth,
     loading,
     error,
     refresh,

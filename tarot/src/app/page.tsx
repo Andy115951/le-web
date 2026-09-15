@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { DailyCardSection } from "@/components/home/daily-card";
 import { FirstVisitGuide } from "@/components/home/first-visit-guide";
+import { GuestQuotaNudge } from "@/components/home/guest-quota-nudge";
 import { QuickStartButton } from "@/components/home/quick-start-button";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +42,7 @@ export default async function HomePage() {
           </Button>
         </div>
         <FirstVisitGuide />
+        <GuestQuotaNudge />
         <div className="flex justify-center pt-1">
           <QuickStartButton sceneId="choice" className="text-left" />
         </div>

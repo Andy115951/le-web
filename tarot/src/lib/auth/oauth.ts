@@ -66,19 +66,35 @@ export function oauthCallbackUrl(baseUrl: string) {
   return `${baseUrl}/api/auth/oauth/callback`;
 }
 
-export async function beginOAuthState(provider: OAuthProvider) {
+export async function beginOAuthState(
+  provider: OAuthProvider,
+  next?: string | null,
+) {
   const nonce = randomBytes(16).toString("hex");
   const exp = Date.now() + STATE_TTL_MS;
-  const payload = b64url(JSON.stringify({ p: provider, n: nonce, exp }));
+  const body: { p: OAuthProvider; n: string; exp: number; next?: string } = {
+    p: provider,
+    n: nonce,
+    exp,
+  };
+  if (next && next.startsWith("/") && !next.startsWith("//") && !next.includes("://")) {
+    body.next = next.slice(0, 512);
+  }
+  const payload = b64url(JSON.stringify(body));
   const sig = b64url(sign(payload));
   const token = `${payload}.${sig}`;
   await setCookie(OAUTH_STATE_COOKIE, token, Math.floor(STATE_TTL_MS / 1000));
   return token;
 }
 
+export type OAuthStateResult = {
+  provider: OAuthProvider;
+  next: string | null;
+};
+
 export async function consumeOAuthState(
   stateFromQuery: string | null,
-): Promise<OAuthProvider | null> {
+): Promise<OAuthStateResult | null> {
   if (!stateFromQuery) return null;
   const cookieVal = await getCookie(OAUTH_STATE_COOKIE);
   await clearCookie(OAUTH_STATE_COOKIE);
@@ -95,7 +111,7 @@ export async function consumeOAuthState(
   }
   if (got.length !== expected.length || !timingSafeEqual(got, expected)) return null;
 
-  let parsed: { p?: string; exp?: number };
+  let parsed: { p?: string; exp?: number; next?: string };
   try {
     parsed = JSON.parse(fromB64url(payload).toString("utf8"));
   } catch {
@@ -103,7 +119,14 @@ export async function consumeOAuthState(
   }
   if (!parsed.exp || parsed.exp < Date.now()) return null;
   if (parsed.p !== "github" && parsed.p !== "google") return null;
-  return parsed.p;
+  const next =
+    typeof parsed.next === "string" &&
+    parsed.next.startsWith("/") &&
+    !parsed.next.startsWith("//") &&
+    !parsed.next.includes("://")
+      ? parsed.next.slice(0, 512)
+      : null;
+  return { provider: parsed.p, next };
 }
 
 export type OAuthProfile = {

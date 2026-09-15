@@ -13,14 +13,21 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { oauthHref, safeNextPath } from "@/lib/auth/safe-next";
 
 type Props = {
   githubEnabled: boolean;
   googleEnabled: boolean;
   initialError?: string | null;
+  nextPath?: string | null;
 };
 
-export function LoginForm({ githubEnabled, googleEnabled, initialError }: Props) {
+export function LoginForm({
+  githubEnabled,
+  googleEnabled,
+  initialError,
+  nextPath,
+}: Props) {
   const router = useRouter();
   const [mode, setMode] = useState<"login" | "register">("login");
   const [username, setUsername] = useState("");
@@ -35,6 +42,7 @@ export function LoginForm({ githubEnabled, googleEnabled, initialError }: Props)
   const [loading, setLoading] = useState(false);
 
   const showOauth = githubEnabled || googleEnabled;
+  const dest = safeNextPath(nextPath, "/history");
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -48,7 +56,7 @@ export function LoginForm({ githubEnabled, googleEnabled, initialError }: Props)
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "登录未成功，请再试一次。");
-      router.push("/history");
+      router.push(dest);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "登录未成功，请再试一次。");
@@ -77,6 +85,29 @@ export function LoginForm({ githubEnabled, googleEnabled, initialError }: Props)
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* OAuth first when available — shorter path from guest CTAs */}
+          {showOauth && (
+            <div className="mb-6 space-y-3">
+              <div className="grid gap-2">
+                {githubEnabled && (
+                  <Button variant="default" className="w-full" asChild>
+                    <a href={oauthHref("github", nextPath)}>使用 GitHub 继续</a>
+                  </Button>
+                )}
+                {googleEnabled && (
+                  <Button variant="outline" className="w-full" asChild>
+                    <a href={oauthHref("google", nextPath)}>使用 Google 继续</a>
+                  </Button>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <Separator className="flex-1" />
+                <span className="shrink-0 text-xs text-muted-foreground">或使用用户名</span>
+                <Separator className="flex-1" />
+              </div>
+            </div>
+          )}
+
           <form onSubmit={submit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="u">用户名</Label>
@@ -98,32 +129,10 @@ export function LoginForm({ githubEnabled, googleEnabled, initialError }: Props)
               />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full" disabled={loading} variant={showOauth ? "outline" : "default"}>
               {loading ? "请稍候…" : mode === "login" ? "登录" : "注册"}
             </Button>
           </form>
-
-          {showOauth && (
-            <div className="mt-6 space-y-3">
-              <div className="flex items-center gap-3">
-                <Separator className="flex-1" />
-                <span className="shrink-0 text-xs text-muted-foreground">或使用</span>
-                <Separator className="flex-1" />
-              </div>
-              <div className="grid gap-2">
-                {githubEnabled && (
-                  <Button variant="outline" className="w-full" asChild>
-                    <a href="/api/auth/oauth/github">使用 GitHub 继续</a>
-                  </Button>
-                )}
-                {googleEnabled && (
-                  <Button variant="outline" className="w-full" asChild>
-                    <a href="/api/auth/oauth/google">使用 Google 继续</a>
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
 
           <Button
             type="button"

@@ -73,7 +73,7 @@ export async function POST(
             chainShort ??
             (user
               ? "今日追问额度已用尽，可以先回看这卦，或明天再续。"
-              : "访客追问额度已用尽，请登录后继续。"),
+              : "访客今日追问的烛火已用尽。登录后还能轻声多问几句。"),
           code: "quota",
           usage,
           quota,
