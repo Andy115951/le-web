@@ -14,8 +14,10 @@ export function DailyCardSection({ draw }: { draw: DailyCardDraw }) {
 
   return (
     <section
+      id="daily-card"
+      tabIndex={-1}
       aria-labelledby="daily-card-heading"
-      className="rounded-xl border border-primary/25 bg-gradient-to-br from-primary/10 via-card/60 to-background p-4 sm:p-5"
+      className="scroll-mt-20 rounded-xl border border-primary/25 bg-gradient-to-br from-primary/10 via-card/60 to-background p-4 sm:p-5 outline-none"
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <Link

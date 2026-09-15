@@ -37,7 +37,7 @@ export default async function SettingsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">设置</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          账号、默认仪式与解读、今日额度
+          账号、默认仪式与解读、今日一牌习惯、今日额度
         </p>
       </div>
 
@@ -94,6 +94,9 @@ export default async function SettingsPage() {
           </p>
           <p>
             可把 Candle Taro 添加到手机主屏幕，以独立窗口打开：iPhone 用 Safari「分享 → 添加到主屏幕」；Android 用浏览器菜单「安装应用 / 添加到主屏幕」。弱网时会缓存首页壳与静态资源，方便再点亮烛火。
+          </p>
+          <p>
+            想养成轻习惯：在上方打开「打开时先看今日一牌」或「主屏打开时轻声提醒」——都可随时关掉，不发系统通知。
           </p>
           <p className="text-xs opacity-80">
             主题切换明显时，顾问可能温和建议点「新占卜」再起一卦，不强制。

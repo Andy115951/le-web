@@ -106,6 +106,72 @@ export function SettingsDefaultsForm() {
             </Button>
           </div>
         </div>
+
+        <div className="space-y-2 border-t border-border/50 pt-4">
+          <Label>今日一牌习惯</Label>
+          <p className="text-xs text-muted-foreground">
+            配合主屏幕打开更顺手。可随时关掉；不是桌面小组件，也不发系统通知。
+          </p>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <p className="text-sm">打开时先看今日一牌</p>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={!prefs.openToDailyCard ? "default" : "outline"}
+                  onClick={() =>
+                    setPrefs((p) => ({ ...p, openToDailyCard: false }))
+                  }
+                >
+                  关
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={prefs.openToDailyCard ? "default" : "outline"}
+                  onClick={() =>
+                    setPrefs((p) => ({ ...p, openToDailyCard: true }))
+                  }
+                >
+                  开
+                </Button>
+              </div>
+              <p className="text-[11px] text-muted-foreground/80">
+                开启后，每次打开首页（含主屏）会轻轻滚到今日一牌。
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-sm">主屏打开时轻声提醒</p>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={!prefs.dailyHabitNudge ? "default" : "outline"}
+                  onClick={() =>
+                    setPrefs((p) => ({ ...p, dailyHabitNudge: false }))
+                  }
+                >
+                  关
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={prefs.dailyHabitNudge ? "default" : "outline"}
+                  onClick={() =>
+                    setPrefs((p) => ({ ...p, dailyHabitNudge: true }))
+                  }
+                >
+                  开
+                </Button>
+              </div>
+              <p className="text-[11px] text-muted-foreground/80">
+                仅在主屏幕独立窗口打开时出现站内旁白；可点「今日不再」，设置里也可关掉。
+              </p>
+            </div>
+          </div>
+        </div>
+
         <div className="flex items-center gap-3">
           <Button type="button" onClick={save}>
             保存

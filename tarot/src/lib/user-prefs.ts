@@ -6,12 +6,18 @@ export type UserPrefs = {
   ritualSpeed: RitualSpeed;
   detailLevel: DetailLevel;
   silentReveal: boolean;
+  /** P51: on home open, scroll once to 今日一牌 (esp. PWA start). */
+  openToDailyCard: boolean;
+  /** P51: soft in-app reminder when opening as standalone PWA (dismissable / off). */
+  dailyHabitNudge: boolean;
 };
 
 export const DEFAULT_USER_PREFS: UserPrefs = {
   ritualSpeed: "normal",
   detailLevel: "brief",
   silentReveal: false,
+  openToDailyCard: false,
+  dailyHabitNudge: false,
 };
 
 function isRitualSpeed(v: unknown): v is RitualSpeed {
@@ -39,6 +45,14 @@ export function readUserPrefs(): UserPrefs {
         typeof parsed.silentReveal === "boolean"
           ? parsed.silentReveal
           : DEFAULT_USER_PREFS.silentReveal,
+      openToDailyCard:
+        typeof parsed.openToDailyCard === "boolean"
+          ? parsed.openToDailyCard
+          : DEFAULT_USER_PREFS.openToDailyCard,
+      dailyHabitNudge:
+        typeof parsed.dailyHabitNudge === "boolean"
+          ? parsed.dailyHabitNudge
+          : DEFAULT_USER_PREFS.dailyHabitNudge,
     };
   } catch {
     return { ...DEFAULT_USER_PREFS };
