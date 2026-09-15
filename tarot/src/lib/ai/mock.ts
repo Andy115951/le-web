@@ -70,12 +70,16 @@ async function interpretText(input: InterpretInput): Promise<string> {
   const priorLine = input.priorHint
     ? "你上次问过类似的问题；这一局仍以眼前牌面为主，只轻轻对照，不复述旧解读。"
     : null;
+  const relatedLine = input.relatedThemeHint
+    ? "近几日你也问过相近的主题；这一局仍看眼前牌面，只轻轻照一下。"
+    : null;
   const brief = input.detailLevel === "brief";
   const overview = sceneOverview(input.scene, input.question, brief);
   if (brief) {
     return [
       `## 总览`,
       priorLine,
+      relatedLine,
       overview,
       "",
       `## 牌意`,
@@ -92,6 +96,7 @@ async function interpretText(input: InterpretInput): Promise<string> {
   return [
     `## 总览`,
     priorLine,
+    relatedLine,
     overview,
     "",
     `## 牌意`,

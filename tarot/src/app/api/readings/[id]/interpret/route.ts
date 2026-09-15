@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { CUSTOM_SCENE, SCENES } from "@/data/scenes";
 import { getTarotAI } from "@/lib/ai";
 import type { InterpretInput } from "@/lib/ai/types";
 import {
@@ -7,14 +8,34 @@ import {
   wantsStream,
 } from "@/lib/ai/ndjson-stream";
 import { ensureAnonymousId, getCurrentUser } from "@/lib/auth/session";
+import { questionPreview } from "@/lib/related-theme";
 import {
   addMessage,
   canAccessReading,
   findPriorReadingByQuestion,
+  findRelatedThemeReading,
   getReading,
   listMessages,
   updateReadingStatus,
 } from "@/lib/store/readings";
+
+type PriorCards = NonNullable<InterpretInput["priorHint"]>["cards"];
+
+function mapCards(
+  prior: { spreadResult: { cards: { positionLabel: string; cardId: string; reversed: boolean }[] } },
+): PriorCards {
+  return prior.spreadResult.cards.map((c) => ({
+    positionLabel: c.positionLabel,
+    cardId: c.cardId,
+    reversed: c.reversed,
+  }));
+}
+
+function sceneLabel(scene: string): string {
+  return (
+    [...SCENES, CUSTOM_SCENE].find((s) => s.id === scene)?.label ?? scene
+  );
+}
 
 function buildPriorHint(
   prior: Awaited<ReturnType<typeof findPriorReadingByQuestion>>,
@@ -23,11 +44,20 @@ function buildPriorHint(
   return {
     createdAt: prior.createdAt,
     spread: prior.spreadResult.spread,
-    cards: prior.spreadResult.cards.map((c) => ({
-      positionLabel: c.positionLabel,
-      cardId: c.cardId,
-      reversed: c.reversed,
-    })),
+    cards: mapCards(prior),
+  };
+}
+
+function buildRelatedThemeHint(
+  prior: Awaited<ReturnType<typeof findRelatedThemeReading>>,
+): InterpretInput["relatedThemeHint"] {
+  if (!prior?.spreadResult) return null;
+  return {
+    createdAt: prior.createdAt,
+    scene: sceneLabel(prior.scene),
+    questionPreview: questionPreview(prior.question),
+    spread: prior.spreadResult.spread,
+    cards: mapCards(prior),
   };
 }
 
@@ -61,12 +91,25 @@ export async function POST(
       excludeId: id,
     });
     const priorHint = buildPriorHint(prior);
+
+    // P49: related theme in recent days (not exact same question / not same prior)
+    const related = await findRelatedThemeReading({
+      question: reading.question,
+      scene: reading.scene,
+      userId: user?.id ?? null,
+      anonymousId: anon,
+      excludeId: id,
+      excludeIds: prior ? [prior.id] : [],
+    });
+    const relatedThemeHint = buildRelatedThemeHint(related);
+
     const interpretInput: InterpretInput = {
       question: reading.question,
       scene: reading.scene,
       detailLevel: reading.detailLevel,
       spreadResult: reading.spreadResult,
       priorHint,
+      relatedThemeHint,
     };
 
     if (!wantsStream(req)) {

@@ -3,6 +3,10 @@ import { drawSpread } from "@/lib/draw";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import type { Message, Reading, ReadingStatus, SpreadResult } from "@/lib/types";
 import { normalizeQuestion } from "@/lib/normalize-question";
+import {
+  isRelatedTheme,
+  RELATED_THEME_WINDOW_MS,
+} from "@/lib/related-theme";
 
 export { normalizeQuestion };
 
@@ -258,5 +262,57 @@ export async function findPriorReadingByQuestion(opts: {
   const match = (data ?? []).find(
     (row) => normalizeQuestion(String(row.question ?? "")) === normalized,
   );
+  return match ? mapReading(match) : null;
+}
+
+/**
+ * Most recent earlier reading with a related theme in the last ~7 days (P49).
+ * Not exact same question (that's P41); prefers same non-custom scene or soft
+ * question overlap. Compact card/spread only — no AI text. Optional excludeIds
+ * (e.g. same-question prior already used for priorHint).
+ */
+export async function findRelatedThemeReading(opts: {
+  question: string;
+  scene: SceneId;
+  userId?: string | null;
+  anonymousId?: string | null;
+  excludeId: string;
+  /** Extra ids to skip (e.g. P41 same-question prior). */
+  excludeIds?: string[];
+  /** Override look-back; default RELATED_THEME_WINDOW_MS. */
+  windowMs?: number;
+}): Promise<Reading | null> {
+  const windowMs = opts.windowMs ?? RELATED_THEME_WINDOW_MS;
+  const since = new Date(Date.now() - windowMs).toISOString();
+  const skip = new Set<string>([opts.excludeId, ...(opts.excludeIds ?? [])]);
+
+  const supabase = getSupabaseAdmin();
+  let q = supabase
+    .from("tarot_readings")
+    .select("*")
+    .is("deleted_at", null)
+    .neq("id", opts.excludeId)
+    .not("spread_result", "is", null)
+    .gte("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(40);
+
+  if (opts.userId) q = q.eq("user_id", opts.userId);
+  else if (opts.anonymousId) q = q.eq("anonymous_id", opts.anonymousId);
+  else return null;
+
+  const { data, error } = await q;
+  if (error) throw new Error(error.message);
+
+  const current = { question: opts.question, scene: opts.scene };
+  const match = (data ?? []).find((row) => {
+    const id = String(row.id ?? "");
+    if (skip.has(id)) return false;
+    const reading = mapReading(row);
+    return isRelatedTheme(current, {
+      question: reading.question,
+      scene: reading.scene,
+    });
+  });
   return match ? mapReading(match) : null;
 }

@@ -12,6 +12,17 @@ export type InterpretInput = {
     spread: string; // spread type id
     cards: { positionLabel: string; cardId: string; reversed: boolean }[];
   } | null;
+  /**
+   * P49: related-theme prior (recent days, not exact same question).
+   * Compact card/spread + scene/question preview only — no old AI text.
+   */
+  relatedThemeHint?: {
+    createdAt: string; // ISO
+    scene: string;
+    questionPreview: string;
+    spread: string;
+    cards: { positionLabel: string; cardId: string; reversed: boolean }[];
+  } | null;
 };
 
 export type FollowUpInput = {
