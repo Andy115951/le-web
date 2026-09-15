@@ -3,7 +3,7 @@ import { ensureAnonymousId, getCurrentUser } from "@/lib/auth/session";
 import { listReadings, normalizeQuestion } from "@/lib/store/readings";
 import { getCard } from "@/data/deck";
 import { spreadLabel } from "@/lib/spread-label";
-import { CUSTOM_SCENE, SCENES } from "@/data/scenes";
+import { CUSTOM_SCENE, SCENES, type SceneId } from "@/data/scenes";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -12,7 +12,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { HistoryCard } from "@/components/history/history-card";
+import {
+  HistoryList,
+  type HistoryListItem,
+} from "@/components/history/history-list";
 
 function sceneLabel(scene: string) {
   if (scene === "custom") return CUSTOM_SCENE.label;
@@ -25,6 +28,32 @@ export default async function HistoryPage() {
   const readings = await listReadings({
     userId: user?.id,
     anonymousId: user ? null : anon,
+  });
+
+  const items: HistoryListItem[] = readings.map((r) => {
+    const names = r.spreadResult.cards
+      .map((c) => getCard(c.cardId)?.nameZh ?? c.cardId)
+      .join(" / ");
+    const nq = normalizeQuestion(r.question);
+    const canCompare = readings.some(
+      (other) =>
+        other.id !== r.id &&
+        !!other.spreadResult &&
+        normalizeQuestion(other.question) === nq &&
+        other.createdAt < r.createdAt,
+    );
+    return {
+      id: r.id,
+      title: r.title,
+      question: r.question,
+      scene: r.scene as SceneId,
+      sceneLabel: sceneLabel(r.scene),
+      spreadLabel: spreadLabel(r.spreadType),
+      cardNames: names,
+      updatedAt: r.updatedAt,
+      createdAt: r.createdAt,
+      canCompare,
+    };
   });
 
   return (
@@ -55,36 +84,7 @@ export default async function HistoryPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-3">
-          {readings.map((r) => {
-            const names = r.spreadResult.cards
-              .map((c) => getCard(c.cardId)?.nameZh ?? c.cardId)
-              .join(" / ");
-            const nq = normalizeQuestion(r.question);
-            const canCompare = readings.some(
-              (other) =>
-                other.id !== r.id &&
-                !!other.spreadResult &&
-                normalizeQuestion(other.question) === nq &&
-                other.createdAt < r.createdAt,
-            );
-            return (
-              <HistoryCard
-                key={r.id}
-                reading={{
-                  id: r.id,
-                  title: r.title,
-                  question: r.question,
-                  sceneLabel: sceneLabel(r.scene),
-                  spreadLabel: spreadLabel(r.spreadType),
-                  cardNames: names,
-                  updatedAt: r.updatedAt,
-                  canCompare,
-                }}
-              />
-            );
-          })}
-        </div>
+        <HistoryList items={items} />
       )}
     </div>
   );

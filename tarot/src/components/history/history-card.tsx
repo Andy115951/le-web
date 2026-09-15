@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Star } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -26,7 +27,15 @@ export type HistoryCardData = {
   canCompare?: boolean;
 };
 
-export function HistoryCard({ reading }: { reading: HistoryCardData }) {
+export function HistoryCard({
+  reading,
+  favorited = false,
+  onToggleFavorite,
+}: {
+  reading: HistoryCardData;
+  favorited?: boolean;
+  onToggleFavorite?: (id: string) => void;
+}) {
   const router = useRouter();
   const renameId = useId();
   const renameInputRef = useRef<HTMLInputElement>(null);
@@ -212,6 +221,14 @@ export function HistoryCard({ reading }: { reading: HistoryCardData }) {
                 </CardTitle>
                 <Badge variant="outline">{reading.spreadLabel}</Badge>
                 <Badge variant="secondary">{reading.sceneLabel}</Badge>
+                {favorited ? (
+                  <Badge
+                    variant="outline"
+                    className="border-amber-400/50 text-amber-100/90"
+                  >
+                    收藏
+                  </Badge>
+                ) : null}
                 {reading.canCompare ? (
                   <Badge
                     variant="outline"
@@ -230,6 +247,31 @@ export function HistoryCard({ reading }: { reading: HistoryCardData }) {
               </CardDescription>
             </Link>
             <div className="flex shrink-0 gap-1">
+              {onToggleFavorite ? (
+                <Button
+                  size="icon-xs"
+                  variant="ghost"
+                  type="button"
+                  disabled={busy}
+                  aria-pressed={favorited}
+                  aria-label={
+                    favorited
+                      ? `取消收藏「${reading.title || reading.question}」`
+                      : `收藏「${reading.title || reading.question}」`
+                  }
+                  onClick={() => onToggleFavorite(reading.id)}
+                  className={
+                    favorited
+                      ? "text-amber-200 hover:text-amber-100"
+                      : "text-muted-foreground"
+                  }
+                >
+                  <Star
+                    className={favorited ? "fill-current" : undefined}
+                    aria-hidden
+                  />
+                </Button>
+              ) : null}
               <Button
                 ref={renameTriggerRef}
                 size="xs"

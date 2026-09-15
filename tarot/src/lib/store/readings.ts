@@ -2,6 +2,9 @@ import type { DetailLevel, RitualSpeed, SceneId, SpreadType } from "@/data/scene
 import { drawSpread } from "@/lib/draw";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import type { Message, Reading, ReadingStatus, SpreadResult } from "@/lib/types";
+import { normalizeQuestion } from "@/lib/normalize-question";
+
+export { normalizeQuestion };
 
 function mapReading(row: Record<string, unknown>): Reading {
   return {
@@ -221,11 +224,6 @@ export const QUOTAS = {
   user: { readings: 10, messages: 100 },
 } as const;
 
-
-/** Trim + collapse internal whitespace for same-question matching. */
-export function normalizeQuestion(q: string): string {
-  return q.trim().replace(/\s+/g, " ");
-}
 
 /**
  * Most recent earlier reading with the same normalized question for this owner.
