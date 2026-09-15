@@ -1,6 +1,6 @@
 # leweb · tarot — 开发文档（冻结产品决策 v2.21 · 2026-09-15）
 
-> 状态：**P0–P42 已实现**（P19：22 张大阿尔卡纳；P20–P21：圣杯；P22：权杖；P23：宝剑；P24–P25：星币花色全套 `pentacles_ace`–`pentacles_king` 混合位图；78 张 `CARD_ART` 齐；P28 追问子牌阵；P35 象征牌链；P29 牌阵剧场三阵；P30 烛火信物；P31 场景剧场软提示 + COPY v1.7；P32 同题回看对照；P33 凯尔特十字十位；P34 GitHub/Google OAuth；P36 静默模式；P37 易用性：折叠高级选项 / 快速起卦 / 骨架屏 / 仪式 SPEEDS 1200/650/280；P38 解读 Markdown 渲染；P39 场景微剧本开场/落烛；P40 分享/信物预览保存与系统分享；P41 克制多局记忆：同题旧卦轻提；P42 PWA：主屏安装 + 弱网壳缓存）。AI 默认 `AI_PROVIDER=mock`；`AI_PROVIDER=deepseek`（legacy 别名 `gateway`）走 DeepSeek OpenAI 兼容接口（对齐 stock-dashboard：`DEEPSEEK_API_KEY` / `DEEPSEEK_API_URL` / `DEEPSEEK_MODEL`），失败回退 mock。P13 起不再使用 Vercel AI Gateway。P17 混合桥接；P18 牌库加厚 + 今日一牌；P19–P25 渐进 `CARD_ART` 收官。生产已可配 `DEEPSEEK_API_KEY`；Vercel↔GitHub 自动部署已接通。
+> 状态：**P0–P42 已实现**；**P43–P51 体验队列已写入 PLAN（待做）**（P19：22 张大阿尔卡纳；P20–P21：圣杯；P22：权杖；P23：宝剑；P24–P25：星币花色全套 `pentacles_ace`–`pentacles_king` 混合位图；78 张 `CARD_ART` 齐；P28 追问子牌阵；P35 象征牌链；P29 牌阵剧场三阵；P30 烛火信物；P31 场景剧场软提示 + COPY v1.7；P32 同题回看对照；P33 凯尔特十字十位；P34 GitHub/Google OAuth；P36 静默模式；P37 易用性：折叠高级选项 / 快速起卦 / 骨架屏 / 仪式 SPEEDS 1200/650/280；P38 解读 Markdown 渲染；P39 场景微剧本开场/落烛；P40 分享/信物预览保存与系统分享；P41 克制多局记忆：同题旧卦轻提；P42 PWA：主屏安装 + 弱网壳缓存）。AI 默认 `AI_PROVIDER=mock`；`AI_PROVIDER=deepseek`（legacy 别名 `gateway`）走 DeepSeek OpenAI 兼容接口（对齐 stock-dashboard：`DEEPSEEK_API_KEY` / `DEEPSEEK_API_URL` / `DEEPSEEK_MODEL`），失败回退 mock。P13 起不再使用 Vercel AI Gateway。P17 混合桥接；P18 牌库加厚 + 今日一牌；P19–P25 渐进 `CARD_ART` 收官。生产已可配 `DEEPSEEK_API_KEY`；Vercel↔GitHub 自动部署已接通。
 > 仓库路径：`Andy115951/le-web/tarot/`
 
 ---
@@ -77,6 +77,24 @@
 - 手机号登录仍后置；付费仍后置
 - **OAuth 运维**：在 GitHub/Google 创建 OAuth App，Redirect URI = `{OAUTH_BASE_URL}/api/auth/oauth/callback`；Vercel 写入 `GITHUB_OAUTH_CLIENT_ID` / `GITHUB_OAUTH_CLIENT_SECRET` / `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` / 可选 `OAUTH_BASE_URL`（生产建议显式设为 `https://candle-taro.vercel.app`）。未配置时密码登录仍可用。
 
+### 体验队列 P43–P51（方向已定 · 待实现）
+
+详见 `PLAN.md` §3.45–§3.53 / §5。建议顺序：
+
+| 阶段 | 内容 | 备注 |
+|------|------|------|
+| P43 | 真机浸泡清单 | 小刺修复，不大开功能 |
+| P44 | 首次来访引导 | 1～2 句旁白，非教程墙 |
+| P45 | 访客→登录转化 | 更温柔短路径；Google 可选 |
+| P46 | 历史好找 | 场景/时间、同题成组、软收藏 |
+| P47 | 解读语气再校准 | 场景口吻 + Markdown 结构 |
+| P48 | 局内时间线 | 揭晓→解读→追问→信物 |
+| P49 | 多局记忆加一层 | 近几日相关主题轻提；仍克制 |
+| P50 | 公开分享页 | 只读短链，可关 |
+| P51 | 今日一牌习惯 | 轻提醒 / 主屏默认落点 |
+
+实现时优先近端 P43–P46，再中段 P47–P51；勿与后置付费/手机号混进同一切片。
+
 ---
 
 
@@ -119,7 +137,7 @@ AI 接线：`src/lib/ai/index.ts` 按 `AI_PROVIDER` 选 mock / deepseek（`gatew
 
 ## 4. 实现阶段
 
-见 `PLAN.md` §5。P0–P42 已落地。关键：`public/manifest.webmanifest`、`public/sw.js`、`src/components/pwa/register-sw.tsx`、`public/icons/`；`src/lib/ai/types.ts`（`priorHint`）、`prompts.ts` / `mock.ts`、`api/readings/[id]/interpret`；其余：`share-image-preview.tsx`；`src/components/reading/advisor-markdown.tsx`；`src/lib/auth/oauth.ts`、`src/app/api/auth/oauth/`、`src/app/login/`；其余：`src/lib/ai/deepseek.ts`、`src/lib/ai/index.ts`；UI：`src/components/reading/ritual-stage.tsx`、`tarot-card-face.tsx`（含 `TarotCardBack` + 混合位图）、`src/data/card-art.ts`、`public/cards/`、`reading-client.tsx`、`src/lib/sub-card-message.ts`、`src/lib/draw.ts`（含 `drawSingleCard`）、`share-reading-button.tsx`、`candle-token-button.tsx`、`src/lib/share-reading.ts`、`src/lib/share-reading-image.ts`、`src/lib/token-image.ts`、`src/app/api/readings/[id]/token/`、`src/components/history/history-card.tsx`、`src/components/reading/compare-prior-section.tsx`、`findPriorReadingByQuestion`、`src/components/app-shell.tsx`（skip link）；`src/hooks/use-quota.ts`、`src/components/quota/quota-hint.tsx`；牌义图鉴：`src/app/cards/`、`src/components/cards/`；今日一牌：`src/lib/daily-card.ts`、`src/components/home/daily-card.tsx`；快速起卦：`src/components/home/quick-start-button.tsx`；骨架：`app/reading/new/loading.tsx`、`app/reading/[id]/loading.tsx`、`app/history/loading.tsx`；动画样式在 `src/app/globals.css`。
+见 `PLAN.md` §5。P0–P42 已落地；P43–P51 待做（体验队列）。关键：`public/manifest.webmanifest`、`public/sw.js`、`src/components/pwa/register-sw.tsx`、`public/icons/`；`src/lib/ai/types.ts`（`priorHint`）、`prompts.ts` / `mock.ts`、`api/readings/[id]/interpret`；其余：`share-image-preview.tsx`；`src/components/reading/advisor-markdown.tsx`；`src/lib/auth/oauth.ts`、`src/app/api/auth/oauth/`、`src/app/login/`；其余：`src/lib/ai/deepseek.ts`、`src/lib/ai/index.ts`；UI：`src/components/reading/ritual-stage.tsx`、`tarot-card-face.tsx`（含 `TarotCardBack` + 混合位图）、`src/data/card-art.ts`、`public/cards/`、`reading-client.tsx`、`src/lib/sub-card-message.ts`、`src/lib/draw.ts`（含 `drawSingleCard`）、`share-reading-button.tsx`、`candle-token-button.tsx`、`src/lib/share-reading.ts`、`src/lib/share-reading-image.ts`、`src/lib/token-image.ts`、`src/app/api/readings/[id]/token/`、`src/components/history/history-card.tsx`、`src/components/reading/compare-prior-section.tsx`、`findPriorReadingByQuestion`、`src/components/app-shell.tsx`（skip link）；`src/hooks/use-quota.ts`、`src/components/quota/quota-hint.tsx`；牌义图鉴：`src/app/cards/`、`src/components/cards/`；今日一牌：`src/lib/daily-card.ts`、`src/components/home/daily-card.tsx`；快速起卦：`src/components/home/quick-start-button.tsx`；骨架：`app/reading/new/loading.tsx`、`app/reading/[id]/loading.tsx`、`app/history/loading.tsx`；动画样式在 `src/app/globals.css`。
 
 ## 5. 风险
 
