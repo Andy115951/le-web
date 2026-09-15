@@ -31,16 +31,52 @@ function sceneClosing(scene: string): string {
   }
 }
 
+/** P47: scene-distinct openings in ## 总览 (mouth must be recognizable). */
+function sceneOverview(scene: string, question: string, brief: boolean): string {
+  switch (scene) {
+    case "love":
+      return brief
+        ? `围绕「${question}」，牌面像烛边低语：先听见情绪与张力，再谈远近。`
+        : `关于「${question}」，这一局像烛边私语——**先看见感受，再谈远近**。`;
+    case "career":
+      return brief
+        ? `围绕「${question}」，牌面沉稳摊开路径与取舍：先看清手里那一步。`
+        : `关于「${question}」，这一局沉稳落在桌上——**先分清能走的与暂缓的**。`;
+    case "study":
+      return brief
+        ? `围绕「${question}」，牌面不催：点出卡点，再给一个能做完的一小步。`
+        : `关于「${question}」，这一局像慢光落在卡点上——**鼓励，但不催你一次走完**。`;
+    case "social":
+      return brief
+        ? `围绕「${question}」，牌面偏中性：先看清你站在哪里，再看互动怎么绕。`
+        : `关于「${question}」，这一局冷静对照模式——**位置比对错更值得留意**。`;
+    case "choice":
+      return brief
+        ? `围绕「${question}」，对照已在眼前：短听身体更倾向的一侧即可。`
+        : `关于「${question}」，这一局点到为止——**两边摆开，当下更值得听从的是哪一侧**。`;
+    case "body":
+      return brief
+        ? `围绕「${question}」，牌面偏慢柔：先照顾最需要被看见的那一块。`
+        : `关于「${question}」，这一局像慢烛火——**先照顾边界与呼吸，不制造恐慌**。`;
+    default:
+      return brief
+        ? `围绕「${question}」，牌面更像在请你先看清节奏，再决定伸手的方向。`
+        : `关于「${question}」，这一局像一盏被风吹动的烛火——**晃，但还在**。`;
+  }
+}
+
 async function interpretText(input: InterpretInput): Promise<string> {
   const lines = describeSpread(input.spreadResult);
   const priorLine = input.priorHint
     ? "你上次问过类似的问题；这一局仍以眼前牌面为主，只轻轻对照，不复述旧解读。"
     : null;
-  if (input.detailLevel === "brief") {
+  const brief = input.detailLevel === "brief";
+  const overview = sceneOverview(input.scene, input.question, brief);
+  if (brief) {
     return [
       `## 总览`,
       priorLine,
-      `围绕「${input.question}」，牌面更像在请你先看清节奏，再决定伸手的方向。`,
+      overview,
       "",
       `## 牌意`,
       lines,
@@ -56,7 +92,7 @@ async function interpretText(input: InterpretInput): Promise<string> {
   return [
     `## 总览`,
     priorLine,
-    `关于「${input.question}」，这一局像一盏被风吹动的烛火——**晃，但还在**。`,
+    overview,
     "",
     `## 牌意`,
     lines,

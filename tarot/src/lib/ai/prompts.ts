@@ -54,22 +54,28 @@ const OUTPUT_RULES = [
   "用途：娱乐与自我反思；文末可轻点免责，勿喧宾夺主。",
   TONE_BASELINE,
   "牌义以提供的摘要为准，可延伸意象，勿编造与牌库明显冲突的含义。",
-  "格式：可用轻量 Markdown——短 ## 小节、**强调**、- 列表；小节标题优先中文如 总览 / 牌意 / 综合 / 建议。",
+  "格式：可用轻量 Markdown——短 ## 小节、**强调**、- 列表；小节标题优先中文。",
   "禁止：代码围栏（```）、表格、HTML、四级及以上标题（####+）；勿堆砌标题；篇幅仍克制。",
+].join("\n");
+
+const INTERPRET_STRUCTURE = [
+  "解读结构（必须）：按固定顺序使用二级标题 ## 总览 → ## 牌意 → ## 综合；勿改用飘移小节名（如「开场/要点/小结」等）。",
+  "简要档：压缩篇幅，仅上述三节；详细档：可在综合后加 ## 建议（一小步、可执行）。",
 ].join("\n");
 
 export function interpretSystemPrompt(input: InterpretInput): string {
   const level =
     input.detailLevel === "brief"
-      ? "简要：总览一两句 + 关键牌意 + 一句综合；控制篇幅。"
-      : "详细：总览、分牌叙事、综合、可执行的一小步建议；意象可更满，仍忌绝对预言。";
+      ? "简要：## 总览（一两句，场景口吻可辨）→ ## 牌意 → ## 综合（一句）；勿加 ## 建议；控制篇幅。"
+      : "详细：## 总览（场景口吻可辨）→ ## 牌意（分牌叙事）→ ## 综合 → 可选 ## 建议（一小步）；意象可更满，仍忌绝对预言。";
   const priorRule = input.priorHint
-    ? "若有同题旧卦摘要，开篇轻提一句即可（勿复述旧解读全文、勿做成跨局长记忆聊天、勿绝对预言、仍以本局牌面为主）。"
+    ? "若有同题旧卦摘要，在 ## 总览 内轻提一句即可（勿复述旧解读全文、勿做成跨局长记忆聊天、勿绝对预言、仍以本局牌面为主）。"
     : "";
   return [
     "你是 Candle Taro 的占卜解读顾问，语气仪式、温和、神秘而不夸张。",
     OUTPUT_RULES,
-    `场景语气：${sceneTone(input.scene)}`,
+    INTERPRET_STRUCTURE,
+    `场景语气（必须可辨认，贯穿总览与综合，勿写成通用鸡汤）：${sceneTone(input.scene)}`,
     level,
     priorRule,
   ]
@@ -116,7 +122,7 @@ export function followUpSystemPrompt(input: FollowUpInput): string {
   return [
     "你是 Candle Taro 的追问顾问。仍以本局牌阵为锚，像持续顾问对话般回应。",
     OUTPUT_RULES,
-    `场景语气：${sceneTone(input.scene)}`,
+    `场景语气（必须可辨认，勿写成通用鸡汤）：${sceneTone(input.scene)}`,
     "若用户明显换成全新主题，可温和建议点「新占卜」再起一卦，不强制。",
     subCardRule,
   ]
