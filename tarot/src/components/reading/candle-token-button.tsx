@@ -16,9 +16,12 @@ type TokenState = "idle" | "working" | "error";
 export function CandleTokenButton({
   reading,
   disabled,
+  onLit,
 }: {
   reading: Reading;
   disabled?: boolean;
+  /** P48: parent timeline marks 信物 when preview opens */
+  onLit?: () => void;
 }) {
   const [state, setState] = useState<TokenState>("idle");
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -60,6 +63,7 @@ export function CandleTokenButton({
       setPreviewMeta({ filename, verse: data.verse });
       setPreviewOpen(true);
       setState("idle");
+      onLit?.();
     } catch {
       setState("error");
       window.setTimeout(() => setState("idle"), 2500);

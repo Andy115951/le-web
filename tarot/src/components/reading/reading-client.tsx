@@ -10,7 +10,13 @@ import { GuestLoginCta } from "@/components/quota/guest-login-cta";
 import { RitualStage } from "@/components/reading/ritual-stage";
 import { ShareReadingButton } from "@/components/reading/share-reading-button";
 import { CandleTokenButton } from "@/components/reading/candle-token-button";
+import { ReadingTimeline } from "@/components/reading/reading-timeline";
 import { ComparePriorSection } from "@/components/reading/compare-prior-section";
+import {
+  TIMELINE_ANCHORS,
+  hasTokenLitLocal,
+  markTokenLitLocal,
+} from "@/lib/reading-timeline";
 import { TarotCardFace } from "@/components/reading/tarot-card-face";
 import { AdvisorMarkdown } from "@/components/reading/advisor-markdown";
 import { getCard } from "@/data/deck";
@@ -143,7 +149,17 @@ export function ReadingClient({
   const [quotaBlocked, setQuotaBlocked] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const [redrawDismissed, setRedrawDismissed] = useState(false);
+  const [tokenLit, setTokenLit] = useState(false);
   const quotaState = useQuota();
+
+  useEffect(() => {
+    setTokenLit(hasTokenLitLocal(reading.id));
+  }, [reading.id]);
+
+  const markTokenLit = useCallback(() => {
+    markTokenLitLocal(reading.id);
+    setTokenLit(true);
+  }, [reading.id]);
 
   const streamQuery = useMemo(() => {
     const instant = prefersReducedMotion() ? "&instant=1" : "";
@@ -327,13 +343,22 @@ export function ReadingClient({
         </div>
       </div>
 
-      <RitualStage
-        speed={reading.ritualSpeed}
-        spread={reading.spreadResult}
-        scene={reading.scene}
-        alreadyDone={initialMessages.length > 0}
-        onDone={() => setRitualDone(true)}
+      <ReadingTimeline
+        ritualDone={ritualDone}
+        messages={messages}
+        interpreting={interpreting || sending}
+        tokenLit={tokenLit}
       />
+
+      <div id={TIMELINE_ANCHORS.reveal} className="scroll-mt-24">
+        <RitualStage
+          speed={reading.ritualSpeed}
+          spread={reading.spreadResult}
+          scene={reading.scene}
+          alreadyDone={initialMessages.length > 0}
+          onDone={() => setRitualDone(true)}
+        />
+      </div>
 
       {ritualDone && priorReading ? (
         <ComparePriorSection prior={priorReading} current={reading} />
@@ -341,18 +366,19 @@ export function ReadingClient({
 
       {ritualDone && messages.some((m) => m.role === "assistant") ? (
         <div
-          className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-card/40 px-3 py-2.5"
+          id={TIMELINE_ANCHORS.token}
+          className="flex flex-wrap items-center gap-2 scroll-mt-24 rounded-xl border border-border/60 bg-card/40 px-3 py-2.5"
           role="region"
           aria-label="分享与信物"
         >
           <p className="mr-auto text-xs text-muted-foreground">留住这局</p>
           <ShareReadingButton reading={reading} />
-          <CandleTokenButton reading={reading} />
+          <CandleTokenButton reading={reading} onLit={markTokenLit} />
         </div>
       ) : null}
 
       {ritualDone && (
-        <Card>
+        <Card id={TIMELINE_ANCHORS.interpret} className="scroll-mt-24">
           <CardHeader>
             <CardTitle className="text-base">解读</CardTitle>
             <CardDescription>
@@ -621,7 +647,7 @@ export function ReadingClient({
               </div>
             ) : null}
             {messages.some((m) => m.role === "assistant") ? (
-              <div className="space-y-2">
+              <div id={TIMELINE_ANCHORS.followup} className="space-y-2 scroll-mt-24">
                 <QuotaHint
                   loading={quotaState.loading}
                   user={quotaState.user}
