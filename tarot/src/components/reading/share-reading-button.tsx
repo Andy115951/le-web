@@ -106,7 +106,7 @@ export function ShareReadingButton({
       ? "生成中…"
       : imageState === "error"
         ? "未能出图"
-        : "保存分享图";
+        : "分享图";
 
   const filename = shareImageFilename(reading);
   const shareTitle = shareReadingTitle(reading);
@@ -142,7 +142,7 @@ export function ShareReadingButton({
         }}
         blob={previewBlob}
         filename={filename}
-        title="保存分享图"
+        title="分享图"
         shareTitle={shareTitle}
         shareText={shareText}
         previewAlt="本局牌阵分享图预览"

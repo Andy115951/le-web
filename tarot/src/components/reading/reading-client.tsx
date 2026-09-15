@@ -320,12 +320,6 @@ export function ReadingClient({
               静默
             </Badge>
           ) : null}
-          {ritualDone && messages.some((m) => m.role === "assistant") ? (
-            <>
-              <ShareReadingButton reading={reading} />
-              <CandleTokenButton reading={reading} />
-            </>
-          ) : null}
           <Button asChild size="sm">
             <Link href="/reading/new">新占卜</Link>
           </Button>
@@ -342,6 +336,18 @@ export function ReadingClient({
 
       {ritualDone && priorReading ? (
         <ComparePriorSection prior={priorReading} current={reading} />
+      ) : null}
+
+      {ritualDone && messages.some((m) => m.role === "assistant") ? (
+        <div
+          className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-card/40 px-3 py-2.5"
+          role="region"
+          aria-label="分享与信物"
+        >
+          <p className="mr-auto text-xs text-muted-foreground">留住这局</p>
+          <ShareReadingButton reading={reading} />
+          <CandleTokenButton reading={reading} />
+        </div>
       ) : null}
 
       {ritualDone && (
@@ -364,8 +370,8 @@ export function ReadingClient({
             {messages.length === 0 &&
             !interpreting &&
             !streamingText &&
-            !error &&
-            reading.silentReveal ? (
+            reading.silentReveal &&
+            !error ? (
               <div className="flex flex-col items-start gap-3 rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-4">
                 <p className="text-sm text-muted-foreground">
                   先静静看牌，准备好再请烛火开口。
@@ -382,11 +388,41 @@ export function ReadingClient({
             {messages.length === 0 &&
             !interpreting &&
             !streamingText &&
-            !error &&
-            !reading.silentReveal ? (
-              <p className="text-sm text-muted-foreground">
-                烛火还在酝酿。若迟迟没有字句，可以稍后再试。
-              </p>
+            !reading.silentReveal &&
+            !error ? (
+              <div className="flex flex-col items-start gap-3">
+                <p className="text-sm text-muted-foreground">
+                  烛火还在酝酿。若迟迟没有字句，可以再请一次。
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => void runInterpret()}
+                  aria-label="再请一次解读"
+                >
+                  再请一次
+                </Button>
+              </div>
+            ) : null}
+            {messages.length === 0 &&
+            !interpreting &&
+            !streamingText &&
+            error ? (
+              <div className="flex flex-col items-start gap-3">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => {
+                    setError("");
+                    setQuotaBlocked(false);
+                    void runInterpret();
+                  }}
+                  aria-label="再试一次解读"
+                >
+                  再试一次
+                </Button>
+              </div>
             ) : null}
             <div className="space-y-3" aria-live="polite" aria-relevant="additions">
               {messages.map((m) => {
@@ -422,7 +458,7 @@ export function ReadingClient({
                   if (sub.kind === "chain" || optimisticChain)
                     return "象征牌链 · 追问";
                   if (sub.kind === "single" || optimisticSingle)
-                    return "子牌阵 · 追问";
+                    return "象征牌 · 追问";
                   return "你的追问";
                 })();
                 return (
@@ -512,7 +548,7 @@ export function ReadingClient({
                           <p className="text-[11px] text-primary/80">
                             {optimisticChain
                               ? "象征牌链 · 抽取中…"
-                              : "子牌阵 · 象征牌抽取中…"}
+                              : "象征牌抽取中…"}
                           </p>
                           {bubbleText ? (
                             <p className="whitespace-pre-wrap">{bubbleText}</p>
@@ -626,6 +662,9 @@ export function ReadingClient({
                       disabled={sending || interpreting || messagesExhausted}
                       aria-label="追问内容"
                     />
+                    <p className="text-xs text-muted-foreground sm:hidden">
+                      象征牌计 1 次追问 · 牌链计 3 次
+                    </p>
                     <p className="hidden text-xs text-muted-foreground sm:block">
                       Enter 发送 · Shift / Ctrl + Enter 换行 · 象征牌 1 次 / 牌链 3
                       次追问
@@ -651,7 +690,7 @@ export function ReadingClient({
                         void sendFollowUp({ withSubSpread: "single" })
                       }
                       disabled={sending || interpreting || messagesExhausted}
-                      aria-label="抽一张象征牌，子牌阵，消耗一次追问额度，文字可选"
+                      aria-label="抽一张象征牌，消耗一次追问额度，文字可选"
                       title="抽一张象征牌（消耗 1 次追问，文字可选）"
                     >
                       抽一张象征牌
