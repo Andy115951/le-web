@@ -1,4 +1,4 @@
-# Candle Taro — 文案与语气（v1.22）
+# Candle Taro — 文案与语气（v1.23）
 
 ## 产品名
 - 显示名：**Candle Taro**
