@@ -92,16 +92,19 @@ export async function POST(
     });
     const priorHint = buildPriorHint(prior);
 
-    // P49: related theme in recent days (not exact same question / not same prior)
-    const related = await findRelatedThemeReading({
-      question: reading.question,
-      scene: reading.scene,
-      userId: user?.id ?? null,
-      anonymousId: anon,
-      excludeId: id,
-      excludeIds: prior ? [prior.id] : [],
-    });
-    const relatedThemeHint = buildRelatedThemeHint(related);
+    // P49: related theme in recent days — only when no same-question P41 hint
+    // (at most one light memory mention; prefer exact same-question).
+    let relatedThemeHint: InterpretInput["relatedThemeHint"] = null;
+    if (!priorHint) {
+      const related = await findRelatedThemeReading({
+        question: reading.question,
+        scene: reading.scene,
+        userId: user?.id ?? null,
+        anonymousId: anon,
+        excludeId: id,
+      });
+      relatedThemeHint = buildRelatedThemeHint(related);
+    }
 
     const interpretInput: InterpretInput = {
       question: reading.question,

@@ -68,18 +68,15 @@ export function interpretSystemPrompt(input: InterpretInput): string {
     input.detailLevel === "brief"
       ? "简要：## 总览（一两句，场景口吻可辨）→ ## 牌意 → ## 综合（一句）；勿加 ## 建议；控制篇幅。"
       : "详细：## 总览（场景口吻可辨）→ ## 牌意（分牌叙事）→ ## 综合 → 可选 ## 建议（一小步）；意象可更满，仍忌绝对预言。";
-  const priorBits: string[] = [];
+  let priorRule = "";
   if (input.priorHint) {
-    priorBits.push(
-      "若有同题旧卦摘要，在 ## 总览 内轻提一句即可（勿复述旧解读全文、勿做成跨局长记忆聊天、勿绝对预言、仍以本局牌面为主）。",
-    );
+    // Prefer same-question (P41) over related-theme when both present.
+    priorRule =
+      "若有同题旧卦摘要，在 ## 总览 内轻提一句即可（勿复述旧解读全文、勿做成跨局长记忆聊天、勿绝对预言、仍以本局牌面为主）。勿再提相关主题旧卦。";
+  } else if (input.relatedThemeHint) {
+    priorRule =
+      "若有近几日相关主题旧卦摘要（非同句），在 ## 总览 轻提一句即可（如「这几天你也在想相近的事…」）；勿复述旧解读、勿跨局长记忆；仍以本局牌面为主。";
   }
-  if (input.relatedThemeHint) {
-    priorBits.push(
-      "若有近几日相关主题旧卦摘要（非同句），可在 ## 总览 再轻提一句；勿复述旧解读、勿跨局长记忆；若同时有同题轻提，两句合计仍克制，勿铺陈。",
-    );
-  }
-  const priorRule = priorBits.join("");
   return [
     "你是 Candle Taro 的占卜解读顾问，语气仪式、温和、神秘而不夸张。",
     OUTPUT_RULES,
@@ -109,11 +106,10 @@ export function interpretUserPrompt(input: InterpretInput): string {
       "牌面：",
       describePriorCards(h.cards),
     );
-  }
-  if (input.relatedThemeHint) {
+  } else if (input.relatedThemeHint) {
     const h = input.relatedThemeHint;
     parts.push(
-      "近几日相关主题一卦（仅供再轻提一句，勿当主解读、勿复述旧文）：",
+      "近几日相关主题一卦（仅供轻提一句，勿当主解读、勿复述旧文）：",
       `时间：${h.createdAt}`,
       `场景：${h.scene}`,
       `问题摘要：${h.questionPreview}`,

@@ -69,7 +69,7 @@
 | P39 场景微剧本 | 六场景 + 自定义 `opening`/`settle`；仪式揭晓前旁白、落定后落烛；COPY v1.12 |
 | P40 分享/信物再打磨 | 分享图/信物一次生成 → 预览 Sheet（保存/系统分享/关闭）；文案与信物版式；无 migration |
 | P41 克制多局记忆 | 同题旧卦 `priorHint` 注入解读提示词；开篇轻提一句；不注入旧 AI 全文；追问不变；复用 `findPriorReadingByQuestion`；无 migration |
-| P49 多局记忆加一层 | 近 7 日相关主题 `relatedThemeHint`（同非自定义场景或问题软重叠）；开篇可再轻提一句；仍不注入旧 AI 全文；`findRelatedThemeReading` + `related-theme.ts`；无 migration |
+| P49 多局记忆加一层 | 近 7 日相关主题 `relatedThemeHint`（同非自定义场景或问题软重叠）；开篇轻提一句；有同题 `priorHint` 时优先同题不叠主题；仍不注入旧 AI 全文；`findRelatedThemeReading` + `related-theme.ts`；无 migration |
 | P42 PWA | Manifest standalone + 图标；`public/sw.js` 壳/静态弱网缓存（不缓存 API）；生产注册 SW；设置关于提示添加主屏幕；无 migration / 无新依赖 |
 | P43 | 真机浸泡 | `SOAK.md` 可勾选全路径；解读失败/停滞「再试一次」；分享/信物独立成条；「分享图」+「象征牌」文案；设置主屏安装一句指引 |
 
@@ -90,7 +90,7 @@ P43–P49 已完成（见 `SOAK.md` / PLAN §3.45–§3.51）。**P50–P51 方�
 | P46 | 历史好找 | **已完成** · 场景/时间筛选、同题成组、`localStorage` 软收藏（见下） |
 | P47 | 解读语气再校准 | **已完成** · 场景 `tonePrompt` 拉开口吻；`prompts.ts` 强制总览→牌意→综合 +「场景语气必须可辨认」；`mock.ts` 总览按场景开场；COPY v1.19 |
 | P48 | 局内时间线 | **已完成** · `ReadingTimeline` + `reading-timeline.ts`；粘性回看；移动端折叠；信物本机标记；无 migration |
-| P49 | 多局记忆加一层 | **已完成** · `relatedThemeHint` + `findRelatedThemeReading` / `related-theme.ts`；近 7 日同场景或软重叠；COPY v1.21 |
+| P49 | 多局记忆加一层 | **已完成** · `relatedThemeHint` + `findRelatedThemeReading` / `related-theme.ts`；近 7 日同场景或软重叠；有同题优先 P41；COPY v1.21 |
 | P50 | 公开分享页 | 只读短链，可关 |
 | P51 | 今日一牌习惯 | 轻提醒 / 主屏默认落点 |
 
