@@ -9,6 +9,7 @@ import { QuotaHint } from "@/components/quota/quota-hint";
 import { GuestLoginCta } from "@/components/quota/guest-login-cta";
 import { RitualStage } from "@/components/reading/ritual-stage";
 import { ShareReadingButton } from "@/components/reading/share-reading-button";
+import { PublicShareButton } from "@/components/reading/public-share-button";
 import { CandleTokenButton } from "@/components/reading/candle-token-button";
 import { ReadingTimeline } from "@/components/reading/reading-timeline";
 import { ComparePriorSection } from "@/components/reading/compare-prior-section";
@@ -373,6 +374,7 @@ export function ReadingClient({
         >
           <p className="mr-auto text-xs text-muted-foreground">留住这局</p>
           <ShareReadingButton reading={reading} />
+          <PublicShareButton reading={reading} />
           <CandleTokenButton reading={reading} onLit={markTokenLit} />
         </div>
       ) : null}

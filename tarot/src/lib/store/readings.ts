@@ -1,5 +1,6 @@
 import type { DetailLevel, RitualSpeed, SceneId, SpreadType } from "@/data/scenes";
 import { drawSpread } from "@/lib/draw";
+import { nanoid } from "nanoid";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import type { Message, Reading, ReadingStatus, SpreadResult } from "@/lib/types";
 import { normalizeQuestion } from "@/lib/normalize-question";
@@ -27,6 +28,7 @@ function mapReading(row: Record<string, unknown>): Reading {
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
     deletedAt: (row.deleted_at as string) ?? null,
+    publicShareToken: (row.public_share_token as string) ?? null,
   };
 }
 
@@ -125,7 +127,10 @@ export async function softDeleteReading(id: string) {
   const supabase = getSupabaseAdmin();
   const { error } = await supabase
     .from("tarot_readings")
-    .update({ deleted_at: new Date().toISOString() })
+    .update({
+      deleted_at: new Date().toISOString(),
+      public_share_token: null,
+    })
     .eq("id", id);
   if (error) throw new Error(error.message);
 }
@@ -168,6 +173,65 @@ export async function canAccessReading(
   if (userId && reading.userId === userId) return true;
   if (!userId && anonymousId && reading.anonymousId === anonymousId) return true;
   return false;
+}
+
+
+/** P50: look up a reading by opaque public share token (not deleted). */
+export async function getReadingByPublicShareToken(token: string) {
+  const clean = token.trim();
+  if (!clean || clean.length > 64) return null;
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("tarot_readings")
+    .select("*")
+    .eq("public_share_token", clean)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? mapReading(data) : null;
+}
+
+/** Enable public share: mint opaque slug (rotates if already enabled). */
+export async function enablePublicShare(readingId: string) {
+  const supabase = getSupabaseAdmin();
+  // Retry a few times on rare unique collisions
+  for (let i = 0; i < 5; i++) {
+    const token = nanoid(21);
+    const { data, error } = await supabase
+      .from("tarot_readings")
+      .update({
+        public_share_token: token,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", readingId)
+      .is("deleted_at", null)
+      .select("*")
+      .maybeSingle();
+    if (error) {
+      if (error.code === "23505") continue;
+      throw new Error(error.message);
+    }
+    if (!data) return null;
+    return mapReading(data);
+  }
+  throw new Error("未能生成分享短链，请稍后再试");
+}
+
+/** Disable / invalidate public share link (clears token). */
+export async function disablePublicShare(readingId: string) {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("tarot_readings")
+    .update({
+      public_share_token: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", readingId)
+    .is("deleted_at", null)
+    .select("*")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? mapReading(data) : null;
 }
 
 /** usage helpers */

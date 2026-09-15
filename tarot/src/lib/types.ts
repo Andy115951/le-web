@@ -38,6 +38,8 @@ export type Reading = {
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+  /** Opaque public share slug; null = link disabled. */
+  publicShareToken: string | null;
 };
 
 export type Message = {
