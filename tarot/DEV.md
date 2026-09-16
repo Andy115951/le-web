@@ -81,12 +81,13 @@
 - 手机号登录仍后置；付费仍后置
 - **OAuth 运维**：在 GitHub/Google 创建 OAuth App，Redirect URI = `{OAUTH_BASE_URL}/api/auth/oauth/callback`；Vercel 写入 `GITHUB_OAUTH_CLIENT_ID` / `GITHUB_OAUTH_CLIENT_SECRET` / `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` / 可选 `OAUTH_BASE_URL`（生产建议显式设为 `https://candle-taro.vercel.app`）。未配置时密码登录仍可用。
 
-### 体验队列 P44–P51
+### 体验队列 P43–P51
 
 P43–P51 已完成（见 `SOAK.md` / PLAN §3.45–§3.53）。体验队列收官。
 
 | 阶段 | 内容 | 备注 |
 |------|------|------|
+| P43 | 真机浸泡清单 | **已完成** · `SOAK.md` + 解读再试 / 分享条 / 文案小刺 |
 | P44 | 首次来访引导 | **已完成** · 首页 CTA 旁 1～2 句旁白；`first-visit-guide.tsx` / `first-visit.ts` |
 | P45 | 访客→登录转化 | **已完成** · `GuestLoginCta` + 温柔文案 + `next` 回跳；GitHub 一键；Google 可选 |
 | P46 | 历史好找 | **已完成** · 场景/时间筛选、同题成组、`localStorage` 软收藏（见下） |
