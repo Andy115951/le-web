@@ -113,7 +113,7 @@ export function drawSingleCards(
 ): DrawnCard[] {
   const exclude = new Set(excludeCardIds);
   const available = TAROT_DECK.filter((c) => !exclude.has(c.id));
-  let pool = available.length >= n ? available : [...TAROT_DECK];
+  const pool = available.length >= n ? available : [...TAROT_DECK];
   const shuffled = secureShuffle(pool);
   const labels = ["象征一", "象征二", "象征三"] as const;
   const out: DrawnCard[] = [];
