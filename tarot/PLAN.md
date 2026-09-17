@@ -178,7 +178,7 @@
 - `src/data/deck.ts`：78 张 keywords / upright / reversed 改为可用的烛光语气短义（禁绝对预言）；id / 中英文名不变
 - 首页「今日一牌」：按 `user:` / `anon:` + Asia/Shanghai 日历日 sha256 确定性抽一张（含正逆）；**不创建 reading、不计额度**
 - UI：展示 `TarotCardFace` + 关键词 + 当日方位牌义；链到 `/cards/[id]` 与「开始占卜」
-- 写实位图仍渐进；今日一牌可复用已有 hybrid art
+- 混合位图 78 张已齐；今日一牌复用 `CARD_ART` hybrid art
 
 ### 3.24 P19 大阿尔卡纳全套混合位图（已定）
 
