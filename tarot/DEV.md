@@ -71,6 +71,11 @@
 | P41 克制多局记忆 | 同题旧卦 `priorHint` 注入解读提示词；开篇轻提一句；不注入旧 AI 全文；追问不变；复用 `findPriorReadingByQuestion`；无 migration |
 | P42 PWA | Manifest standalone + 图标；`public/sw.js` 壳/静态弱网缓存（不缓存 API）；生产注册 SW；设置关于提示添加主屏幕；无 migration / 无新依赖 |
 | P43 真机浸泡 | `SOAK.md` 可勾选全路径；解读失败/停滞「再试一次」；分享/信物独立成条；「分享图」+「象征牌」文案；设置主屏安装一句指引 |
+| P44 首次来访引导 | 首页 CTA 旁 1～2 句旁白；`first-visit-guide.tsx` / `first-visit.ts`；`localStorage` 一次 dismiss |
+| P45 访客→登录转化 | `GuestLoginCta` + 温柔文案 + `next` 回跳；GitHub 一键；Google 可选；缺 OAuth env 时仍可用密码登录 |
+| P46 历史好找 | 场景/时间筛选、同题成组、本机 `localStorage` 软收藏；`history-list` / `history-favorites` / `normalize-question` |
+| P47 解读语气再校准 | 场景 `tonePrompt` 拉开口吻；解读固定总览→牌意→综合；`prompts.ts` / `mock.ts`；COPY v1.19 |
+| P48 局内时间线 | `ReadingTimeline` + `reading-timeline.ts`；揭晓→解读→追问→信物粘性回看；移动端可折叠；信物本机标记；无 migration |
 | P49 多局记忆加一层 | 近 7 日相关主题 `relatedThemeHint`（同非自定义场景或问题软重叠）；开篇轻提一句；有同题 `priorHint` 时优先同题不叠主题；仍不注入旧 AI 全文；`findRelatedThemeReading` + `related-theme.ts`；无 migration |
 | P50 公开分享页 | 只读 `/s/[token]`；`public_share_token` 可关；摘要不含 AI 全文；migration `20260915100000_public_share_token.sql` |
 | P51 今日一牌习惯 | prefs 打开落点 + 主屏 standalone 站内轻提醒；可关；无 push / 无小组件 |
