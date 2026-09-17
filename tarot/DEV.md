@@ -178,5 +178,5 @@ AI 接线：`src/lib/ai/index.ts` 按 `AI_PROVIDER` 选 mock / deepseek（`gatew
 | 访客刷接口 | 签名 cookie + 日额度 + IP 限流 |
 | 神秘文案过度承诺 | 固定免责 + 句式约束 |
 | 与 monorepo 其他 app 耦合 | 独立 Vercel rootDirectory，表前缀隔离 |
-| Gateway 不可用 | 失败回退 mock，解读不硬崩 |
+| DeepSeek / 上游不可用 | 失败回退 mock，解读不硬崩 |
 | 流式中断 | 未 `done` 时客户端报错；已落库助手消息以 DB 为准 |
