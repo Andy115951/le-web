@@ -144,7 +144,7 @@
 
 - `AI_PROVIDER=mock`（默认）| `deepseek`；legacy `gateway` 映射到 deepseek
 - 使用 `@ai-sdk/openai` `createOpenAI` 指向 DeepSeek OpenAI 兼容接口（与 stock-dashboard 同款 env）
-- Env：`DEEPSEEK_API_KEY`（必填才启用）、`DEEPSEEK_API_URL`（默认官方 chat/completions）、`DEEPSEEK_MODEL`（默认 `deepseek-v4-flash`）
+- Env：`DEEPSEEK_API_KEY`（必填才启用）、`DEEPSEEK_API_URL`（默认 `https://mediocre-new-api.midway.run/v1/chat/completions`，对齐 stock-dashboard / DEV）、`DEEPSEEK_MODEL`（默认 `deepseek-v4-flash`）
 - 解读/追问仍走 `generateText` / `streamText`；失败回退 mock；不再依赖 Vercel AI Gateway / `AI_GATEWAY_*`
 
 ### 3.19 P14 额度感知 + 软提示重抽（已定）
