@@ -44,7 +44,7 @@
 | P14 额度 + 软重抽 | `useQuota` + `QuotaHint`；429 含 usage/quota；解读页可关闭的「新占卜」软提示 chip |
 | P15 DeepSeek thinking | 请求体默认 `thinking.disabled`（对齐 stock-dashboard），避免空 content |
 | P16 牌义图鉴 | 导航「牌义」；`/cards` 筛选+搜索；`/cards/[id]` 正逆位详情；复用牌库与 `TarotCardFace`；CTA「去占卜」 |
-| P17 混合卡面 | 可选 webp 叠在烛光框下；glyph 回退；`src/data/card-art.ts` 渐进映射；分享图同桥 |
+| P17 混合卡面 | 可选 webp 叠在烛光框下；glyph 回退；`src/data/card-art.ts` 已齐 78 张；分享图同桥 |
 | P18 牌库 + 今日一牌 | `deck.ts` 正逆位/关键词加厚（禁绝对预言）；首页每日一牌确定性抽取，不落库、不计额度；链到牌义/起卦 |
 | P19 大阿尔卡纳全套 | `public/cards/major_00.webp`–`major_21.webp` + `CARD_ART` 全登记 |
 | P20 圣杯批次 | `cups_ace`–`cups_seven` webp 进 `CARD_ART` |
