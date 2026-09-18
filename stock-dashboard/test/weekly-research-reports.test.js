@@ -110,8 +110,27 @@ test("holiday-week freezing writes four archived reports after the final expecte
   assert.equal(frozen.expectedBusinessDateCount, 4);
   assert.equal(frozen.archivedDailyReportCount, 4);
   assert.equal(frozen.calendarStatus, "official_full_closures");
-  const write = calls.find(function (call) { return call.options?.method === "POST"; });
+  const marketDaysWrite = calls.find(function (call) {
+    return call.options?.method === "POST" && String(call.path || "").includes("market_days");
+  });
+  assert.ok(marketDaysWrite);
+  assert.equal(marketDaysWrite.options.headers.Prefer, "resolution=merge-duplicates,return=minimal");
+  assert.deepEqual(marketDaysWrite.options.body, [{
+    market_date: "2026-04-03",
+    exchange: "XNAS",
+    is_trading_day: false,
+    session_status: "holiday",
+    source: "https://www.nyse.com/trade/hours-calendars",
+    updated_at: marketDaysWrite.options.body[0].updated_at
+  }]);
+  const write = calls.find(function (call) {
+    return call.options?.method === "POST" && String(call.path || "").includes("frozen_weekly_research_reports");
+  });
+  assert.ok(write);
   assert.deepEqual(write.options.body.report.coverage.fullClosureDates, ["2026-04-03"]);
+  const marketDaysIndex = calls.indexOf(marketDaysWrite);
+  const freezeIndex = calls.indexOf(write);
+  assert.ok(marketDaysIndex >= 0 && freezeIndex > marketDaysIndex);
 });
 
 test("unknown calendar years conservatively retain the five-weekday requirement", function () {
@@ -152,4 +171,63 @@ test("weekly freezing writes only an eligible immutable week and frozen rows ove
   assert.equal(result.count, 1);
   assert.equal(result.reports[0].archived, true);
   assert.equal(result.reports[0].report.coverage.status, "frozen_complete");
+});
+
+test("Labor Day week upserts holiday week_start into market_days before freeze insert", async function () {
+  const reports = [
+    daily("2026-09-08", 500, 1), daily("2026-09-09", 501, 0.2),
+    daily("2026-09-10", 502, 0.2), daily("2026-09-11", 503, 0.2)
+  ];
+  const calls = [];
+  const client = async function (_config, path, options) {
+    calls.push({ path, options });
+    if (path.includes("daily_research_reports")) return reports;
+    if (path.includes("market_days")) return [];
+    if (path.includes("frozen_weekly_research_reports")) return [{ id: "labor-day-week" }];
+    return [];
+  };
+  const frozen = await freezeWeeklyResearchReport({ asOfDate: "2026-09-11", frozenAt: "2026-09-12T01:00:00.000Z" }, {}, client);
+  assert.equal(frozen.status, "succeeded");
+  assert.equal(frozen.weekStart, "2026-09-07");
+  assert.equal(frozen.expectedBusinessDateCount, 4);
+  assert.equal(frozen.calendarStatus, "official_full_closures");
+  const marketDaysWrite = calls.find(function (call) {
+    return call.options?.method === "POST" && String(call.path || "").includes("market_days");
+  });
+  assert.ok(marketDaysWrite);
+  assert.match(String(marketDaysWrite.path), /on_conflict=market_date/);
+  assert.equal(marketDaysWrite.options.body.length, 1);
+  assert.equal(marketDaysWrite.options.body[0].market_date, "2026-09-07");
+  assert.equal(marketDaysWrite.options.body[0].is_trading_day, false);
+  assert.equal(marketDaysWrite.options.body[0].session_status, "holiday");
+  const freezeWrite = calls.find(function (call) {
+    return call.options?.method === "POST" && String(call.path || "").includes("frozen_weekly_research_reports");
+  });
+  assert.ok(freezeWrite);
+  assert.equal(calls.indexOf(marketDaysWrite) < calls.indexOf(freezeWrite), true);
+});
+
+test("freeze persist failures keep calendar diagnostics on the thrown error", async function () {
+  const reports = [
+    daily("2026-09-08", 500, 1), daily("2026-09-09", 501, 0.2),
+    daily("2026-09-10", 502, 0.2), daily("2026-09-11", 503, 0.2)
+  ];
+  const client = async function (_config, path, options) {
+    if (path.includes("daily_research_reports")) return reports;
+    if (path.includes("market_days")) return [];
+    if (path.includes("frozen_weekly_research_reports") && options?.method === "POST") {
+      throw new Error("insert or update on table \"frozen_weekly_research_reports\" violates foreign key constraint");
+    }
+    return [];
+  };
+  await assert.rejects(async function () {
+    await freezeWeeklyResearchReport({ asOfDate: "2026-09-11" }, {}, client);
+  }, function (error) {
+    assert.equal(error.weekStart, "2026-09-07");
+    assert.equal(error.calendarStatus, "official_full_closures");
+    assert.equal(error.reason, "freeze_persist_failed");
+    assert.equal(error.expectedBusinessDateCount, 4);
+    assert.equal(error.archivedDailyReportCount, 4);
+    return true;
+  });
 });

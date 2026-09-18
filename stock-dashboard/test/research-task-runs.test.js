@@ -87,3 +87,51 @@ test("retry runner leaves a non-transient failure as one safe final attempt", as
   assert.equal(result.attempts[0].failureCode, "task_failed");
   assert.equal(JSON.stringify(result.attempts).includes("invalid packet"), false);
 });
+
+test("weekly fact-report details preserve calendar diagnostics on failed freeze", function () {
+  const rows = buildResearchTaskRunRows({
+    captureRunId: CAPTURE_RUN_ID,
+    marketDate: "2026-09-11",
+    createdAt: "2026-09-12T00:00:00.000Z",
+    stages: {
+      weeklyReport: {
+        status: "failed",
+        weekStart: "2026-09-07",
+        expectedBusinessDateCount: 4,
+        archivedDailyReportCount: 4,
+        calendarStatus: "official_full_closures",
+        reason: "freeze_persist_failed",
+        error: "foreign key constraint"
+      }
+    }
+  });
+  const weekly = rows.find(function (row) { return row.task_kind === "weekly_fact_report"; });
+  assert.ok(weekly);
+  assert.equal(weekly.status, "failed");
+  assert.deepEqual(weekly.details, {
+    created: false,
+    expectedBusinessDateCount: 4,
+    archivedDailyReportCount: 4,
+    calendarStatus: "official_full_closures",
+    weekStart: "2026-09-07",
+    reason: "freeze_persist_failed"
+  });
+});
+
+test("retry runner surfaces freeze diagnostics from the final failure", async function () {
+  const err = new Error("foreign key constraint");
+  err.weekStart = "2026-09-07";
+  err.calendarStatus = "official_full_closures";
+  err.reason = "freeze_persist_failed";
+  err.expectedBusinessDateCount = 4;
+  err.archivedDailyReportCount = 4;
+  const result = await runResearchTaskWithRetry({
+    run: async function () { throw err; }
+  });
+  assert.equal(result.status, "failed");
+  assert.equal(result.weekStart, "2026-09-07");
+  assert.equal(result.calendarStatus, "official_full_closures");
+  assert.equal(result.reason, "freeze_persist_failed");
+  assert.equal(result.expectedBusinessDateCount, 4);
+  assert.equal(result.archivedDailyReportCount, 4);
+});
