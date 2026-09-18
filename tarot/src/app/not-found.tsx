@@ -7,7 +7,7 @@ export default function NotFound() {
       <p className="text-xs tracking-widest text-primary/80">🕯️</p>
       <h1 className="text-xl font-semibold">烛火里找不到这一页</h1>
       <p className="mx-auto max-w-sm text-sm text-muted-foreground">
-        链接可能已失效，或分享已关闭。回到首页，再点一盏烛火吧。
+        地址可能写错了，或页面已搬走。回到首页，再点一盏烛火吧。
       </p>
       <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
         <Button asChild>
