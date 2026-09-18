@@ -1,7 +1,7 @@
 const { getDailyResearchReports } = require("./daily-research-reports");
 const { getSupabaseConfig, requestSupabase } = require("./supabase-server");
 const { normalizeDate } = require("./market-calendar");
-const { getNyseTradingWeek } = require("./nyse-trading-calendar");
+const { getNyseTradingWeek, NYSE_TRADING_CALENDAR_SOURCE } = require("./nyse-trading-calendar");
 
 const WEEKLY_RESEARCH_REPORT_VERSION = "weekly-research-report-v1";
 const FROZEN_WEEKLY_REPORTS_TABLE = "frozen_weekly_research_reports";
@@ -200,6 +200,42 @@ async function getWeeklyResearchReports(options = {}, config, requestImpl) {
   return { reportVersion: WEEKLY_RESEARCH_REPORT_VERSION, count: reports.length, reports };
 }
 
+
+async function ensureWeeklyFreezeMarketDays(tradingWeek, config, requestImpl) {
+  const dates = Array.from(new Set(Array.isArray(tradingWeek?.fullClosureDates) ? tradingWeek.fullClosureDates : []))
+    .filter(Boolean);
+  if (!dates.length) return { upserted: 0 };
+
+  const updatedAt = new Date().toISOString();
+  const source = tradingWeek.calendarSource || NYSE_TRADING_CALENDAR_SOURCE;
+  await requestImpl(config, "/rest/v1/market_days?on_conflict=market_date", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+    body: dates.map(function (marketDate) {
+      return {
+        market_date: marketDate,
+        exchange: "XNAS",
+        is_trading_day: false,
+        session_status: "holiday",
+        source,
+        updated_at: updatedAt
+      };
+    })
+  });
+  return { upserted: dates.length };
+}
+
+function attachWeeklyFreezeDiagnostics(error, diagnostics) {
+  const payload = diagnostics && typeof diagnostics === "object" ? diagnostics : {};
+  if (!error || typeof error !== "object") {
+    const wrapped = new Error(String(error || "Weekly freeze failed"));
+    Object.assign(wrapped, payload);
+    return wrapped;
+  }
+  Object.assign(error, payload);
+  return error;
+}
+
 async function freezeWeeklyResearchReport(options = {}, config = getSupabaseConfig(), requestImpl = requestSupabase) {
   const asOfDate = normalizeDate(options.asOfDate);
   const weekStart = options.weekStart ? weekStartForDate(options.weekStart) : freezeCandidateWeekStart(asOfDate);
@@ -221,25 +257,37 @@ async function freezeWeeklyResearchReport(options = {}, config = getSupabaseConf
     };
   }
   const report = buildFrozenWeeklyResearchReport(eligibility, options.frozenAt);
-  const rows = await requestImpl(config, "/rest/v1/" + FROZEN_WEEKLY_REPORTS_TABLE + "?on_conflict=week_start,report_version", {
-    method: "POST",
-    headers: { Prefer: "resolution=ignore-duplicates,return=representation" },
-    body: {
-      week_start: weekStart,
-      report_version: WEEKLY_RESEARCH_REPORT_VERSION,
-      report,
-      frozen_at: report.freeze.frozenAt
-    }
-  });
-  return {
-    status: "succeeded",
-    reason: null,
+  const diagnostics = {
     weekStart,
     expectedBusinessDateCount: eligibility.expectedDates.length,
     archivedDailyReportCount: eligibility.reports.length,
     calendarStatus: eligibility.tradingWeek.calendarStatus,
-    created: Array.isArray(rows) && rows.length > 0
+    reason: "freeze_persist_failed"
   };
+  try {
+    await ensureWeeklyFreezeMarketDays(eligibility.tradingWeek, config, requestImpl);
+    const rows = await requestImpl(config, "/rest/v1/" + FROZEN_WEEKLY_REPORTS_TABLE + "?on_conflict=week_start,report_version", {
+      method: "POST",
+      headers: { Prefer: "resolution=ignore-duplicates,return=representation" },
+      body: {
+        week_start: weekStart,
+        report_version: WEEKLY_RESEARCH_REPORT_VERSION,
+        report,
+        frozen_at: report.freeze.frozenAt
+      }
+    });
+    return {
+      status: "succeeded",
+      reason: null,
+      weekStart,
+      expectedBusinessDateCount: eligibility.expectedDates.length,
+      archivedDailyReportCount: eligibility.reports.length,
+      calendarStatus: eligibility.tradingWeek.calendarStatus,
+      created: Array.isArray(rows) && rows.length > 0
+    };
+  } catch (error) {
+    throw attachWeeklyFreezeDiagnostics(error, diagnostics);
+  }
 }
 
 module.exports = {
@@ -247,6 +295,7 @@ module.exports = {
   assessWeeklyFreezeEligibility,
   buildWeeklyResearchReport,
   buildFrozenWeeklyResearchReport,
+  ensureWeeklyFreezeMarketDays,
   expectedBusinessDatesForWeek,
   freezeCandidateWeekStart,
   freezeWeeklyResearchReport,

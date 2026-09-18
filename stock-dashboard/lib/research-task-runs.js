@@ -97,7 +97,25 @@ async function runResearchTaskWithRetry(options = {}) {
         finishedAt,
         queueDelayMs: startedAt.getTime() - new Date(queuedAt).getTime()
       }));
-      if (!willRetry) return { status: "failed", error: String(error?.message || error || "Task failed"), attempts };
+      if (!willRetry) {
+        const failed = { status: "failed", error: String(error?.message || error || "Task failed"), attempts };
+        if (typeof error?.weekStart === "string" && /^\d{4}-\d{2}-\d{2}$/.test(error.weekStart)) {
+          failed.weekStart = error.weekStart;
+        }
+        if (["official_full_closures", "strict_weekday_fallback"].includes(error?.calendarStatus)) {
+          failed.calendarStatus = error.calendarStatus;
+        }
+        if (typeof error?.reason === "string" && error.reason) {
+          failed.reason = error.reason.slice(0, 120);
+        }
+        if (Number.isFinite(Number(error?.expectedBusinessDateCount))) {
+          failed.expectedBusinessDateCount = Math.max(0, Math.round(Number(error.expectedBusinessDateCount)));
+        }
+        if (Number.isFinite(Number(error?.archivedDailyReportCount))) {
+          failed.archivedDailyReportCount = Math.max(0, Math.round(Number(error.archivedDailyReportCount)));
+        }
+        return failed;
+      }
       await waitImpl(RETRY_DELAY_MS);
     }
   }
@@ -161,14 +179,23 @@ function buildResearchTaskRunRows(input) {
       task_kind: "weekly_fact_report",
       task_version: "weekly-research-report-v1",
       result: stages.weeklyReport,
-      details: {
-        created: Boolean(stages.weeklyReport?.created),
-        expectedBusinessDateCount: finiteNonNegative(stages.weeklyReport?.expectedBusinessDateCount),
-        archivedDailyReportCount: finiteNonNegative(stages.weeklyReport?.archivedDailyReportCount),
-        calendarStatus: ["official_full_closures", "strict_weekday_fallback"].includes(stages.weeklyReport?.calendarStatus)
-          ? stages.weeklyReport.calendarStatus
-          : "unknown"
-      }
+      details: (function () {
+        const details = {
+          created: Boolean(stages.weeklyReport?.created),
+          expectedBusinessDateCount: finiteNonNegative(stages.weeklyReport?.expectedBusinessDateCount),
+          archivedDailyReportCount: finiteNonNegative(stages.weeklyReport?.archivedDailyReportCount),
+          calendarStatus: ["official_full_closures", "strict_weekday_fallback"].includes(stages.weeklyReport?.calendarStatus)
+            ? stages.weeklyReport.calendarStatus
+            : "unknown"
+        };
+        if (typeof stages.weeklyReport?.weekStart === "string" && /^\d{4}-\d{2}-\d{2}$/.test(stages.weeklyReport.weekStart)) {
+          details.weekStart = stages.weeklyReport.weekStart;
+        }
+        if (typeof stages.weeklyReport?.reason === "string" && stages.weeklyReport.reason) {
+          details.reason = stages.weeklyReport.reason.slice(0, 120);
+        }
+        return details;
+      })()
     },
     {
       task_kind: "model_recap",
