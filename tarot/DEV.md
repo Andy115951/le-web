@@ -69,7 +69,7 @@
 | P39 场景微剧本 | 六场景 + 自定义 `opening`/`settle`；仪式揭晓前旁白、落定后落烛；COPY v1.12 |
 | P40 分享/信物再打磨 | 分享图/信物一次生成 → 预览 Sheet（保存/系统分享/关闭）；文案与信物版式；无 migration |
 | P41 克制多局记忆 | 同题旧卦 `priorHint` 注入解读提示词；开篇轻提一句；不注入旧 AI 全文；追问不变；复用 `findPriorReadingByQuestion`；无 migration |
-| P42 PWA | Manifest standalone + 图标；`public/sw.js` 壳/静态弱网缓存（不缓存 API）；生产注册 SW；设置关于提示添加主屏幕；无 migration / 无新依赖 |
+| P42 PWA | Manifest standalone + 图标；`public/sw.js` 壳/静态弱网缓存（不缓存 API）；生产注册 SW；设置关于提示添加主屏幕；`app/robots.ts` 提供 `/robots.txt`（allow `/`，disallow `/api/`）；无 migration / 无新依赖 |
 | P43 真机浸泡 | `SOAK.md` 可勾选全路径；解读失败/停滞「再试一次」；分享/信物独立成条；「分享图」+「象征牌」文案；设置主屏安装一句指引 |
 | P44 首次来访引导 | 首页 CTA 旁 1～2 句旁白；`first-visit-guide.tsx` / `first-visit.ts`；`localStorage` 一次 dismiss |
 | P45 访客→登录转化 | `GuestLoginCta` + 温柔文案 + `next` 回跳；GitHub 一键；Google 可选；缺 OAuth env 时仍可用密码登录 |
