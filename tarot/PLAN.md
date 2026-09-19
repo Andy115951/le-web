@@ -352,7 +352,7 @@
 
 - Web App Manifest（`display: standalone`）+ 192/512 图标 + apple-touch-icon；viewport `themeColor` 烛夜深色
 - Service Worker（`public/sw.js`）：预缓存首页壳与图标；导航 network-first（失败回壳）；`/_next/static`、`/cards`、`/icons` cache-first；**不**缓存 `/api/`
-- 生产注册 SW（开发跳过）；设置「关于」提示可添加主屏幕；不是桌面小组件；无 migration / 无新 npm 依赖
+- 生产注册 SW（开发跳过）；设置「关于」提示可添加主屏幕；不是桌面小组件；`app/robots.ts` 提供 `/robots.txt`（allow `/`，disallow `/api/`）；无 migration / 无新 npm 依赖
 
 
 ### 3.45 P43 真机浸泡清单（已完成）
