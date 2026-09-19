@@ -15,8 +15,8 @@ export default async function ReadingPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  // Call notFound before cookies() — reading cookies first makes Next.js
-  // return HTTP 200 while still rendering the 404 UI (see /s/[token] contrast).
+  // Validate before session/DB work. No sibling loading.tsx here: a loading
+  // boundary would stream HTTP 200 before notFound() can set 404 (Next.js).
   if (!isReadingId(id)) notFound();
 
   const reading = await getReading(id);
