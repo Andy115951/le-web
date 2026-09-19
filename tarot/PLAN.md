@@ -313,7 +313,7 @@
 
 - **起卦表单**：常显场景 + 问题 +「确认起卦」；牌阵 / 解读档 / 仪式速度 / 静默揭晓默认收进「牌阵与仪式（可选）」；收起时 prefs 与场景 defaultSpread 仍预填生效；剧场软提示在展开区内
 - **首页快速起卦**：场景卡保留点进表单编辑；卡上「快速起卦」一键用示例问题 + `defaultSpread` + prefs，`POST /api/readings` 后进解读；尊重额度、暖色错误；自定义卡无示例题故无快速按钮；英雄区可对「日常抉择」一键
-- **感知导航**：`loading.tsx` 骨架（新占卜 / 解读 / 历史）；主导航与首页 CTA `Link` prefetch；起卦成功后 `router.prefetch` 再 `push`
+- **感知导航**：`loading.tsx` 骨架（新占卜 / 历史；解读 `[id]` 无 sibling loading，以免 `notFound` 被流式壳盖成 200）；主导航与首页 CTA `Link` prefetch；起卦成功后 `router.prefetch` 再 `push`
 - **仪式**：SPEEDS slow/normal/fast → 1200 / 650 / 280；翻牌子延迟下限略降；**仍无跳过**
 - 文案禁「塔罗」
 
