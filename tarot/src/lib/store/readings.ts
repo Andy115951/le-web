@@ -4,6 +4,7 @@ import { nanoid } from "nanoid";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import type { Message, Reading, ReadingStatus, SpreadResult } from "@/lib/types";
 import { normalizeQuestion } from "@/lib/normalize-question";
+import { isReadingId } from "@/lib/reading-id";
 import {
   isRelatedTheme,
   RELATED_THEME_WINDOW_MS,
@@ -78,6 +79,7 @@ export async function createReading(input: {
 }
 
 export async function getReading(id: string) {
+  if (!isReadingId(id)) return null;
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("tarot_readings")
@@ -136,6 +138,7 @@ export async function softDeleteReading(id: string) {
 }
 
 export async function listMessages(readingId: string) {
+  if (!isReadingId(readingId)) return [];
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("tarot_messages")

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ensureAnonymousId, getCurrentUser } from "@/lib/auth/session";
+import { isReadingId } from "@/lib/reading-id";
 import {
   canAccessReading,
   getReading,
@@ -7,13 +8,6 @@ import {
   renameReading,
   softDeleteReading,
 } from "@/lib/store/readings";
-
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function isReadingId(value: string) {
-  return UUID_PATTERN.test(value);
-}
 
 export async function GET(
   _req: Request,
