@@ -2823,3 +2823,197 @@ select:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(43, 97, 21
   .list-head { align-items: flex-start; flex-direction: column; }
   .page-size-wrap { width: auto; }
 }
+
+
+
+/* ---- Page section minimap (long-board navigator) ---- */
+.page-minimap {
+  position: fixed;
+  right: max(12px, env(safe-area-inset-right));
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 40;
+  width: 172px;
+  pointer-events: none;
+}
+
+.page-minimap-fab {
+  display: none;
+  pointer-events: auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 88px;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  color: var(--text);
+  box-shadow: 0 12px 28px rgba(23, 32, 51, 0.16);
+  backdrop-filter: blur(12px);
+}
+
+.page-minimap-fab-label { font-size: 0.82rem; font-weight: 700; }
+.page-minimap-fab-progress {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--brand);
+}
+
+.page-minimap-panel {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: min(70vh, 560px);
+  padding: 12px 10px 12px 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: 0 16px 40px rgba(23, 32, 51, 0.14);
+  backdrop-filter: blur(18px);
+}
+
+.page-minimap-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 4px;
+}
+
+.page-minimap-kicker {
+  margin: 0 0 2px;
+  color: var(--sub);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.page-minimap-head strong {
+  color: var(--text);
+  font-size: 0.92rem;
+  font-weight: 750;
+}
+
+.page-minimap-progress {
+  flex: none;
+  min-width: 2.6em;
+  color: var(--brand);
+  font-size: 0.78rem;
+  font-weight: 750;
+  text-align: right;
+}
+
+.page-minimap-track-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-2) 88%, transparent);
+  border: 1px solid var(--line);
+}
+
+.page-minimap-viewport {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  top: 0;
+  height: 18%;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--brand) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 35%, transparent);
+  pointer-events: none;
+  transition: top 120ms ease-out, height 120ms ease-out;
+}
+
+.page-minimap-track {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: min(52vh, 420px);
+  overflow: auto;
+  padding: 6px;
+  scrollbar-width: thin;
+}
+
+.page-minimap-item {
+  display: grid;
+  grid-template-columns: 10px 1fr;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 30px;
+  padding: 4px 8px 4px 6px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--sub);
+  text-align: left;
+  font-size: 0.78rem;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.page-minimap-item::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--sub) 55%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--sub) 12%, transparent);
+}
+
+.page-minimap-item:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+}
+
+.page-minimap-item.is-active {
+  color: var(--text);
+  background: color-mix(in srgb, var(--brand) 16%, transparent);
+}
+
+.page-minimap-item.is-active::before {
+  background: var(--brand);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 28%, transparent);
+}
+
+.page-minimap-hint {
+  margin: 0;
+  padding: 0 4px;
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+
+@media (min-width: 1180px) {
+  body.has-page-minimap {
+    padding-right: 184px;
+  }
+}
+
+@media (max-width: 1179px) {
+  .page-minimap {
+    right: max(14px, env(safe-area-inset-right));
+    top: auto;
+    bottom: max(18px, env(safe-area-inset-bottom));
+    transform: none;
+    width: auto;
+  }
+
+  .page-minimap-fab { display: inline-flex; }
+
+  .page-minimap-panel {
+    display: none;
+    position: absolute;
+    right: 0;
+    bottom: calc(100% + 10px);
+    width: min(72vw, 220px);
+  }
+
+  .page-minimap.is-open .page-minimap-panel { display: flex; }
+}

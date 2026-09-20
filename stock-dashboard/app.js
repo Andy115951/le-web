@@ -291,6 +291,7 @@ async function init() {
   state.observations = saved.observations || [];
   state.decisionLogs = saved.decisionLogs || [];
   bindEvents();
+  initPageMinimap();
   setupPwa();
   injectSectionIntros();
   renderHomeBeginnerReading();
@@ -406,6 +407,153 @@ function buildDailyMarketEventsUrl(symbols, benchmarkChange) {
   return "./api/global-stock/daily-events?" + params.toString();
 }
 
+
+function initPageMinimap() {
+  const root = document.getElementById("pageMinimap");
+  const track = document.getElementById("pageMinimapTrack");
+  const viewport = document.getElementById("pageMinimapViewport");
+  const progressEl = document.getElementById("pageMinimapProgress");
+  const fab = document.getElementById("pageMinimapFab");
+  const fabProgress = document.getElementById("pageMinimapFabProgress");
+  if (!root || !track) return;
+
+  const navButtons = Array.from(document.querySelectorAll(".command-links [data-scroll-target]"));
+  const sections = navButtons
+    .map(function (button) {
+      const id = button.getAttribute("data-scroll-target");
+      const el = document.getElementById(id);
+      if (!id || !el) return null;
+      return { id: id, el: el, label: (button.textContent || id).trim() };
+    })
+    .filter(Boolean);
+
+  if (!sections.length) {
+    root.hidden = true;
+    return;
+  }
+
+  document.body.classList.add("has-page-minimap");
+  track.innerHTML = "";
+  const itemById = new Map();
+
+  sections.forEach(function (section) {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "page-minimap-item";
+    item.setAttribute("data-scroll-target", section.id);
+    item.textContent = section.label;
+    item.addEventListener("click", function () {
+      setActiveScrollTarget(section.id);
+      section.el.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (window.matchMedia("(max-width: 1179px)").matches) {
+        root.classList.remove("is-open");
+        if (fab) fab.setAttribute("aria-expanded", "false");
+      }
+    });
+    track.appendChild(item);
+    itemById.set(section.id, item);
+  });
+
+  if (fab) {
+    fab.addEventListener("click", function (event) {
+      event.stopPropagation();
+      const open = !root.classList.contains("is-open");
+      root.classList.toggle("is-open", open);
+      fab.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+    document.addEventListener("click", function (event) {
+      if (!root.classList.contains("is-open")) return;
+      if (root.contains(event.target)) return;
+      root.classList.remove("is-open");
+      fab.setAttribute("aria-expanded", "false");
+    });
+  }
+
+  function setProgress() {
+    const doc = document.documentElement;
+    const max = Math.max(1, doc.scrollHeight - window.innerHeight);
+    const ratio = Math.min(1, Math.max(0, window.scrollY / max));
+    const label = Math.round(ratio * 100) + "%";
+    if (progressEl) progressEl.textContent = label;
+    if (fabProgress) fabProgress.textContent = label;
+    if (viewport) {
+      const trackHeight = track.clientHeight || 1;
+      const thumbHeight = Math.max(28, (window.innerHeight / doc.scrollHeight) * trackHeight);
+      const maxTop = Math.max(0, trackHeight - thumbHeight);
+      viewport.style.height = thumbHeight + "px";
+      viewport.style.top = (ratio * maxTop) + "px";
+    }
+  }
+
+  let activeId = null;
+  function paintActive(id) {
+    if (!id || id === activeId) return;
+    activeId = id;
+    itemById.forEach(function (item, key) {
+      item.classList.toggle("is-active", key === id);
+    });
+    document.querySelectorAll(".command-links [data-scroll-target]").forEach(function (button) {
+      button.classList.toggle("is-active", button.getAttribute("data-scroll-target") === id);
+    });
+    const activeItem = itemById.get(id);
+    if (activeItem && track.scrollHeight > track.clientHeight) {
+      const top = activeItem.offsetTop - (track.clientHeight - activeItem.offsetHeight) / 2;
+      track.scrollTop = Math.max(0, top);
+    }
+  }
+
+  function setActiveScrollTarget(id) {
+    paintActive(id);
+  }
+
+  // Expose for the existing command-bar clicks so both UIs stay in sync.
+  window.__setPageMinimapActive = setActiveScrollTarget;
+
+  const visibility = new Map();
+  const observer = new IntersectionObserver(function (entries) {
+    entries.forEach(function (entry) {
+      visibility.set(entry.target.id, {
+        ratio: entry.intersectionRatio,
+        top: entry.boundingClientRect.top
+      });
+    });
+    let bestId = activeId;
+    let bestScore = -Infinity;
+    sections.forEach(function (section) {
+      const hit = visibility.get(section.id);
+      if (!hit) return;
+      // Prefer sections near the upper third of the viewport.
+      const proximity = 1 - Math.min(1, Math.abs(hit.top - 96) / 480);
+      const score = hit.ratio * 2 + proximity;
+      if (score > bestScore) {
+        bestScore = score;
+        bestId = section.id;
+      }
+    });
+    if (bestId) paintActive(bestId);
+  }, {
+    root: null,
+    rootMargin: "-12% 0px -55% 0px",
+    threshold: [0, 0.1, 0.25, 0.5, 0.75, 1]
+  });
+
+  sections.forEach(function (section) { observer.observe(section.el); });
+
+  let ticking = false;
+  function onScroll() {
+    if (ticking) return;
+    ticking = true;
+    window.requestAnimationFrame(function () {
+      setProgress();
+      ticking = false;
+    });
+  }
+  window.addEventListener("scroll", onScroll, { passive: true });
+  window.addEventListener("resize", setProgress);
+  setProgress();
+  paintActive(sections[0].id);
+}
+
 function bindEvents() {
   if (els.installAppBtn) {
     els.installAppBtn.addEventListener("click", async function () {
@@ -441,13 +589,18 @@ function bindEvents() {
     });
   }
 
-  document.querySelectorAll("[data-scroll-target]").forEach(function (button) {
+  document.querySelectorAll(".command-links [data-scroll-target]").forEach(function (button) {
     button.addEventListener("click", function () {
-      const target = document.getElementById(button.getAttribute("data-scroll-target"));
+      const targetId = button.getAttribute("data-scroll-target");
+      const target = document.getElementById(targetId);
       if (!target) return;
-      document.querySelectorAll("[data-scroll-target]").forEach(function (item) {
-        item.classList.toggle("is-active", item === button);
-      });
+      if (typeof window.__setPageMinimapActive === "function") {
+        window.__setPageMinimapActive(targetId);
+      } else {
+        document.querySelectorAll(".command-links [data-scroll-target]").forEach(function (item) {
+          item.classList.toggle("is-active", item === button);
+        });
+      }
       target.scrollIntoView({ behavior: "smooth", block: "start" });
       // On the horizontally-scrolling mobile nav, center the active item within
       // its own strip so the user can see which section they are in (with 14

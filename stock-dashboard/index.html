@@ -594,6 +594,27 @@
       </div>
     </section>
 
+    <aside class="page-minimap" id="pageMinimap" aria-label="页面章节导航">
+      <button type="button" class="page-minimap-fab" id="pageMinimapFab" aria-expanded="false" aria-controls="pageMinimapPanel" title="章节导航">
+        <span class="page-minimap-fab-label">章节</span>
+        <span class="page-minimap-fab-progress" id="pageMinimapFabProgress" aria-hidden="true">0%</span>
+      </button>
+      <div class="page-minimap-panel" id="pageMinimapPanel">
+        <div class="page-minimap-head">
+          <div>
+            <p class="page-minimap-kicker">PAGE MAP</p>
+            <strong>章节导航</strong>
+          </div>
+          <span class="page-minimap-progress" id="pageMinimapProgress">0%</span>
+        </div>
+        <div class="page-minimap-track-wrap">
+          <div class="page-minimap-viewport" id="pageMinimapViewport" aria-hidden="true"></div>
+          <nav class="page-minimap-track" id="pageMinimapTrack" aria-label="跳转到页面章节"></nav>
+        </div>
+        <p class="page-minimap-hint muted">滚动或点击可快速定位；当前章节会高亮。</p>
+      </div>
+    </aside>
+
     <div class="detail-overlay hidden" id="detailOverlay"></div>
   </main>
 
