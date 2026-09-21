@@ -209,7 +209,7 @@
 ### 3.29 P24 星币 ace–seven 混合位图（已定）
 
 - `public/cards/pentacles_ace.webp`–`pentacles_seven.webp`（同烛光写实风，768×1024）
-- `CARD_ART` 增补这 7 张；八–十与宫廷见下一批
+- `CARD_ART` 增补这 7 张；八–十与宫廷见 P25（已收官）
 
 ### 3.30 P25 星币八–十与宫廷收官（已定）
 
