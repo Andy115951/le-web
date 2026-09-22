@@ -156,9 +156,11 @@ Next.js (App Router) + Tailwind + shadcn in le-web/tarot
   → Vercel（独立项目，root = tarot）
   → Supabase Postgres（tarot_* 表）
   → AI：DeepSeek OpenAI 兼容 + AI SDK generateText/streamText（AI_PROVIDER=deepseek）
-  → Auth：username/password + GitHub/Google OAuth + httpOnly `ct_session`
+  → Auth：username/password + GitHub/Google OAuth + httpOnly `ct_session`；访客 `ct_anon` 由 `src/proxy.ts`（Next.js 16 proxy）铸造
   → 仪式区/牌面：自定义组件（不用 shadcn 默认皮肤硬套）
 ```
+
+访客匿名 id：`src/proxy.ts` 铸造 httpOnly `ct_anon` 并转发到请求 Cookie，供 `ensureAnonymousId` 复用，避免首访双发不同 id。
 
 抽牌：服务端 `crypto.getRandomValues` + Fisher–Yates；结果写入 DB 后再返回前端。
 
