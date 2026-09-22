@@ -10,18 +10,33 @@ function newAnonId() {
 }
 
 export function proxy(request: NextRequest) {
-  const response = NextResponse.next();
-  if (!request.cookies.get(ANON_COOKIE)?.value) {
-    response.cookies.set({
-      name: ANON_COOKIE,
-      value: newAnonId(),
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 365,
-    });
+  const existing = request.cookies.get(ANON_COOKIE)?.value;
+  if (existing) {
+    return NextResponse.next();
   }
+
+  // Mint once here and forward onto the request so route handlers /
+  // ensureAnonymousId() see the same id (avoids a second Set-Cookie).
+  const id = newAnonId();
+  const requestHeaders = new Headers(request.headers);
+  const prior = requestHeaders.get("cookie");
+  requestHeaders.set(
+    "cookie",
+    prior ? `${prior}; ${ANON_COOKIE}=${id}` : `${ANON_COOKIE}=${id}`,
+  );
+
+  const response = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
+  response.cookies.set({
+    name: ANON_COOKIE,
+    value: id,
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 365,
+  });
   return response;
 }
 
