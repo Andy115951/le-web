@@ -9,7 +9,7 @@ function newAnonId() {
   return `anon_${s}`;
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const response = NextResponse.next();
   if (!request.cookies.get(ANON_COOKIE)?.value) {
     response.cookies.set({
