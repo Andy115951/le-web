@@ -204,7 +204,7 @@
 ### 3.28 P23 宝剑花色混合位图（已定）
 
 - `public/cards/swords_ace.webp`–`swords_ten.webp` 与 `swords_page` / `swords_knight` / `swords_queen` / `swords_king`（同烛光写实风）
-- `CARD_ART` 登记宝剑花色全套；牌义「仅看已配图」曾为渐进筛选（P27 已下线）；星币见 P24
+- `CARD_ART` 登记宝剑花色全套；牌义「仅看已配图」曾为渐进筛选（P27 已下线）；星币见 P24–P25（已收官）
 
 ### 3.29 P24 星币 ace–seven 混合位图（已定）
 
