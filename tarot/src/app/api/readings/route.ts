@@ -15,7 +15,12 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    let body: Record<string, unknown>;
+    try {
+      body = (await req.json()) as Record<string, unknown>;
+    } catch {
+      return NextResponse.json({ error: "无效请求" }, { status: 400 });
+    }
     const user = await getCurrentUser();
     const anon = await ensureAnonymousId();
     const subject = user ? `user:${user.id}` : `anon:${anon}`;
