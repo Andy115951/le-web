@@ -39,7 +39,12 @@ export async function POST(
 ) {
   try {
     const { id } = await ctx.params;
-    const body = await req.json();
+    let body: { content?: unknown; subSpread?: unknown };
+    try {
+      body = (await req.json()) as { content?: unknown; subSpread?: unknown };
+    } catch {
+      return NextResponse.json({ error: "无效请求" }, { status: 400 });
+    }
     const rawContent = String(body.content ?? "");
     const text = rawContent.trim();
     const subSpread = parseSubSpread(body.subSpread);

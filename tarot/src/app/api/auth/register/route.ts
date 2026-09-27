@@ -3,7 +3,12 @@ import { ensureAnonymousId, mergeAnonymousReadings, registerUser } from "@/lib/a
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    let body: { username?: unknown; password?: unknown };
+    try {
+      body = (await req.json()) as { username?: unknown; password?: unknown };
+    } catch {
+      return NextResponse.json({ error: "无效请求" }, { status: 400 });
+    }
     const anon = await ensureAnonymousId();
     const user = await registerUser(String(body.username || ""), String(body.password || ""));
     await mergeAnonymousReadings(user.id, anon);
