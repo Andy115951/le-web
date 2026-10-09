@@ -4,7 +4,8 @@ const {
   marketDate,
   normalizeRange,
   normalizeSymbol,
-  parseYahooDailyBars
+  parseYahooDailyBars,
+  yahooChartSymbol
 } = require("../lib/historical-market-data");
 
 test("marketDate resolves timestamps in the New York market timezone", function () {
@@ -13,6 +14,8 @@ test("marketDate resolves timestamps in the New York market timezone", function 
 
 test("market input normalization keeps the supported surface bounded", function () {
   assert.equal(normalizeSymbol(" qqq "), "QQQ");
+  assert.equal(yahooChartSymbol("ndx"), "^NDX");
+  assert.equal(yahooChartSymbol("QQQ"), "QQQ");
   assert.throws(function () { normalizeSymbol("QQQ<script>"); }, /Unsupported market symbol/);
   assert.equal(normalizeRange("10Y"), "10y");
   assert.equal(normalizeRange("max"), "5y");

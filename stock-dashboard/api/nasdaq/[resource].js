@@ -85,7 +85,7 @@ const resources = {
   },
   async "daily-reports"(req, res) {
     try {
-      const result = await getDailyResearchReports({ limit: req.query?.limit }, getSupabaseConfig());
+      const result = await getDailyResearchReports({ limit: req.query?.limit, endDate: req.query?.endDate }, getSupabaseConfig());
       res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=900");
       sendJson(res, 200, { ok: true, researchOnly: true, ...result });
     } catch (error) { sendFailure(res, "Failed to load daily research reports", error); }

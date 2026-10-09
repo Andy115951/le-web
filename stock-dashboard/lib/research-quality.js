@@ -13,8 +13,9 @@ const { getRecentCaptureRuns } = require("./market-history-capture");
 const { marketDate } = require("./historical-market-data");
 const { SIMILARITY_METHOD_VERSION } = require("./similar-days");
 
-const RESEARCH_QUALITY_VERSION = "research-quality-v5";
+const RESEARCH_QUALITY_VERSION = "research-quality-v6";
 const DERIVED_DATA_SYMBOL = "QQQ";
+const NDX_PRICE_SYMBOL = "NDX";
 const NDX_FRESH_DAYS = 45;
 const NDX_AGING_DAYS = 90;
 
@@ -90,6 +91,47 @@ function buildDerivedDataFreshness(input = {}) {
       status: freshnessStatus(latestMarketDate, similarDate, "not_observed")
     }
   };
+}
+
+function buildNdxPriceFreshness(input = {}) {
+  const qqqMarketDate = normalizeMarketDate(input.qqqMarketDate);
+  const ndxMarketDate = normalizeMarketDate(input.ndxMarketDate);
+  const registered = input.registered === true;
+  if (!registered) return { symbol: NDX_PRICE_SYMBOL, status: "not_registered", latestMarketDate: null, qqqMarketDate };
+  if (!ndxMarketDate) return { symbol: NDX_PRICE_SYMBOL, status: "awaiting_prices", latestMarketDate: null, qqqMarketDate };
+  if (!qqqMarketDate) return { symbol: NDX_PRICE_SYMBOL, status: "awaiting_qqq_market_data", latestMarketDate: ndxMarketDate, qqqMarketDate: null };
+  const status = ndxMarketDate === qqqMarketDate
+    ? "current"
+    : ndxMarketDate < qqqMarketDate
+      ? "stale"
+      : "inconsistent_future";
+  return { symbol: NDX_PRICE_SYMBOL, status, latestMarketDate: ndxMarketDate, qqqMarketDate };
+}
+
+async function getNdxPriceFreshness(config = getSupabaseConfig(), requestImpl = requestSupabase) {
+  try {
+    const instruments = await requestImpl(
+      config,
+      "/rest/v1/instruments?select=id,symbol&symbol=in.(QQQ,NDX)&limit=2"
+    );
+    const rows = Array.isArray(instruments) ? instruments : [];
+    const qqq = rows.find(function (item) { return item?.symbol === DERIVED_DATA_SYMBOL; }) || null;
+    const ndx = rows.find(function (item) { return item?.symbol === NDX_PRICE_SYMBOL; }) || null;
+    if (!ndx?.id) return buildNdxPriceFreshness({ registered: false });
+    const [ndxPrices, qqqPrices] = await Promise.all([
+      requestImpl(config, "/rest/v1/price_bars_daily?select=market_date&instrument_id=eq." + encodeURIComponent(ndx.id) + "&order=market_date.desc&limit=1"),
+      qqq?.id
+        ? requestImpl(config, "/rest/v1/price_bars_daily?select=market_date&instrument_id=eq." + encodeURIComponent(qqq.id) + "&order=market_date.desc&limit=1")
+        : Promise.resolve([])
+    ]);
+    return buildNdxPriceFreshness({
+      registered: true,
+      ndxMarketDate: Array.isArray(ndxPrices) ? ndxPrices[0]?.market_date : null,
+      qqqMarketDate: Array.isArray(qqqPrices) ? qqqPrices[0]?.market_date : null
+    });
+  } catch (_error) {
+    return { symbol: NDX_PRICE_SYMBOL, status: "unavailable", latestMarketDate: null, qqqMarketDate: null };
+  }
 }
 
 function calendarDayDistance(later, earlier) {
@@ -213,6 +255,7 @@ function buildResearchQualityNextSteps(input = {}) {
   const captureInputs = input.captureInputs || {};
   const derivedData = input.derivedData || {};
   const ndxConstituents = input.ndxConstituents || {};
+  const ndxPrices = input.ndxPrices || {};
   const earningsCalendar = input.earningsCalendar || {};
   const review = input.review || {};
   const steps = [];
@@ -238,6 +281,12 @@ function buildResearchQualityNextSteps(input = {}) {
 
   if (["aging", "stale", "inconsistent_future", "awaiting_snapshot"].includes(ndxConstituents.status)) {
     steps.push({ id: "review_ndx_official_snapshot", kind: "official_evidence" });
+  }
+
+  if (ndxPrices.status === "not_registered") {
+    steps.push({ id: "review_ndx_price_setup", kind: "protected_database_change" });
+  } else if (["awaiting_prices", "stale", "inconsistent_future"].includes(ndxPrices.status)) {
+    steps.push({ id: "review_ndx_price_capture", kind: "protected_diagnostics" });
   }
 
   if (["awaiting_import", "calendar_only", "needs_database_setup"].includes(earningsCalendar.status)) {
@@ -287,11 +336,13 @@ function buildResearchQualitySummary(input) {
   const integrations = input?.integrations || {};
   const derivedData = input?.derivedData || buildDerivedDataFreshness({});
   const ndxConstituents = input?.ndxConstituents || buildNdxConstituentFreshness({});
+  const ndxPrices = input?.ndxPrices || buildNdxPriceFreshness({});
   const captureInputs = input?.captureInputs || buildCaptureInputFreshness([]);
   const nextSteps = buildResearchQualityNextSteps({
     captureInputs,
     derivedData,
     ndxConstituents,
+    ndxPrices,
     earningsCalendar: integrations.earningsCalendar,
     review
   });
@@ -310,6 +361,7 @@ function buildResearchQualitySummary(input) {
   if (snapshotCount > matureOutcomeCount) limitations.push("Some snapshots are still inside the 20-trading-day outcome window and cannot yet be evaluated.");
   if (!taskRunCount) limitations.push("The task ledger will begin filling after the next full market-close capture; historical runs are not synthesized.");
   if (["aging", "stale"].includes(ndxConstituents.status)) limitations.push("The NDX constituent snapshot needs an official-source review before it is treated as current coverage.");
+  if (ndxPrices.status === "not_registered") limitations.push("The native NDX price series is not registered in the database yet; QQQ is still the only active price baseline.");
   if (captureInputs.status === "failed" || [captureInputs.priceHistory, captureInputs.secFilings, captureInputs.fredMacro].includes("failed")) limitations.push("The latest capture has at least one failed factual input stage; use protected run diagnostics before a manual retry.");
 
   return {
@@ -336,6 +388,7 @@ function buildResearchQualitySummary(input) {
     captureInputs,
     derivedData,
     ndxConstituents,
+    ndxPrices,
     nextSteps,
     limitations
   };
@@ -354,10 +407,11 @@ async function getResearchQuality(options = {}) {
   const getEarningsReadiness = options.getEarningsReadiness || getEarningsCalendarReadiness;
   const getDerivedFreshness = options.getDerivedFreshness || getDerivedDataFreshness;
   const getNdx = options.getNdxSnapshot || getNdxSnapshot;
+  const getNdxPrices = options.getNdxPriceFreshness || getNdxPriceFreshness;
   const getCaptureFreshness = options.getCaptureFreshness || getCaptureInputFreshness;
   const now = options.now instanceof Date ? options.now : new Date();
   const asOfDate = normalizeMarketDate(options.asOfDate) || marketDate(now.getTime());
-  const [health, daily, weekly, review, tasks, derivedData, ndxSnapshot, earningsCalendar, captureInputs] = await Promise.all([
+  const [health, daily, weekly, review, tasks, derivedData, ndxSnapshot, ndxPrices, earningsCalendar, captureInputs] = await Promise.all([
     getHealth({ config, requestImpl, env: options.env }),
     getDailyReports({ limit: 30 }, config, requestImpl),
     getWeeklyReports({ limit: 12 }, config, requestImpl),
@@ -365,6 +419,7 @@ async function getResearchQuality(options = {}) {
     getTaskRuns({ limit: 50 }, config, requestImpl),
     getDerivedFreshness(config, requestImpl),
     getNdx(asOfDate, config, requestImpl),
+    getNdxPrices(config, requestImpl),
     getEarningsReadiness(config, requestImpl),
     getCaptureFreshness(config, requestImpl, options.getCaptureRuns || getRecentCaptureRuns)
   ]);
@@ -382,6 +437,7 @@ async function getResearchQuality(options = {}) {
       sourceUrl: ndxSnapshot?.source_url,
       constituentCount: ndxSnapshot?.constituent_count
     }),
+    ndxPrices,
     integrations: {
       ...getIntegrationReadiness(options.env || process.env),
       earningsCalendar
@@ -394,6 +450,7 @@ module.exports = {
   NDX_AGING_DAYS,
   NDX_FRESH_DAYS,
   buildNdxConstituentFreshness,
+  buildNdxPriceFreshness,
   buildDerivedDataFreshness,
   buildCaptureInputFreshness,
   buildResearchQualityNextSteps,
@@ -401,6 +458,7 @@ module.exports = {
   buildResearchIntegrationReadiness,
   freshnessStatus,
   getDerivedDataFreshness,
+  getNdxPriceFreshness,
   getCaptureInputFreshness,
   getEarningsCalendarReadiness,
   buildResearchQualitySummary,

@@ -97,6 +97,11 @@ const els = {
   calendarDateInput: document.getElementById("calendarDateInput"),
   calendarMonthLabel: document.getElementById("calendarMonthLabel"),
   calendarHint: document.getElementById("calendarHint"),
+  calendarViewControls: document.getElementById("calendarViewControls"),
+  calendarListFilters: document.getElementById("calendarListFilters"),
+  calendarEventTypeFilters: document.getElementById("calendarEventTypeFilters"),
+  calendarSymbolFilters: document.getElementById("calendarSymbolFilters"),
+  calendarWeekdays: document.getElementById("calendarWeekdays"),
   calendarGrid: document.getElementById("calendarGrid"),
   calendarBeginnerReading: document.getElementById("calendarBeginnerReading"),
   calendarDetail: document.getElementById("calendarDetail"),
@@ -125,6 +130,8 @@ const els = {
   refreshDailyReportsBtn: document.getElementById("refreshDailyReportsBtn"),
   dailyReportsHint: document.getElementById("dailyReportsHint"),
   dailyReportsBody: document.getElementById("dailyReportsBody"),
+  dailyReportsPagination: document.getElementById("dailyReportsPagination"),
+  loadMoreDailyReportsBtn: document.getElementById("loadMoreDailyReportsBtn"),
   refreshWeeklyReportsBtn: document.getElementById("refreshWeeklyReportsBtn"),
   weeklyReportsHint: document.getElementById("weeklyReportsHint"),
   weeklyReportsBody: document.getElementById("weeklyReportsBody"),
@@ -201,6 +208,14 @@ const state = {
     today: "",
     days: [],
     selectedDate: "",
+    view: "month",
+    weekDays: [],
+    weekLoading: false,
+    weekError: "",
+    monthCache: Object.create(null),
+    listFilter: "all",
+    eventTypeFilter: "",
+    symbolFilter: "",
     loading: false,
     error: "",
     detailLoading: false,
@@ -210,6 +225,7 @@ const state = {
     similarityError: "",
     similarity: null,
     requestId: 0,
+    weekRequestId: 0,
     detailRequestId: 0,
     similarityRequestId: 0
   },
@@ -250,7 +266,7 @@ const state = {
   },
   researchTasks: { runs: [], loading: false, error: "" },
   eventReview: { queue: null, filter: "needs_attention", page: 1, pageSize: 12, loading: false, error: "" },
-  dailyReports: { reports: [], loading: false, error: "" },
+  dailyReports: { reports: [], loading: false, error: "", hasMore: false, requestId: 0 },
   weeklyReports: { reports: [], loading: false, error: "" },
   targetHits: new Set(),
   dropAlerted: new Set(),
@@ -656,6 +672,46 @@ function bindEvents() {
       void jumpToCalendarDate(els.calendarDateInput?.value);
     });
   }
+  if (els.calendarViewControls) {
+    els.calendarViewControls.addEventListener("click", function (event) {
+      const view = event.target.closest("[data-calendar-view]")?.getAttribute("data-calendar-view");
+      if (view !== "month" && view !== "week" && view !== "list") return;
+      state.marketCalendar.view = view;
+      if (view === "week") void refreshCalendarWeek();
+      renderMarketCalendar();
+    });
+  }
+  if (els.calendarListFilters) {
+    els.calendarListFilters.addEventListener("click", function (event) {
+      const filter = event.target.closest("[data-calendar-filter]")?.getAttribute("data-calendar-filter");
+      if (!["all", "events", "earnings", "high-impact", "high-confidence"].includes(filter)) return;
+      state.marketCalendar.listFilter = filter;
+      state.marketCalendar.eventTypeFilter = "";
+      state.marketCalendar.symbolFilter = "";
+      state.marketCalendar.view = "list";
+      renderMarketCalendar();
+    });
+  }
+  if (els.calendarEventTypeFilters) {
+    els.calendarEventTypeFilters.addEventListener("click", function (event) {
+      const type = event.target.closest("[data-calendar-event-type]")?.getAttribute("data-calendar-event-type");
+      if (!type) return;
+      state.marketCalendar.eventTypeFilter = state.marketCalendar.eventTypeFilter === type ? "" : type;
+      state.marketCalendar.listFilter = "events";
+      state.marketCalendar.view = "list";
+      renderMarketCalendar();
+    });
+  }
+  if (els.calendarSymbolFilters) {
+    els.calendarSymbolFilters.addEventListener("click", function (event) {
+      const symbol = event.target.closest("[data-calendar-symbol]")?.getAttribute("data-calendar-symbol");
+      if (!symbol) return;
+      state.marketCalendar.symbolFilter = state.marketCalendar.symbolFilter === symbol ? "" : symbol;
+      state.marketCalendar.listFilter = "events";
+      state.marketCalendar.view = "list";
+      renderMarketCalendar();
+    });
+  }
   if (els.calendarGrid) {
     els.calendarGrid.addEventListener("click", function (event) {
       const button = event.target.closest("[data-calendar-date]");
@@ -665,6 +721,10 @@ function bindEvents() {
       syncCalendarDateInput();
       renderMarketCalendar();
       void refreshMarketDayDetail(date);
+      if (state.marketCalendar.view === "week" && date.slice(0, 7) !== state.marketCalendar.month) {
+        state.marketCalendar.month = date.slice(0, 7);
+        void refreshMarketCalendar();
+      }
     });
   }
 
@@ -731,7 +791,20 @@ function bindEvents() {
     });
   }
   if (els.refreshDailyReportsBtn) els.refreshDailyReportsBtn.addEventListener("click", function () { void refreshDailyReports(); });
+  if (els.loadMoreDailyReportsBtn) els.loadMoreDailyReportsBtn.addEventListener("click", function () { void refreshDailyReports({ append: true }); });
   if (els.refreshWeeklyReportsBtn) els.refreshWeeklyReportsBtn.addEventListener("click", function () { void refreshWeeklyReports(); });
+  if (els.dailyReportsBody) {
+    els.dailyReportsBody.addEventListener("click", function (event) {
+      const date = event.target.closest("[data-open-calendar-date]")?.getAttribute("data-open-calendar-date");
+      if (date) void openReportCalendarDate(date);
+    });
+  }
+  if (els.weeklyReportsBody) {
+    els.weeklyReportsBody.addEventListener("click", function (event) {
+      const date = event.target.closest("[data-open-calendar-date]")?.getAttribute("data-open-calendar-date");
+      if (date) void openReportCalendarDate(date);
+    });
+  }
   if (els.modelReviewBody) {
     els.modelReviewBody.addEventListener("click", function (event) {
       const button = event.target.closest("[data-model-review-version]");
@@ -1586,6 +1659,27 @@ function shiftCalendarMonth(month, offset) {
   return date.toISOString().slice(0, 7);
 }
 
+function shiftCalendarDate(date, offset) {
+  const value = new Date(date + "T12:00:00.000Z");
+  value.setUTCDate(value.getUTCDate() + offset);
+  return value.toISOString().slice(0, 10);
+}
+
+function calendarWeekBounds(date) {
+  const anchor = normalizeCalendarJumpDate(date);
+  if (!anchor) return null;
+  const weekday = new Date(anchor + "T12:00:00.000Z").getUTCDay();
+  const mondayOffset = weekday === 0 ? -6 : 1 - weekday;
+  const start = shiftCalendarDate(anchor, mondayOffset);
+  return { start, end: shiftCalendarDate(start, 6) };
+}
+
+function calendarWeekLabel(bounds) {
+  if (!bounds) return "周视图";
+  const format = new Intl.DateTimeFormat("zh-CN", { month: "numeric", day: "numeric", timeZone: "UTC" });
+  return format.format(new Date(bounds.start + "T12:00:00.000Z")) + " - " + format.format(new Date(bounds.end + "T12:00:00.000Z"));
+}
+
 function normalizeCalendarJumpDate(value) {
   const date = String(value || "").trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
@@ -1620,12 +1714,24 @@ async function changeCalendarMonth(offset) {
   await refreshMarketCalendar();
 }
 
+async function openReportCalendarDate(value) {
+  const date = normalizeCalendarJumpDate(value);
+  if (!date) return;
+  await jumpToCalendarDate(date);
+  document.getElementById("marketCalendar")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 async function refreshMarketCalendar() {
   if (!els.calendarGrid || !els.calendarDetail) return;
   const calendar = state.marketCalendar;
   const requestId = ++calendar.requestId;
   calendar.loading = true;
   calendar.error = "";
+  if (calendar.view === "week") {
+    calendar.weekRequestId += 1;
+    calendar.weekDays = [];
+    calendar.weekError = "";
+  }
   renderMarketCalendar();
   try {
     const response = await fetch("./api/nasdaq/calendar?month=" + encodeURIComponent(calendar.month));
@@ -1634,6 +1740,7 @@ async function refreshMarketCalendar() {
     if (requestId !== calendar.requestId) return;
     calendar.today = payload.today || "";
     calendar.days = Array.isArray(payload.days) ? payload.days : [];
+    calendar.monthCache[calendar.month] = payload;
     const currentSelection = calendar.days.find(function (day) { return day.date === calendar.selectedDate; });
     if (!currentSelection) {
       const candidates = calendar.days.filter(function (day) {
@@ -1648,11 +1755,49 @@ async function refreshMarketCalendar() {
     calendar.similarity = null;
     calendar.similarityError = "";
     renderMarketCalendar();
+    if (calendar.view === "week") void refreshCalendarWeek();
     if (calendar.selectedDate) await refreshMarketDayDetail(calendar.selectedDate);
   } catch (error) {
     if (requestId !== calendar.requestId) return;
     calendar.loading = false;
     calendar.error = error?.message || "读取市场日历失败";
+    renderMarketCalendar();
+  }
+}
+
+async function refreshCalendarWeek() {
+  if (!els.calendarGrid || !els.calendarDetail) return;
+  const calendar = state.marketCalendar;
+  const anchor = calendar.selectedDate || calendar.today || calendar.days[0]?.date;
+  const bounds = calendarWeekBounds(anchor);
+  if (!bounds) return;
+  const requestId = ++calendar.weekRequestId;
+  const months = Array.from(new Set([bounds.start.slice(0, 7), bounds.end.slice(0, 7)]));
+  calendar.weekLoading = true;
+  calendar.weekError = "";
+  calendar.weekDays = [];
+  renderMarketCalendar();
+  try {
+    const payloads = await Promise.all(months.map(async function (month) {
+      if (calendar.monthCache[month]) return calendar.monthCache[month];
+      const response = await fetch("./api/nasdaq/calendar?month=" + encodeURIComponent(month));
+      const payload = await response.json().catch(function () { return {}; });
+      if (!response.ok) throw new Error(payload?.error || "读取周视图日历失败");
+      calendar.monthCache[month] = payload;
+      return payload;
+    }));
+    if (requestId !== calendar.weekRequestId) return;
+    calendar.weekDays = payloads.flatMap(function (payload) {
+      return Array.isArray(payload?.days) ? payload.days : [];
+    }).filter(function (day) {
+      return day.date >= bounds.start && day.date <= bounds.end;
+    }).sort(function (left, right) { return left.date.localeCompare(right.date); });
+    calendar.weekLoading = false;
+    renderMarketCalendar();
+  } catch (error) {
+    if (requestId !== calendar.weekRequestId) return;
+    calendar.weekLoading = false;
+    calendar.weekError = error?.message || "读取周视图日历失败";
     renderMarketCalendar();
   }
 }
@@ -2063,6 +2208,7 @@ function renderResearchQuality() {
   const integrations = quality.integrations || {};
   const derivedData = quality.derivedData || {};
   const ndxConstituents = quality.ndxConstituents || {};
+  const ndxPrices = quality.ndxPrices || {};
   const captureInputs = quality.captureInputs || {};
   const nextSteps = Array.isArray(quality.nextSteps) ? quality.nextSteps : [];
   const ledgerReady = operations.taskLedgerState === "recording";
@@ -2078,6 +2224,7 @@ function renderResearchQuality() {
     '<article class="research-quality-ledger"><span>TASK LEDGER</span><strong class="' + (ledgerReady ? "is-ready" : "") + '">' + (ledgerReady ? "Recording real stages" : "Waiting for next close") + '</strong><p>' + (ledgerReady ? Number(operations.taskRunCount || 0) + " 条真实阶段运行已追加，不会从旧日志合成。" : "下一次完整收盘采集后才会写入真实阶段记录，历史运行不会被猜测性补齐。") + '</p></article>',
     renderResearchIntegrationReadiness(integrations),
     renderResearchCaptureInputFreshness(captureInputs),
+    renderResearchNdxPriceFreshness(ndxPrices),
     renderResearchNdxConstituentFreshness(ndxConstituents),
     renderResearchDerivedDataFreshness(derivedData),
     renderResearchQualityNextSteps(nextSteps),
@@ -2102,6 +2249,16 @@ function renderResearchQualityNextSteps(steps) {
       type: "官方证据",
       title: "复核 NDX 官方成分快照",
       detail: "当前快照不是新鲜状态。需要完整的 Nasdaq 官方名单和人工差异审核，页面不会自动替换。"
+    },
+    review_ndx_price_setup: {
+      type: "受保护建表",
+      title: "审核 NDX 原生价格迁移",
+      detail: "数据库尚未登记 NDX。先在受控终端审核并执行项目迁移，再确认标的存在；网页不会写入数据库。"
+    },
+    review_ndx_price_capture: {
+      type: "受保护诊断",
+      title: "核对 NDX 原生价格刷新",
+      detail: "NDX 已登记但没有与 QQQ 同步的日线。先检查受保护采集状态，再由维护者决定是否显式回填。"
     },
     review_earnings_calendar: {
       type: "官方证据",
@@ -2153,6 +2310,22 @@ function renderResearchNdxConstituentFreshness(freshness) {
     ? '<a class="research-quality-source" href="' + escapeHtml(sourceUrl) + '" target="_blank" rel="noreferrer">官方来源</a>'
     : "";
   return '<article class="research-quality-derived research-quality-ndx"><span>NDX CONSTITUENT FRESHNESS</span><p>只提示最近已审核官方快照距参考日的时间，不会自动下载、替换成分或把旧权重伪装为当前数据。</p><section><div><span>最近官方快照</span><b class="is-' + escapeHtml(status) + '">' + escapeHtml(ndxFreshnessLabel(status)) + '</b><small>' + escapeHtml(effectiveDate ? formatMarketDate(effectiveDate) + " · " + count + " 个证券 · " + ageText + "（参考 " + formatMarketDate(asOfDate) + "）" : "尚未归档可用官方快照") + sourceLink + "</small></div></section></article>";
+}
+
+function renderResearchNdxPriceFreshness(freshness) {
+  const status = String(freshness?.status || "not_registered");
+  const ndxDate = freshness?.latestMarketDate;
+  const qqqDate = freshness?.qqqMarketDate;
+  const detail = status === "not_registered"
+    ? "尚未执行 NDX 标的迁移；不会用 QQQ 或 ETF 代替。"
+    : ndxDate
+      ? "NDX " + formatMarketDate(ndxDate) + (qqqDate ? " · QQQ " + formatMarketDate(qqqDate) : " · QQQ 尚无基准日期")
+      : "已登记 NDX，但尚无已保存日线。";
+  return '<article class="research-quality-derived research-quality-ndx-price"><span>NDX PRICE SERIES</span><p>原生指数行情独立于成分权重快照和 QQQ 研究基准；此处只显示可观测的数据库状态，不触发采集或回填。</p><section><div><span>最新 NDX 日线</span><b class="is-' + escapeHtml(status) + '">' + escapeHtml(ndxPriceFreshnessLabel(status)) + '</b><small>' + escapeHtml(detail) + "</small></div></section></article>";
+}
+
+function ndxPriceFreshnessLabel(status) {
+  return ({ current: "已同步", stale: "已滞后", not_registered: "待迁移", awaiting_prices: "待回填", awaiting_qqq_market_data: "等待 QQQ", inconsistent_future: "日期异常", unavailable: "暂不可用" })[status] || "未知";
 }
 
 function ndxFreshnessLabel(status) {
@@ -2446,27 +2619,69 @@ async function copyEventReviewCommand(eventKey, button) {
   window.setTimeout(function () { button.textContent = originalLabel; }, 1800);
 }
 
-async function refreshDailyReports() {
+function dailyReportMarketDate(row) {
+  return normalizeCalendarJumpDate(row?.market_date || row?.report?.marketDate);
+}
+
+function mergeDailyReports(existing, incoming) {
+  const byIdentity = new Map();
+  existing.concat(incoming).forEach(function (row) {
+    const date = dailyReportMarketDate(row);
+    const version = String(row?.report_version || row?.report?.reportVersion || "");
+    const created = String(row?.created_at || "");
+    if (!date) return;
+    const key = date + "|" + version;
+    const previous = byIdentity.get(key);
+    if (!previous || String(previous.created_at || "") < created) byIdentity.set(key, row);
+  });
+  return Array.from(byIdentity.values()).sort(function (left, right) {
+    return String(right.market_date || right?.report?.marketDate || "").localeCompare(String(left.market_date || left?.report?.marketDate || ""))
+      || String(right.created_at || "").localeCompare(String(left.created_at || ""));
+  });
+}
+
+async function refreshDailyReports(options = {}) {
   if (!els.dailyReportsBody || !els.dailyReportsHint) return;
   const dailyReports = state.dailyReports;
+  if (dailyReports.loading) return;
+  const append = options.append === true;
+  const oldestDate = append ? dailyReportMarketDate(dailyReports.reports.at(-1)) : null;
+  if (append && (!dailyReports.hasMore || !oldestDate)) return;
+  const endDate = oldestDate ? shiftCalendarDate(oldestDate, -1) : "";
+  const requestId = ++dailyReports.requestId;
   dailyReports.loading = true;
   dailyReports.error = "";
   renderDailyReports();
   try {
-    const response = await fetch("./api/nasdaq/daily-reports?limit=7");
+    const response = await fetch("./api/nasdaq/daily-reports?limit=7" + (endDate ? "&endDate=" + encodeURIComponent(endDate) : ""));
     const payload = await response.json().catch(function () { return {}; });
     if (!response.ok) throw new Error(payload?.error || "读取每日研究摘要失败");
-    dailyReports.reports = Array.isArray(payload?.reports) ? payload.reports : [];
+    if (requestId !== dailyReports.requestId) return;
+    const incoming = Array.isArray(payload?.reports) ? payload.reports : [];
+    dailyReports.reports = append ? mergeDailyReports(dailyReports.reports, incoming) : incoming;
+    dailyReports.hasMore = payload?.hasMore === true;
   } catch (error) {
+    if (requestId !== dailyReports.requestId) return;
     dailyReports.error = error?.message || "读取每日研究摘要失败";
   }
+  if (requestId !== dailyReports.requestId) return;
   dailyReports.loading = false;
   renderDailyReports();
+}
+
+function renderDailyReportsPagination() {
+  if (!els.dailyReportsPagination || !els.loadMoreDailyReportsBtn) return;
+  const dailyReports = state.dailyReports;
+  const visible = dailyReports.reports.length > 0 && (dailyReports.hasMore || dailyReports.loading);
+  els.dailyReportsPagination.hidden = !visible;
+  els.loadMoreDailyReportsBtn.disabled = dailyReports.loading || !dailyReports.hasMore;
+  els.loadMoreDailyReportsBtn.textContent = dailyReports.loading ? "正在读取更早日报…" : "加载更早日报";
 }
 
 function renderDailyReports() {
   if (!els.dailyReportsBody || !els.dailyReportsHint) return;
   const dailyReports = state.dailyReports;
+  renderDailyReportsPagination();
   if (dailyReports.loading && !dailyReports.reports.length) {
     els.dailyReportsBody.innerHTML = '<div class="daily-reports-empty">正在读取已归档日报…</div>';
     return;
@@ -2481,14 +2696,16 @@ function renderDailyReports() {
     els.dailyReportsBody.innerHTML = '<div class="daily-reports-empty"><strong>暂无每日摘要</strong><span>日报不会主动调用模型，也不会输出交易结论。</span></div>';
     return;
   }
-  els.dailyReportsHint.textContent = "最近 " + dailyReports.reports.length + " 份日报均由不可变研究输入确定性生成；它们是回放和核对材料，不构成投资建议。";
+  els.dailyReportsHint.textContent = "已加载 " + dailyReports.reports.length + " 份日报，按日期由新到旧排列；它们均由不可变研究输入确定性生成，是回放和核对材料，不构成投资建议。";
   els.dailyReportsBody.innerHTML = dailyReports.reports.map(renderDailyReport).join("");
+  renderDailyReportsPagination();
 }
 
 function renderDailyReport(row) {
   const report = row?.report && typeof row.report === "object" ? row.report : {};
   const market = report.market || {};
   const evidence = report.evidence || {};
+  const marketDate = normalizeCalendarJumpDate(row.market_date || report.marketDate);
   const change = Number(market.changePercent);
   const hasChange = Number.isFinite(change);
   const sourceEntries = Object.entries(evidence.providers || {});
@@ -2500,6 +2717,7 @@ function renderDailyReport(row) {
     '<div class="daily-report-head"><div><span>NEW YORK CLOSE</span><strong>' + escapeHtml(formatMarketDate(row.market_date || report.marketDate)) + '</strong></div><b class="' + replayTone(change) + '">' + (hasChange ? escapeHtml(formatSigned(change) + "%") : "--") + "</b></div>",
     '<div class="daily-report-metrics"><div><span>QQQ 收盘</span><strong>' + (Number.isFinite(Number(market.adjustedClose)) ? escapeHtml(formatNumber(Number(market.adjustedClose))) : "--") + '</strong></div><div><span>可引用事件</span><strong>' + Number(evidence.eventCount || 0) + '</strong></div><div><span>相似样本</span><strong>' + Number(evidence.similarDayCandidateCount || 0) + "</strong></div></div>",
     '<p><b>来源</b>' + escapeHtml(sourceText) + '</p>',
+    marketDate ? '<button type="button" class="report-calendar-link" data-open-calendar-date="' + escapeHtml(marketDate) + '">查看当日证据 →</button>' : "",
     '<small>确定性事实摘要 · ' + escapeHtml(String(row.report_version || report.reportVersion || "--")) + "</small>",
     "</article>"
   ].join("");
@@ -2553,12 +2771,14 @@ function renderWeeklyReport(row) {
   const hasChange = Number.isFinite(change);
   const providers = Object.entries(evidence.providers || {});
   const providerText = providers.length ? providers.map(function ([name, count]) { return name + " " + count; }).join(" · ") : "暂无可引用来源";
+  const observedEnd = normalizeCalendarJumpDate(report.observedEnd);
   return [
     '<article class="weekly-report-card">',
     '<div class="weekly-report-head"><div><span>WEEK OF</span><strong>' + escapeHtml(formatMarketDate(row.weekStart || report.weekStart)) + '</strong></div><b class="' + replayTone(change) + '">' + (hasChange ? escapeHtml(formatSigned(change) + "%") : "--") + "</b></div>",
     '<div class="weekly-report-meta"><b class="' + escapeHtml(String(coverage.status || "limited")) + '">' + escapeHtml(String(coverage.status || "limited").toUpperCase()) + '</b><span>' + Number(coverage.archivedDailyReports || 0) + " 个归档日 · " + escapeHtml(formatMarketDate(report.observedStart)) + " 至 " + escapeHtml(formatMarketDate(report.observedEnd)) + "</span></div>",
     '<div class="weekly-report-metrics"><div><span>期末 QQQ</span><strong>' + (Number.isFinite(Number(market.observedEndClose)) ? escapeHtml(formatNumber(Number(market.observedEndClose))) : "--") + '</strong></div><div><span>可引用事件</span><strong>' + Number(evidence.eventCount || 0) + '</strong></div><div><span>相似样本</span><strong>' + Number(evidence.similarDayCandidateCount || 0) + "</strong></div></div>",
     '<p><b>来源</b>' + escapeHtml(providerText) + '</p>',
+    observedEnd ? '<button type="button" class="report-calendar-link is-weekly" data-open-calendar-date="' + escapeHtml(observedEnd) + '">查看期末日证据 →</button>' : "",
     '<small>' + (row?.archived ? "已冻结事实周报" : "动态事实汇总") + " · " + escapeHtml(String(report.reportVersion || "--")) + "</small>",
     "</article>"
   ].join("");
@@ -4714,9 +4934,28 @@ function renderMarketHistoryEvent(entry) {
 function renderMarketCalendar() {
   if (!els.calendarGrid || !els.calendarDetail) return;
   const calendar = state.marketCalendar;
+  const isListView = calendar.view === "list";
+  const isWeekView = calendar.view === "week";
+  const weekBounds = isWeekView ? calendarWeekBounds(calendar.selectedDate || calendar.today || calendar.days[0]?.date) : null;
   const [year, month] = calendar.month.split("-");
-  els.calendarMonthLabel.textContent = year + " 年 " + Number(month) + " 月";
+  els.calendarMonthLabel.textContent = isWeekView ? calendarWeekLabel(weekBounds) : year + " 年 " + Number(month) + " 月";
   els.calendarTodayBtn.classList.toggle("is-active", calendar.month === getNewYorkMonth());
+  document.querySelectorAll("[data-calendar-view]").forEach(function (button) {
+    const active = button.getAttribute("data-calendar-view") === calendar.view;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  document.querySelectorAll("[data-calendar-filter]").forEach(function (button) {
+    const active = button.getAttribute("data-calendar-filter") === calendar.listFilter;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  if (els.calendarListFilters) els.calendarListFilters.hidden = !isListView;
+  renderCalendarEventTypeFilters(calendar, isListView);
+  renderCalendarSymbolFilters(calendar, isListView);
+  if (els.calendarWeekdays) els.calendarWeekdays.hidden = isListView;
+  els.calendarGrid.classList.toggle("is-list-view", isListView);
+  els.calendarGrid.classList.toggle("is-week-view", isWeekView);
 
   if (calendar.loading && !calendar.days.length) {
     els.calendarHint.textContent = "正在对齐 QQQ 行情、统一事件与研究结果…";
@@ -4730,10 +4969,41 @@ function renderMarketCalendar() {
     renderMarketDayDetail();
     return;
   }
+  if (isWeekView && calendar.weekLoading && !calendar.weekDays.length) {
+    els.calendarHint.textContent = "正在读取所选日期所在的美东周…";
+    els.calendarGrid.innerHTML = '<div class="calendar-empty"><strong>正在加载周视图</strong><span>跨月时仅补读相邻月份的公开日历数据。</span></div>';
+    renderMarketDayDetail();
+    return;
+  }
+  if (isWeekView && calendar.weekError && !calendar.weekDays.length) {
+    els.calendarHint.textContent = "周视图暂时不可用；月历与单日详情仍可使用。";
+    els.calendarGrid.innerHTML = '<div class="calendar-empty is-error"><strong>读取失败</strong><span>' + escapeHtml(calendar.weekError) + "</span></div>";
+    renderMarketDayDetail();
+    return;
+  }
 
-  const tradingCount = calendar.days.filter(function (day) { return day.status === "trading"; }).length;
-  const eventCount = calendar.days.reduce(function (sum, day) { return sum + Number(day.eventSummary?.count || 0); }, 0);
-  els.calendarHint.textContent = "美东交易日 · 本月已入库 " + tradingCount + " 个交易日 · " + eventCount + " 条结构化事件。";
+  const displayDays = isWeekView ? calendar.weekDays : calendar.days;
+  const tradingCount = displayDays.filter(function (day) { return day.status === "trading"; }).length;
+  const eventCount = displayDays.reduce(function (sum, day) { return sum + Number(day.eventSummary?.count || 0); }, 0);
+  const listCount = calendar.days.filter(function (day) { return calendarListMatches(day, calendar.listFilter, calendar.eventTypeFilter, calendar.symbolFilter); }).length;
+  els.calendarHint.textContent = isListView
+    ? "事件列表 · 当前筛选 " + listCount + " 天；点击任意行查看同一份单日证据与研究材料。"
+    : isWeekView
+      ? "周视图 · 美东周内已入库 " + tradingCount + " 个交易日 · " + eventCount + " 条结构化事件。"
+      : "美东交易日 · 本月已入库 " + tradingCount + " 个交易日 · " + eventCount + " 条结构化事件。";
+  if (isListView) {
+    const days = calendar.days.filter(function (day) { return calendarListMatches(day, calendar.listFilter, calendar.eventTypeFilter, calendar.symbolFilter); }).slice().reverse();
+    els.calendarGrid.innerHTML = days.length
+      ? days.map(renderCalendarListDay).join("")
+      : '<div class="calendar-empty"><strong>当前筛选没有日期</strong><span>筛选只读取本月已加载的结构化事件和财报计数，不会补写原因。</span></div>';
+    renderMarketDayDetail();
+    return;
+  }
+  if (isWeekView) {
+    els.calendarGrid.innerHTML = displayDays.map(renderCalendarDay).join("");
+    renderMarketDayDetail();
+    return;
+  }
   const firstDate = calendar.days[0]?.date;
   const weekday = firstDate ? new Date(firstDate + "T12:00:00.000Z").getUTCDay() : 1;
   const leading = (weekday + 6) % 7;
@@ -4744,8 +5014,91 @@ function renderMarketCalendar() {
   renderMarketDayDetail();
 }
 
+function calendarListMatches(day, filter, eventTypeFilter, symbolFilter) {
+  const summary = day?.eventSummary || {};
+  const types = Array.isArray(summary.types) ? summary.types : [];
+  const symbols = Array.isArray(summary.symbols) ? summary.symbols : [];
+  if (eventTypeFilter && !types.includes(eventTypeFilter)) return false;
+  if (symbolFilter && !symbols.includes(symbolFilter)) return false;
+  if (filter === "events") return Number(summary.count || 0) > 0;
+  if (filter === "earnings") return Number(summary.earningsCount || 0) > 0;
+  if (filter === "high-impact") return summary.highestImpact === "high";
+  if (filter === "high-confidence") return Number(summary.highestEventConfidence) >= 0.8;
+  return true;
+}
+
+function renderCalendarSymbolFilters(calendar, isListView) {
+  if (!els.calendarSymbolFilters) return;
+  const counts = new Map();
+  (calendar.days || []).forEach(function (day) {
+    (Array.isArray(day?.eventSummary?.symbols) ? day.eventSummary.symbols : []).forEach(function (symbol) {
+      const value = String(symbol || "").trim().toUpperCase();
+      if (value) counts.set(value, (counts.get(value) || 0) + 1);
+    });
+  });
+  const entries = Array.from(counts.entries()).sort(function (left, right) {
+    return right[1] - left[1] || left[0].localeCompare(right[0]);
+  }).slice(0, 12);
+  els.calendarSymbolFilters.hidden = !isListView || !entries.length;
+  els.calendarSymbolFilters.innerHTML = entries.map(function ([symbol, count]) {
+    const active = symbol === calendar.symbolFilter;
+    return '<button type="button" class="' + (active ? "is-active" : "") + '" data-calendar-symbol="' + escapeHtml(symbol) + '" aria-pressed="' + String(active) + '">' + escapeHtml(symbol) + " · " + count + "</button>";
+  }).join("");
+}
+
+function renderCalendarEventTypeFilters(calendar, isListView) {
+  if (!els.calendarEventTypeFilters) return;
+  const counts = new Map();
+  (calendar.days || []).forEach(function (day) {
+    (Array.isArray(day?.eventSummary?.types) ? day.eventSummary.types : []).forEach(function (type) {
+      const value = String(type || "").trim();
+      if (value) counts.set(value, (counts.get(value) || 0) + 1);
+    });
+  });
+  const entries = Array.from(counts.entries()).sort(function (left, right) {
+    return right[1] - left[1] || left[0].localeCompare(right[0]);
+  }).slice(0, 8);
+  els.calendarEventTypeFilters.hidden = !isListView || !entries.length;
+  els.calendarEventTypeFilters.innerHTML = entries.map(function ([type, count]) {
+    const active = type === calendar.eventTypeFilter;
+    return '<button type="button" class="' + (active ? "is-active" : "") + '" data-calendar-event-type="' + escapeHtml(type) + '" aria-pressed="' + String(active) + '">' + escapeHtml(calendarEventTypeLabel(type)) + " · " + count + "</button>";
+  }).join("");
+}
+
+function calendarEventTypeLabel(type) {
+  const labels = {
+    sec_filing: "SEC 披露",
+    fred_macro_observation: "宏观观测",
+    market_move_attribution: "市场归因",
+    earnings_reported: "已公布财报"
+  };
+  return labels[type] || String(type || "事件").replace(/_/g, " ");
+}
+
+function renderCalendarListDay(day) {
+  const change = Number(day?.qqq?.changePercent);
+  const ndxChange = Number(day?.ndx?.changePercent);
+  const tone = Number.isFinite(change) && change > 0 ? "positive" : Number.isFinite(change) && change < 0 ? "negative" : "neutral";
+  const summary = day?.eventSummary || {};
+  const eventCount = Number(summary.count || 0);
+  const earningsCount = Number(summary.earningsCount || 0);
+  const highestEventConfidence = Number(summary.highestEventConfidence);
+  const types = Array.isArray(summary.types) ? summary.types.slice(0, 3).map(calendarEventTypeLabel) : [];
+  const selected = day?.date === state.marketCalendar.selectedDate;
+  const status = day?.status === "trading" ? "交易日" : ({ weekend: "周末", "market-holiday": "NYSE 全天休市", upcoming: "未来", "closed-or-missing": "缺失 / 未确认休市" })[day?.status] || "无数据";
+  return [
+    '<button type="button" class="calendar-list-day ' + escapeHtml(tone) + (selected ? " is-selected" : "") + '" data-calendar-date="' + escapeHtml(String(day?.date || "")) + '">',
+    '<div class="calendar-list-date"><strong>' + escapeHtml(formatMarketDate(day?.date)) + '</strong><span>' + escapeHtml(status) + "</span></div>",
+    '<div class="calendar-list-move"><span>QQQ</span><b class="' + tone + '">' + (Number.isFinite(change) ? escapeHtml(formatSigned(change) + "%") : "--") + "</b>" + (Number.isFinite(ndxChange) ? '<small>NDX ' + escapeHtml(formatSigned(ndxChange) + "%") + "</small>" : "") + "</div>",
+    '<div class="calendar-list-events"><strong>' + eventCount + " 事件</strong>" + (earningsCount ? "<span>" + earningsCount + " 财报</span>" : "") + (summary.highestImpact === "high" ? "<em>高影响</em>" : "") + (Number.isFinite(highestEventConfidence) ? '<span class="calendar-event-confidence">事件置信 ' + Math.round(highestEventConfidence * 100) + "%</span>" : "") + (types.length ? "<small>" + escapeHtml(types.join(" · ")) + "</small>" : "") + "</div>",
+    '<span class="calendar-list-arrow" aria-hidden="true">→</span>',
+    "</button>"
+  ].join("");
+}
+
 function renderCalendarDay(day) {
   const change = Number(day.qqq?.changePercent);
+  const ndxChange = Number(day.ndx?.changePercent);
   const tone = Number.isFinite(change) && change > 0 ? "positive" : Number.isFinite(change) && change < 0 ? "negative" : "neutral";
   const selected = day.date === state.marketCalendar.selectedDate;
   const today = day.date === state.marketCalendar.today;
@@ -4766,7 +5119,7 @@ function renderCalendarDay(day) {
     day.qqq
       ? '<span class="calendar-move ' + tone + '">' + escapeHtml(formatSigned(change) + "%") + "</span>"
       : '<span class="calendar-status">' + escapeHtml(statusLabels[day.status] || "无数据") + "</span>",
-    '<span class="calendar-day-meta">' + (eventCount ? '<b>' + eventCount + " 事件</b>" : "<span>无事件</span>") + (earningsCount ? '<i class="calendar-earnings">' + earningsCount + " 财报</i>" : day.qqq?.volatilityLevel && day.qqq.volatilityLevel !== "unknown" ? "<i>" + escapeHtml(volatilityLabels[day.qqq.volatilityLevel]) + "</i>" : "") + "</span>",
+    '<span class="calendar-day-meta">' + (eventCount ? '<b>' + eventCount + " 事件</b>" : "<span>无事件</span>") + (earningsCount ? '<i class="calendar-earnings">' + earningsCount + " 财报</i>" : Number.isFinite(ndxChange) ? "<i>NDX " + escapeHtml(formatSigned(ndxChange) + "%") + "</i>" : day.qqq?.volatilityLevel && day.qqq.volatilityLevel !== "unknown" ? "<i>" + escapeHtml(volatilityLabels[day.qqq.volatilityLevel]) + "</i>" : "") + "</span>",
     "</button>"
   ].join("");
 }
@@ -4797,6 +5150,8 @@ function renderMarketDayDetail() {
     upcoming: "未来日期"
   };
   const qqq = day.qqq;
+  const ndx = day.ndx;
+  const ndxVsQqq = day.ndxVsQqq;
   const events = Array.isArray(detail.events) ? detail.events : [];
   const earningsEvents = Array.isArray(detail.earningsEvents) ? detail.earningsEvents : [];
   const outcome = day.researchOutcome;
@@ -4805,7 +5160,7 @@ function renderMarketDayDetail() {
     '<div><span class="calendar-detail-kicker">DAY BRIEF · NEW YORK</span><h3>' + escapeHtml(formatMarketDate(day.date)) + '</h3></div>',
     '<span class="calendar-status-chip ' + escapeHtml(day.status) + '">' + escapeHtml(statusLabels[day.status] || day.status) + "</span>",
     "</div>",
-    qqq ? renderDayMarketMetrics(qqq, day.eventSummary) : renderDayNoMarketData(day),
+    qqq ? renderDayMarketMetrics(qqq, ndx, ndxVsQqq, day.eventSummary) : renderDayNoMarketData(day),
     renderDayEarningsEvents(earningsEvents),
     events.length ? '<div class="day-timeline"><div class="day-section-title"><strong>事件时间线</strong><span>' + events.length + " 条</span></div>" + events.map(renderUnifiedDayEvent).join("") + "</div>" : '<div class="day-empty-block"><strong>暂无结构化事件</strong><p>价格存在不代表已经找到可靠原因；系统不会无证据补写归因。</p></div>',
     renderResearchOutcome(outcome),
@@ -4941,17 +5296,24 @@ function renderSimilarDayDistribution(summary) {
   ].join("");
 }
 
-function renderDayMarketMetrics(qqq, summary) {
+function renderDayMarketMetrics(qqq, ndx, ndxVsQqq, summary) {
   const change = Number(qqq.changePercent);
   const tone = change > 0 ? "positive" : change < 0 ? "negative" : "neutral";
   const volatilityLabels = { calm: "低波动", normal: "常态波动", elevated: "高波动", unknown: "待计算" };
   const impactLabels = { high: "高", medium: "中", low: "低", unknown: "暂无" };
+  const highestEventConfidence = Number(summary?.highestEventConfidence);
+  const confidenceText = Number.isFinite(highestEventConfidence) && highestEventConfidence >= 0 && highestEventConfidence <= 1
+    ? Math.round(highestEventConfidence * 100) + "%"
+    : "--";
   return [
     '<div class="day-metric-grid">',
     '<div><span>QQQ 涨跌</span><strong class="' + tone + '">' + escapeHtml(formatSigned(change) + "%") + "</strong></div>",
     '<div><span>调整收盘</span><strong>' + escapeHtml(formatNumber(Number(qqq.adjustedClose))) + "</strong></div>",
+    ndx ? '<div><span>NDX 指数</span><strong class="' + (Number(ndx.changePercent) > 0 ? "positive" : Number(ndx.changePercent) < 0 ? "negative" : "neutral") + '">' + (Number.isFinite(Number(ndx.changePercent)) ? escapeHtml(formatSigned(Number(ndx.changePercent)) + "%") : "--") + '<small>' + escapeHtml(formatNumber(Number(ndx.adjustedClose))) + " 收盘</small></strong></div>" : "",
+    ndxVsQqq ? '<div><span>NDX 相对 QQQ</span><strong class="' + (Number(ndxVsQqq.ndxMinusQqqChangePercent) > 0 ? "positive" : Number(ndxVsQqq.ndxMinusQqqChangePercent) < 0 ? "negative" : "neutral") + '">' + escapeHtml(formatSigned(Number(ndxVsQqq.ndxMinusQqqChangePercent)) + " 个百分点") + '<small>同日涨跌差，不代表原因</small></strong></div>' : "",
     '<div><span>20 日后视波动</span><strong>' + (Number.isFinite(Number(qqq.trailingVolatility20dPercent)) ? escapeHtml(Number(qqq.trailingVolatility20dPercent).toFixed(1) + "%") : "--") + '<small>' + escapeHtml(volatilityLabels[qqq.volatilityLevel] || "") + "</small></strong></div>",
     '<div><span>事件 / 最高影响</span><strong>' + Number(summary?.count || 0) + '<small>' + escapeHtml(impactLabels[summary?.highestImpact] || "暂无") + "</small></strong></div>",
+    '<div><span>最高事件置信度</span><strong>' + escapeHtml(confidenceText) + '<small>事件字段</small></strong></div>',
     "</div>"
   ].join("");
 }
@@ -4963,10 +5325,15 @@ function renderUnifiedDayEvent(event) {
   const primary = sources.find(function (source) { return source.relationType === "primary"; });
   const timeValue = event.event_time || event.available_at;
   const timeLabel = event.event_time ? "事件时间" : "系统可用时间";
+  const confidence = Number(event.confidence);
+  const confidenceLabel = Number.isFinite(confidence) && confidence >= 0 && confidence <= 1
+    ? "结构化置信度 " + Math.round(confidence * 100) + "%"
+    : "结构化置信度未提供";
   return [
     '<article class="day-event-card impact-' + escapeHtml(event.impact_level || "unknown") + '">',
     '<div class="day-event-head"><div><span>' + escapeHtml(tickers.join(" · ") || "MARKET") + '</span><strong>' + escapeHtml(event.event_type === "market_move_attribution" ? "当日走势归因假设" : event.title) + '</strong></div><em>' + escapeHtml(event.impact_level || "unknown") + "</em></div>",
     '<p class="day-event-time">' + escapeHtml(timeLabel + " · " + formatDualMarketTime(timeValue)) + "</p>",
+    '<p class="day-event-confidence">' + escapeHtml(confidenceLabel) + " · 仅描述此结构化事件，不代表整日市场归因结论。</p>",
     '<p class="day-event-summary">' + escapeHtml(event.summary || "暂无摘要") + "</p>",
     '<div class="day-event-sources">',
     evidence.length ? evidence.map(function (source) {

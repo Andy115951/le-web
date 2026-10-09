@@ -3,6 +3,7 @@ const test = require("node:test");
 const {
   annualizedTrailingVolatility,
   buildCalendarDays,
+  buildNdxQqqComparison,
   monthBounds,
   normalizeDate,
   normalizeMonth,
@@ -44,6 +45,12 @@ test("calendar separates trading, weekend, missing and upcoming dates", function
       volume: 1000,
       change_percent: 2
     }],
+    ndxPrices: [{
+      market_date: "2026-08-03",
+      close: 23000,
+      adjusted_close: 23000,
+      change_percent: 1.8
+    }],
     labels: [{
       market_date: "2026-08-03",
       return_1d_percent: 1.2,
@@ -58,7 +65,14 @@ test("calendar separates trading, weekend, missing and upcoming dates", function
       market_date: "2026-08-03",
       event_type: "market_move_attribution",
       impact_level: "high",
+      confidence: 0.82,
       tickers: ["QQQ", "NVDA"]
+    }, {
+      market_date: "2026-08-03",
+      event_type: "market_move_attribution",
+      impact_level: "low",
+      confidence: 2,
+      tickers: ["QQQ"]
     }],
     earnings: [{ marketDate: "2026-08-03", symbol: "NVDA", session: "after_market" }]
   });
@@ -67,10 +81,22 @@ test("calendar separates trading, weekend, missing and upcoming dates", function
   assert.equal(days[3].status, "closed-or-missing");
   assert.equal(days[5].status, "upcoming");
   assert.equal(days[2].eventSummary.highestImpact, "high");
+  assert.equal(days[2].eventSummary.highestEventConfidence, 0.82);
+  assert.equal(days[3].eventSummary.highestEventConfidence, null);
   assert.equal(days[2].eventSummary.earningsCount, 1);
   assert.deepEqual(days[2].eventSummary.symbols, ["QQQ", "NVDA"]);
   assert.equal(days[2].researchOutcome.return1dPercent, 1.2);
   assert.equal(days[2].researchOutcome.return3dPercent, null);
+  assert.deepEqual(days[2].ndx, { close: 23000, adjustedClose: 23000, changePercent: 1.8 });
+  assert.deepEqual(days[2].ndxVsQqq, { ndxMinusQqqChangePercent: -0.2 });
+  assert.equal(days[3].ndx, null);
+  assert.equal(days[3].ndxVsQqq, null);
+});
+
+test("NDX versus QQQ comparison needs both valid same-day changes", function () {
+  assert.deepEqual(buildNdxQqqComparison({ changePercent: -1.2 }, { changePercent: 0.35 }), { ndxMinusQqqChangePercent: 1.55 });
+  assert.equal(buildNdxQqqComparison({ changePercent: null }, { changePercent: 0.35 }), null);
+  assert.equal(buildNdxQqqComparison({ changePercent: -1.2 }, null), null);
 });
 
 test("calendar marks only covered official full closures as market holidays", function () {

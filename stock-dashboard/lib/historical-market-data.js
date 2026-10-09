@@ -1,5 +1,8 @@
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36";
 const ALLOWED_RANGES = new Set(["1y", "2y", "5y", "10y"]);
+// Store the index under its stable project symbol, while keeping Yahoo's provider-only
+// caret syntax out of database keys, API inputs, and downstream research contracts.
+const YAHOO_CHART_SYMBOLS = Object.freeze({ NDX: "^NDX" });
 
 function normalizeSymbol(value) {
   const symbol = String(value || "").trim().toUpperCase();
@@ -10,6 +13,11 @@ function normalizeSymbol(value) {
 function normalizeRange(value) {
   const range = String(value || "5y").trim().toLowerCase();
   return ALLOWED_RANGES.has(range) ? range : "5y";
+}
+
+function yahooChartSymbol(value) {
+  const symbol = normalizeSymbol(value);
+  return YAHOO_CHART_SYMBOLS[symbol] || symbol;
 }
 
 function marketDate(timestampMs) {
@@ -78,9 +86,10 @@ function parseYahooDailyBars(payload, symbol) {
 
 async function fetchYahooDailyBars(symbol, range) {
   const normalizedSymbol = normalizeSymbol(symbol);
+  const providerSymbol = yahooChartSymbol(normalizedSymbol);
   const normalizedRange = normalizeRange(range);
   const url = "https://query1.finance.yahoo.com/v8/finance/chart/"
-    + encodeURIComponent(normalizedSymbol)
+    + encodeURIComponent(providerSymbol)
     + "?range=" + encodeURIComponent(normalizedRange)
     + "&interval=1d&events=div%2Csplits";
   const controller = new AbortController();
@@ -102,5 +111,6 @@ module.exports = {
   marketDate,
   normalizeRange,
   normalizeSymbol,
-  parseYahooDailyBars
+  parseYahooDailyBars,
+  yahooChartSymbol
 };

@@ -323,6 +323,22 @@
         </div>
       </div>
       <p class="muted calendar-hint" id="calendarHint">日期按美东交易日归属；点击任意日期查看行情、事件证据和事后结果。</p>
+      <div class="calendar-browse-toolbar">
+        <div class="calendar-view-controls" id="calendarViewControls" role="group" aria-label="日历视图">
+          <button type="button" class="is-active" data-calendar-view="month" aria-pressed="true">月历</button>
+          <button type="button" data-calendar-view="week" aria-pressed="false">周视图</button>
+          <button type="button" data-calendar-view="list" aria-pressed="false">事件列表</button>
+        </div>
+        <div class="calendar-list-filters" id="calendarListFilters" role="group" aria-label="事件列表筛选">
+          <button type="button" class="is-active" data-calendar-filter="all" aria-pressed="true">全部日期</button>
+          <button type="button" data-calendar-filter="events" aria-pressed="false">有事件</button>
+          <button type="button" data-calendar-filter="earnings" aria-pressed="false">有财报</button>
+          <button type="button" data-calendar-filter="high-impact" aria-pressed="false">高影响</button>
+          <button type="button" data-calendar-filter="high-confidence" aria-pressed="false">高置信事件</button>
+        </div>
+        <div class="calendar-event-type-filters" id="calendarEventTypeFilters" role="group" aria-label="按事件类型筛选"></div>
+        <div class="calendar-symbol-filters" id="calendarSymbolFilters" role="group" aria-label="按事件涉及标的筛选"></div>
+      </div>
       <form class="calendar-jump" id="calendarJumpForm">
         <label for="calendarDateInput">直达市场日期</label>
         <input id="calendarDateInput" type="date" required />
@@ -336,7 +352,7 @@
       </div>
       <div class="calendar-layout">
         <div class="calendar-panel card">
-          <div class="calendar-weekdays" aria-hidden="true">
+          <div class="calendar-weekdays" id="calendarWeekdays" aria-hidden="true">
             <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
           </div>
           <div class="calendar-grid" id="calendarGrid"></div>
@@ -413,6 +429,9 @@
       </div>
       <p class="muted" id="dailyReportsHint">日报由已归档研究输入确定性生成，不包含预测、建议或交易指令。</p>
       <div class="daily-reports-grid" id="dailyReportsBody" aria-live="polite"></div>
+      <div class="report-pagination" id="dailyReportsPagination" hidden>
+        <button type="button" class="btn btn-ghost" id="loadMoreDailyReportsBtn">加载更早日报</button>
+      </div>
     </section>
 
     <section class="weekly-reports card" id="weeklyResearchReports">

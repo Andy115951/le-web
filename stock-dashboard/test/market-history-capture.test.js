@@ -8,8 +8,10 @@ const {
   normalizeHistoryDays,
   normalizeCaptureOptions,
   normalizeCaptureRunId,
+  PRICE_HISTORY_SYMBOLS,
   sanitizeCaptureResultForOps,
   sanitizeCaptureRunForOps,
+  summarizePriceHistoryRefresh,
   toHistoryRow,
   toPublicHistoryRow
 } = require("../lib/market-history-capture");
@@ -93,6 +95,34 @@ test("normalizeCaptureOptions preserves cron and manual triggers", function () {
   assert.deepEqual(normalizeCaptureOptions({ now, trigger: "manual" }), { now, trigger: "manual" });
   assert.deepEqual(normalizeCaptureOptions({ now, trigger: "unknown" }), { now, trigger: "cron" });
   assert.deepEqual(normalizeCaptureOptions(now), { now, trigger: "manual" });
+});
+
+test("native NDX price refresh is additive and does not replace the QQQ baseline", function () {
+  assert.deepEqual(PRICE_HISTORY_SYMBOLS, ["QQQ", "NDX"]);
+  assert.deepEqual(summarizePriceHistoryRefresh([
+    { symbol: "QQQ", status: "succeeded", barsWritten: 252, lastDate: "2026-09-15" },
+    { symbol: "NDX", status: "succeeded", barsWritten: 252, lastDate: "2026-09-15" }
+  ]), {
+    status: "succeeded",
+    barsWritten: 504,
+    lastDate: "2026-09-15",
+    ndxStatus: "succeeded",
+    ndxBarsWritten: 252
+  });
+  assert.deepEqual(summarizePriceHistoryRefresh([
+    { symbol: "QQQ", status: "succeeded", barsWritten: 252, lastDate: "2026-09-15" },
+    { symbol: "NDX", status: "failed", barsWritten: 0, lastDate: null }
+  ]), {
+    status: "partial",
+    barsWritten: 252,
+    lastDate: "2026-09-15",
+    ndxStatus: "failed",
+    ndxBarsWritten: 0
+  });
+  assert.equal(summarizePriceHistoryRefresh([
+    { symbol: "QQQ", status: "failed", barsWritten: 0, lastDate: null },
+    { symbol: "NDX", status: "succeeded", barsWritten: 252, lastDate: "2026-09-15" }
+  ]).status, "failed");
 });
 
 test("capture run ids only accept UUIDs for protected single-run diagnostics", function () {

@@ -22,6 +22,9 @@ const PUBLIC_SYMBOLS = new Set(NASDAQ_FOCUS_INSTRUMENTS.map(function (item) {
   return item.symbol;
 }));
 const SAFE_COMPONENT_STATUSES = new Set(["pending", "running", "succeeded", "partial", "skipped", "failed", "disabled"]);
+// QQQ remains the sole research baseline. NDX is an additive, native index series for
+// display and later index-vs-ETF diagnostics; it must not change existing QQQ features.
+const PRICE_HISTORY_SYMBOLS = Object.freeze(["QQQ", "NDX"]);
 
 function isGlobalStockSymbol(symbol) {
   return /^[A-Z][A-Z0-9.-]{0,9}$/.test(String(symbol || "").trim().toUpperCase());
@@ -68,6 +71,38 @@ function normalizeCount(value) {
   return Math.max(0, Math.floor(Number(value) || 0));
 }
 
+function summarizePriceHistoryRefresh(outcomes) {
+  const rows = Array.isArray(outcomes) ? outcomes : [];
+  const qqq = rows.find(function (item) { return item?.symbol === "QQQ"; }) || null;
+  const ndx = rows.find(function (item) { return item?.symbol === "NDX"; }) || null;
+  const failed = rows.some(function (item) { return item?.status === "failed"; });
+  const successful = rows.filter(function (item) { return item?.status === "succeeded"; });
+  return {
+    status: qqq?.status !== "succeeded" ? "failed" : (failed ? "partial" : "succeeded"),
+    barsWritten: successful.reduce(function (total, item) { return total + normalizeCount(item.barsWritten); }, 0),
+    lastDate: typeof qqq?.lastDate === "string" ? qqq.lastDate : null,
+    ndxStatus: ndx?.status === "succeeded" ? "succeeded" : (ndx?.status === "failed" ? "failed" : "unknown"),
+    ndxBarsWritten: normalizeCount(ndx?.barsWritten)
+  };
+}
+
+async function refreshPriceHistories() {
+  const outcomes = await Promise.all(PRICE_HISTORY_SYMBOLS.map(async function (symbol) {
+    try {
+      const backfilled = await backfillDailyPrices(symbol, "1y");
+      return {
+        symbol,
+        status: "succeeded",
+        barsWritten: normalizeCount(backfilled.barsWritten),
+        lastDate: typeof backfilled.lastDate === "string" ? backfilled.lastDate : null
+      };
+    } catch (error) {
+      return { symbol, status: "failed", barsWritten: 0, lastDate: null, error: errorMessage(error) };
+    }
+  }));
+  return summarizePriceHistoryRefresh(outcomes);
+}
+
 function safeComponentStatus(value) {
   return SAFE_COMPONENT_STATUSES.has(value) ? value : "unknown";
 }
@@ -96,6 +131,8 @@ function buildSafeCaptureDetails(details) {
     unifiedSavedSources: normalizeCount(source.unifiedSavedSources),
     priceHistoryStatus: safeComponentStatus(source.priceHistoryStatus),
     priceHistoryBarsWritten: normalizeCount(source.priceHistoryBarsWritten),
+    priceHistoryNdxStatus: safeComponentStatus(source.priceHistoryNdxStatus),
+    priceHistoryNdxBarsWritten: normalizeCount(source.priceHistoryNdxBarsWritten),
     secFilingStatus: safeComponentStatus(source.secFilingStatus),
     secFilingEvents: normalizeCount(source.secFilingEvents),
     secFilingSources: normalizeCount(source.secFilingSources),
@@ -158,6 +195,8 @@ function sanitizeCaptureResultForOps(result) {
     marketCollectorAttemptCount: Math.min(3, normalizeCount(source.marketCollectorAttemptCount)),
     priceHistoryStatus: safeComponentStatus(source.priceHistoryStatus),
     priceHistoryBarsWritten: normalizeCount(source.priceHistoryBarsWritten),
+    priceHistoryNdxStatus: safeComponentStatus(source.priceHistoryNdxStatus),
+    priceHistoryNdxBarsWritten: normalizeCount(source.priceHistoryNdxBarsWritten),
     secFilingStatus: safeComponentStatus(source.secFilingStatus),
     fredMacroStatus: safeComponentStatus(source.fredMacroStatus),
     researchPacketSnapshotStatus: safeComponentStatus(source.researchPacketSnapshotStatus),
@@ -324,20 +363,9 @@ async function captureMarketHistory(input) {
       sourcesWritten: collectorResult.unifiedSourcesWritten
     };
     // The public daily calendar reads price_bars_daily, which the event collector never writes.
-    // Refresh QQQ OHLCV here so a completed close also keeps the calendar current, additively.
-    let priceHistoryResult = { status: "pending", barsWritten: 0, lastDate: null, error: null };
-    try {
-      const backfilled = await backfillDailyPrices("QQQ", "1y");
-      priceHistoryResult = {
-        status: "succeeded",
-        barsWritten: normalizeCount(backfilled.barsWritten),
-        lastDate: typeof backfilled.lastDate === "string" ? backfilled.lastDate : null,
-        error: null
-      };
-    } catch (error) {
-      // Daily price refresh is additive; a data-source outage must not discard the completed snapshot.
-      priceHistoryResult = { ...priceHistoryResult, status: "failed", error: errorMessage(error) };
-    }
+    // Refresh QQQ plus native NDX additively. QQQ remains the required baseline, while an NDX
+    // outage is visible as partial without discarding the completed public snapshot.
+    const priceHistoryResult = await refreshPriceHistories();
     const personalFailedSymbolSet = new Set();
     const eventAttributionResult = await runResearchTaskWithRetry({
       queuedAt: startedAt,
@@ -541,6 +569,8 @@ async function captureMarketHistory(input) {
       priceHistoryStatus: priceHistoryResult.status,
       priceHistoryBarsWritten: priceHistoryResult.barsWritten,
       priceHistoryLastDate: priceHistoryResult.lastDate,
+      priceHistoryNdxStatus: priceHistoryResult.ndxStatus,
+      priceHistoryNdxBarsWritten: priceHistoryResult.ndxBarsWritten,
       secFilingStatus: secFilingResult.status,
       secFilingEvents: secFilingResult.eventsWritten,
       secFilingSources: secFilingResult.sourcesWritten,
@@ -588,6 +618,8 @@ async function captureMarketHistory(input) {
           unifiedSavedSources: result.unifiedSavedSources,
           priceHistoryStatus: priceHistoryResult.status,
           priceHistoryBarsWritten: priceHistoryResult.barsWritten,
+          priceHistoryNdxStatus: priceHistoryResult.ndxStatus,
+          priceHistoryNdxBarsWritten: priceHistoryResult.ndxBarsWritten,
           secFilingStatus: secFilingResult.status,
           secFilingEvents: secFilingResult.eventsWritten,
           secFilingSources: secFilingResult.sourcesWritten,
@@ -717,8 +749,10 @@ module.exports = {
   normalizeCaptureOptions,
   normalizeCaptureRunId,
   normalizeHistoryDays,
+  PRICE_HISTORY_SYMBOLS,
   sanitizeCaptureResultForOps,
   sanitizeCaptureRunForOps,
+  summarizePriceHistoryRefresh,
   toHistoryRow,
   toPublicHistoryRow
 };

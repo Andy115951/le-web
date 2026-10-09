@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { buildCaptureInputFreshness, buildDerivedDataFreshness, buildEarningsCalendarReadiness, buildNdxConstituentFreshness, buildResearchIntegrationReadiness, buildResearchQualityNextSteps, buildResearchQualitySummary, getCaptureInputFreshness, getDerivedDataFreshness, getEarningsCalendarReadiness, getResearchQuality } = require("../lib/research-quality");
+const { buildCaptureInputFreshness, buildDerivedDataFreshness, buildEarningsCalendarReadiness, buildNdxConstituentFreshness, buildNdxPriceFreshness, buildResearchIntegrationReadiness, buildResearchQualityNextSteps, buildResearchQualitySummary, getCaptureInputFreshness, getDerivedDataFreshness, getEarningsCalendarReadiness, getNdxPriceFreshness, getResearchQuality } = require("../lib/research-quality");
 
 test("integration readiness exposes only safe state labels", function () {
   const readiness = buildResearchIntegrationReadiness({ SEC_USER_AGENT: "valid contact@example.com", FRED_API_KEY: "a".repeat(32), DEEPSEEK_RESEARCH_ENABLED: "true", DEEPSEEK_RESEARCH_DATA_APPROVED: "true", DEEPSEEK_GATEWAY_COMPATIBILITY_ENABLED: "true", DEEPSEEK_API_KEY: "secret-key-value-long-enough", DEEPSEEK_MODEL: "deepseek-chat" });
@@ -140,6 +140,8 @@ test("research quality summary reports coverage without pretending it is a recom
   assert.equal(summary.derivedData.dailyFeatures.status, "current");
   assert.equal(summary.derivedData.forwardLabels.status, "stale");
   assert.equal(summary.derivedData.similarDays.status, "stale");
+  assert.equal(summary.ndxPrices.status, "not_registered");
+  assert.equal(summary.nextSteps.some(function (step) { return step.id === "review_ndx_price_setup"; }), true);
   assert.equal(JSON.stringify(summary).includes("raw_error"), false);
   assert.match(summary.limitations.join(" "), /does not provide a forecast/);
 });
@@ -161,6 +163,23 @@ test("NDX constituent freshness distinguishes current, aging, stale, and invalid
   assert.equal(buildNdxConstituentFreshness({ asOfDate: "2026-08-15", effectiveDate: "2026-09-01", constituentCount: 101 }).status, "inconsistent_future");
   assert.equal(buildNdxConstituentFreshness({ asOfDate: "2026-08-15" }).status, "awaiting_snapshot");
   assert.equal(buildNdxConstituentFreshness({ asOfDate: "2026-08-15", effectiveDate: "2026-08-01", sourceUrl: "javascript:alert(1)" }).sourceUrl, null);
+});
+
+test("native NDX price freshness distinguishes setup, backfill, and QQQ-aligned states", async function () {
+  assert.equal(buildNdxPriceFreshness({ registered: false }).status, "not_registered");
+  assert.equal(buildNdxPriceFreshness({ registered: true, qqqMarketDate: "2026-09-15" }).status, "awaiting_prices");
+  assert.equal(buildNdxPriceFreshness({ registered: true, ndxMarketDate: "2026-09-15", qqqMarketDate: "2026-09-15" }).status, "current");
+  assert.equal(buildNdxPriceFreshness({ registered: true, ndxMarketDate: "2026-09-12", qqqMarketDate: "2026-09-15" }).status, "stale");
+
+  const paths = [];
+  const value = await getNdxPriceFreshness({ url: "https://example.invalid" }, async function (_config, path) {
+    paths.push(path);
+    if (path.includes("/instruments")) return [{ id: "qqq-id", symbol: "QQQ" }, { id: "ndx-id", symbol: "NDX" }];
+    return [{ market_date: "2026-09-15" }];
+  });
+  assert.equal(value.status, "current");
+  assert.equal(paths.length, 3);
+  assert.equal(paths.every(function (path) { return !/api[_-]?key|authorization|error_message/i.test(path); }), true);
 });
 
 test("derived data freshness queries only public dates and a bounded QQQ scope", async function () {
@@ -190,6 +209,7 @@ test("research quality safely composes independently injected read sources", asy
     getTaskRuns: async function () { return { count: 0, runs: [] }; },
     getDerivedFreshness: async function () { return buildDerivedDataFreshness({}); },
     getNdxSnapshot: async function () { return { effective_date: "2026-08-01", constituent_count: 101 }; },
+    getNdxPriceFreshness: async function () { return buildNdxPriceFreshness({ registered: true, ndxMarketDate: "2026-08-12", qqqMarketDate: "2026-08-12" }); },
     getCaptureRuns: async function () { return [{ status: "succeeded", market_date: "2026-08-12", details: { priceHistoryStatus: "succeeded", secFilingStatus: "succeeded", fredMacroStatus: "succeeded" } }]; },
     getEarningsReadiness: async function () { return { status: "calendar_only", calendarEventCount: 1, reportedCount: 0, featureEligibleCount: 0 }; },
     getIntegrationReadiness: function () { return { modelNarrative: { status: "needs_configuration" } }; }
@@ -197,6 +217,7 @@ test("research quality safely composes independently injected read sources", asy
   assert.equal(quality.coverage.researchSnapshots, 0);
   assert.equal(quality.operations.taskLedgerState, "awaiting_next_capture");
   assert.equal(quality.ndxConstituents.status, "current");
+  assert.equal(quality.ndxPrices.status, "current");
   assert.equal(quality.integrations.earningsCalendar.status, "calendar_only");
   assert.equal(quality.captureInputs.priceHistory, "succeeded");
   assert.equal(quality.nextSteps.some(function (step) { return step.id === "review_earnings_calendar"; }), true);

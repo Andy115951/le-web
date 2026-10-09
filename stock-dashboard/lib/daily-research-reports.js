@@ -50,18 +50,38 @@ async function persistDailyResearchReport(config, snapshot, packet, requestImpl 
 
 function normalizeDailyReportLimit(value) { const limit = Number(value) || 12; return Math.max(1, Math.min(30, Math.round(limit))); }
 
+function latestReportsByDateAndVersion(rows) {
+  const latest = new Map();
+  (Array.isArray(rows) ? rows : []).forEach(function (row) {
+    const date = String(row?.market_date || "");
+    const version = String(row?.report_version || row?.report?.reportVersion || "");
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+    const key = date + "|" + version;
+    const current = latest.get(key);
+    if (!current || String(row?.created_at || "") > String(current?.created_at || "")) latest.set(key, row);
+  });
+  return Array.from(latest.values()).sort(function (left, right) {
+    return String(right.market_date).localeCompare(String(left.market_date))
+      || String(right.created_at || "").localeCompare(String(left.created_at || ""));
+  });
+}
+
 async function getDailyResearchReports(options = {}, config = getSupabaseConfig(), requestImpl = requestSupabase) {
   const startDate = options.startDate ? normalizeDate(options.startDate) : null;
   const endDate = options.endDate ? normalizeDate(options.endDate) : null;
   if (startDate && endDate && startDate > endDate) throw new Error("Invalid daily report date range");
+  const limit = normalizeDailyReportLimit(options.limit);
+  const readLimit = Math.min(121, (limit * 4) + 1);
   const rows = await requestImpl(
     config,
     "/rest/v1/daily_research_reports?select=market_date,report_version,report,created_at"
       + (startDate ? "&market_date=gte." + startDate : "")
       + (endDate ? "&market_date=lte." + endDate : "")
-      + "&order=market_date.desc,created_at.desc&limit=" + normalizeDailyReportLimit(options.limit)
+      + "&order=market_date.desc,created_at.desc&limit=" + readLimit
   );
-  return { reportVersion: DAILY_RESEARCH_REPORT_VERSION, count: Array.isArray(rows) ? rows.length : 0, reports: Array.isArray(rows) ? rows : [] };
+  const page = latestReportsByDateAndVersion(rows);
+  const reports = page.slice(0, limit);
+  return { reportVersion: DAILY_RESEARCH_REPORT_VERSION, count: reports.length, hasMore: page.length > limit, reports };
 }
 
-module.exports = { DAILY_RESEARCH_REPORT_VERSION, buildDailyResearchReport, getDailyResearchReports, normalizeDailyReportLimit, persistDailyResearchReport };
+module.exports = { DAILY_RESEARCH_REPORT_VERSION, buildDailyResearchReport, getDailyResearchReports, latestReportsByDateAndVersion, normalizeDailyReportLimit, persistDailyResearchReport };

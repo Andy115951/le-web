@@ -90,15 +90,40 @@ function highestImpact(events) {
   }, "unknown");
 }
 
+function highestEventConfidence(events) {
+  const values = events.map(function (event) { return Number(event.confidence); })
+    .filter(function (value) { return Number.isFinite(value) && value >= 0 && value <= 1; });
+  return values.length ? round(Math.max(...values), 4) : null;
+}
+
 function nullableNumber(value) {
   if (value === null || value === undefined || value === "") return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
 }
 
+function toIndexDailyState(price) {
+  if (!price) return null;
+  const close = nullableNumber(price.close);
+  const adjustedClose = nullableNumber(price.adjusted_close ?? price.close);
+  const changePercent = nullableNumber(price.change_percent);
+  if (close === null || adjustedClose === null) return null;
+  return { close, adjustedClose, changePercent };
+}
+
+function buildNdxQqqComparison(qqq, ndx) {
+  const qqqChange = nullableNumber(qqq?.changePercent);
+  const ndxChange = nullableNumber(ndx?.changePercent);
+  if (qqqChange === null || ndxChange === null) return null;
+  return { ndxMinusQqqChangePercent: round(ndxChange - qqqChange) };
+}
+
 function buildCalendarDays(options) {
   const prices = [...options.prices].sort(function (left, right) { return left.market_date.localeCompare(right.market_date); });
   const priceByDate = new Map(prices.map(function (row) { return [row.market_date, row]; }));
+  const ndxPriceByDate = new Map((Array.isArray(options.ndxPrices) ? options.ndxPrices : []).map(function (row) {
+    return [row.market_date, row];
+  }));
   const labelsByDate = new Map(options.labels.map(function (row) { return [row.market_date, row]; }));
   const eventsByDate = new Map();
   options.events.forEach(function (event) {
@@ -117,6 +142,7 @@ function buildCalendarDays(options) {
       if (!observedPrices.some(function (item) { return item.market_date === row.market_date; })) observedPrices.push(row);
     });
     const price = priceByDate.get(date) || null;
+    const ndxPrice = ndxPriceByDate.get(date) || null;
     const events = eventsByDate.get(date) || [];
     const earnings = earningsByDate.get(date) || [];
     const weekday = new Date(date + "T12:00:00.000Z").getUTCDay();
@@ -130,24 +156,31 @@ function buildCalendarDays(options) {
       .filter(function (value) { return Number.isFinite(value) && value > 0; });
     const trailingVolatility = price ? annualizedTrailingVolatility(trailingPrices) : null;
     const label = labelsByDate.get(date) || null;
+    const qqq = price ? {
+      open: Number(price.open),
+      high: Number(price.high),
+      low: Number(price.low),
+      close: Number(price.close),
+      adjustedClose: Number(price.adjusted_close ?? price.close),
+      volume: price.volume === null ? null : Number(price.volume),
+      changePercent: price.change_percent === null ? null : Number(price.change_percent),
+      trailingVolatility20dPercent: trailingVolatility,
+      volatilityLevel: volatilityLevel(trailingVolatility)
+    } : null;
+    const ndx = toIndexDailyState(ndxPrice);
     return {
       date,
       status,
-      qqq: price ? {
-        open: Number(price.open),
-        high: Number(price.high),
-        low: Number(price.low),
-        close: Number(price.close),
-        adjustedClose: Number(price.adjusted_close ?? price.close),
-        volume: price.volume === null ? null : Number(price.volume),
-        changePercent: price.change_percent === null ? null : Number(price.change_percent),
-        trailingVolatility20dPercent: trailingVolatility,
-        volatilityLevel: volatilityLevel(trailingVolatility)
-      } : null,
+      qqq,
+      // NDX is optional until its additive instrument migration and first capture have run.
+      // It remains display-only here; all existing research outcomes stay anchored to QQQ.
+      ndx,
+      ndxVsQqq: buildNdxQqqComparison(qqq, ndx),
       eventSummary: {
         count: events.length,
         earningsCount: earnings.length,
         highestImpact: highestImpact(events),
+        highestEventConfidence: highestEventConfidence(events),
         types: Array.from(new Set(events.map(function (event) { return event.event_type; }))),
         symbols: Array.from(new Set(events.flatMap(function (event) { return event.tickers || []; })))
       },
@@ -164,36 +197,50 @@ function buildCalendarDays(options) {
   });
 }
 
-async function getQqqInstrument(config) {
-  const rows = await requestSupabase(config, "/rest/v1/instruments?select=id,symbol,display_name&symbol=eq.QQQ&limit=1");
-  const instrument = Array.isArray(rows) ? rows[0] : null;
-  if (!instrument) throw new Error("QQQ instrument is not registered");
-  return instrument;
+async function getCalendarInstruments(config) {
+  const rows = await requestSupabase(
+    config,
+    "/rest/v1/instruments?select=id,symbol,display_name&symbol=in.(QQQ,NDX)&limit=2"
+  );
+  const instruments = Array.isArray(rows) ? rows : [];
+  const qqq = instruments.find(function (item) { return item?.symbol === "QQQ"; }) || null;
+  if (!qqq) throw new Error("QQQ instrument is not registered");
+  return {
+    qqq,
+    ndx: instruments.find(function (item) { return item?.symbol === "NDX"; }) || null
+  };
 }
 
 async function loadCalendarData(month, now = new Date()) {
   const config = getSupabaseConfig();
   const bounds = monthBounds(month);
   const lookbackStart = shiftDate(bounds.start, -45);
-  const instrument = await getQqqInstrument(config);
-  const [prices, labels, events, earnings] = await Promise.all([
+  const instruments = await getCalendarInstruments(config);
+  const [prices, ndxPrices, labels, events, earnings] = await Promise.all([
     requestSupabase(config, "/rest/v1/price_bars_daily?select=market_date,open,high,low,close,adjusted_close,volume,change_percent"
-      + "&instrument_id=eq." + instrument.id + "&market_date=gte." + lookbackStart + "&market_date=lte." + bounds.end
+      + "&instrument_id=eq." + instruments.qqq.id + "&market_date=gte." + lookbackStart + "&market_date=lte." + bounds.end
       + "&order=market_date.asc&limit=100"),
+    instruments.ndx
+      ? requestSupabase(config, "/rest/v1/price_bars_daily?select=market_date,close,adjusted_close,change_percent"
+        + "&instrument_id=eq." + instruments.ndx.id + "&market_date=gte." + bounds.start + "&market_date=lte." + bounds.end
+        + "&order=market_date.asc&limit=40")
+      : Promise.resolve([]),
     requestSupabase(config, "/rest/v1/market_forward_labels?select=market_date,return_1d_percent,return_3d_percent,return_5d_percent,return_20d_percent,max_drawdown_20d_percent,realized_volatility_20d_percent,label_version"
-      + "&instrument_id=eq." + instrument.id + "&market_date=gte." + bounds.start + "&market_date=lte." + bounds.end
+      + "&instrument_id=eq." + instruments.qqq.id + "&market_date=gte." + bounds.start + "&market_date=lte." + bounds.end
       + "&order=market_date.asc&limit=40"),
     getUnifiedMarketEventsRange(bounds.start, bounds.end),
     getEarningsEvents({ startDate: bounds.start, endDate: bounds.end, limit: 250 })
   ]);
   return {
-    instrument,
+    instrument: instruments.qqq,
+    ndxInstrument: instruments.ndx,
     bounds,
     days: buildCalendarDays({
       start: bounds.start,
       end: bounds.end,
       today: newYorkDate(now),
       prices: Array.isArray(prices) ? prices : [],
+      ndxPrices: Array.isArray(ndxPrices) ? ndxPrices : [],
       labels: Array.isArray(labels) ? labels : [],
       events,
       earnings: earnings.events
@@ -253,6 +300,7 @@ async function getPreviousTradingDate(value) {
 module.exports = {
   annualizedTrailingVolatility,
   buildCalendarDays,
+  buildNdxQqqComparison,
   getMarketCalendar,
   getMarketDayDetail,
   getPreviousTradingDate,
