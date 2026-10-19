@@ -1,7 +1,7 @@
-# leweb · tarot — 开发文档（冻结产品决策 v2.31 · 2026-10-19）
+# leweb · tarot — 开发文档（冻结产品决策 v2.32 · 2026-10-19）
 
-> 状态：**P0–P51 已实现**；**P43–P51 体验队列完成**（P19：22 张大阿尔卡纳；P20–P21：圣杯；P22：权杖；P23：宝剑；P24–P25：星币花色全套 `pentacles_ace`–`pentacles_king` 混合位图；78 张 `CARD_ART` 齐；P28 追问子牌阵；P35 象征牌链；P29 牌阵剧场三阵；P30 烛火信物；P31 场景剧场软提示 + COPY v1.7；P32 同题回看对照；P33 凯尔特十字十位；P34 GitHub/Google OAuth；P36 静默模式；P37 易用性：折叠高级选项 / 快速起卦 / 骨架屏 / 仪式 SPEEDS 1200/650/280；P38 解读 Markdown 渲染；P39 场景微剧本开场/落烛；P40 分享/信物预览保存与系统分享；P41 克制多局记忆：同题旧卦轻提；P42 PWA：主屏安装 + 弱网壳缓存；P43 真机浸泡清单 `SOAK.md` + 解读再试 / 分享条 / 文案小刺；P44 首次来访引导：首页 CTA 旁 1～2 句旁白 + localStorage 一次 dismiss；P45 访客→登录转化：温柔文案 + 就近 CTA + GitHub 一键 + `next` 回跳；P46 历史好找：场景/时间筛选、同题成组、本机软收藏；P47 解读语气再校准：场景口吻更分明 + 解读固定总览→牌意→综合 + COPY v1.19；P48 局内时间线：揭晓→解读→追问→信物粘性回看条 + COPY v1.20；P49 多局记忆加一层：近几日相关主题 `relatedThemeHint` + COPY v1.21；P50 公开分享页：`/s/[token]` + `public_share_token` 可关 + COPY v1.22；P51 今日一牌习惯：`openToDailyCard` / `dailyHabitNudge` + 站内轻提醒 + COPY v1.23）。AI 默认 `AI_PROVIDER=mock`；`AI_PROVIDER=deepseek`（legacy 别名 `gateway`）走 DeepSeek OpenAI 兼容接口（对齐 stock-dashboard：`DEEPSEEK_API_KEY` / `DEEPSEEK_API_URL` / `DEEPSEEK_MODEL`），失败回退 mock。P13 起不再使用 Vercel AI Gateway。P17 混合桥接；P18 牌库加厚 + 今日一牌；P19–P25 渐进 `CARD_ART` 收官。生产已可配 `DEEPSEEK_API_KEY`；Vercel↔GitHub 自动部署已接通。
-> **P52 已落地**：首卦路径减阻（首页场景优先、访客尚有一次额度不展示登录卡、移动端展开高级选项后固定提交）。因此当前实现状态为 **P0–P52**，体验队列为 **P43–P52**。
+> 状态：**P0–P53 已实现**；**P43–P53 体验队列完成**（P19：22 张大阿尔卡纳；P20–P21：圣杯；P22：权杖；P23：宝剑；P24–P25：星币花色全套 `pentacles_ace`–`pentacles_king` 混合位图；78 张 `CARD_ART` 齐；P28 追问子牌阵；P35 象征牌链；P29 牌阵剧场三阵；P30 烛火信物；P31 场景剧场软提示 + COPY v1.7；P32 同题回看对照；P33 凯尔特十字十位；P34 GitHub/Google OAuth；P36 静默模式；P37 易用性：折叠高级选项 / 快速起卦 / 骨架屏 / 仪式 SPEEDS 1200/650/280；P38 解读 Markdown 渲染；P39 场景微剧本开场/落烛；P40 分享/信物预览保存与系统分享；P41 克制多局记忆：同题旧卦轻提；P42 PWA：主屏安装 + 弱网壳缓存；P43 真机浸泡清单 `SOAK.md` + 解读再试 / 分享条 / 文案小刺；P44 首次来访引导：首页 CTA 旁 1～2 句旁白 + localStorage 一次 dismiss；P45 访客→登录转化：温柔文案 + 就近 CTA + GitHub 一键 + `next` 回跳；P46 历史好找：场景/时间筛选、同题成组、本机软收藏；P47 解读语气再校准：场景口吻更分明 + 解读固定总览→牌意→综合 + COPY v1.19；P48 局内时间线：揭晓→解读→追问→信物粘性回看条 + COPY v1.20；P49 多局记忆加一层：近几日相关主题 `relatedThemeHint` + COPY v1.21；P50 公开分享页：`/s/[token]` + `public_share_token` 可关 + COPY v1.22；P51 今日一牌习惯：`openToDailyCard` / `dailyHabitNudge` + 站内轻提醒 + COPY v1.23）。AI 默认 `AI_PROVIDER=mock`；`AI_PROVIDER=deepseek`（legacy 别名 `gateway`）走 DeepSeek OpenAI 兼容接口（对齐 stock-dashboard：`DEEPSEEK_API_KEY` / `DEEPSEEK_API_URL` / `DEEPSEEK_MODEL`），失败回退 mock。P13 起不再使用 Vercel AI Gateway。P17 混合桥接；P18 牌库加厚 + 今日一牌；P19–P25 渐进 `CARD_ART` 收官。生产已可配 `DEEPSEEK_API_KEY`；Vercel↔GitHub 自动部署已接通。
+> **最新切片**：P52 首卦路径减阻（首页场景优先、登录提示后移、移动端固定提交）；P53 解读页阅读与追问（正文留白、分享折叠、最新回复定位）。当前实现状态为 **P0–P53**。
 >
 > 仓库路径：`Andy115951/le-web/tarot/`
 
@@ -82,6 +82,7 @@
 | P50 公开分享页 | 只读 `/s/[token]`；`public_share_token` 可关；摘要不含 AI 全文；migration `20260915100000_public_share_token.sql` |
 | P51 今日一牌习惯 | prefs 打开落点 + 主屏 standalone 站内轻提醒；可关；无 push / 无小组件 |
 | P52 首卦路径减阻 | 首页场景卡先于今日一牌；场景编辑 / 直接起卦动作分明；访客尚有一次额度不展示登录卡；移动端高级选项展开时固定提交按钮；无 migration |
+| P53 解读页阅读与追问 | 顾问正文全宽与段落留白；追问主操作；象征牌 / 留住这局默认折叠；手动查看最新回复；时间线避开导航；解读失败不自动循环重试；无 migration |
 
 ### 待续讨论（仍可再抠）
 
@@ -190,3 +191,11 @@ AI 接线：`src/lib/ai/index.ts` 按 `AI_PROVIDER` 选 mock / deepseek（`gatew
 | 与 monorepo 其他 app 耦合 | 独立 Vercel rootDirectory，表前缀隔离 |
 | DeepSeek / 上游不可用 | 失败回退 mock，解读不硬崩 |
 | 流式中断 | 未 `done` 时客户端报错；已落库助手消息以 DB 为准 |
+
+## P53 解读页阅读与追问（2026-10-19）
+
+- 「继续追问」跳转并聚焦输入；发送是主操作，象征牌与牌链放入按需展开区，继续使用原额度规则。
+- 「留住这局」移到解读与追问之后，默认折叠；时间线点击信物会展开该区。
+- 顾问正文使用可用宽度，增加段落间距；手机输入为 16px，长词可换行。
+- 「查看最新回复」可跳到生成中或已完成回复的开头；流式输出不调用自动滚动，保留阅读位置。
+- 时间线停在主导航下方；自动解读失败后等待手动重试，避免连续请求。

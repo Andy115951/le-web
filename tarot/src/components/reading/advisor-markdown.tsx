@@ -9,15 +9,15 @@ import { cn } from "@/lib/utils";
 
 const components: Components = {
   p: ({ children }) => (
-    <p className="mb-2 last:mb-0 leading-relaxed text-foreground/95">{children}</p>
+    <p className="mb-3 last:mb-0 leading-7 text-foreground/95">{children}</p>
   ),
   h1: ({ children }) => (
-    <h3 className="mb-1.5 mt-3 first:mt-0 text-sm font-semibold tracking-wide text-amber-200/90">
+    <h3 className="mb-2 mt-5 first:mt-0 text-base font-semibold tracking-wide text-amber-200/90">
       {children}
     </h3>
   ),
   h2: ({ children }) => (
-    <h3 className="mb-1.5 mt-3 first:mt-0 text-sm font-semibold tracking-wide text-amber-200/90">
+    <h3 className="mb-2 mt-5 first:mt-0 text-base font-semibold tracking-wide text-amber-200/90">
       {children}
     </h3>
   ),
@@ -37,7 +37,7 @@ const components: Components = {
     </ol>
   ),
   li: ({ children }) => (
-    <li className="leading-relaxed text-foreground/95">{children}</li>
+    <li className="leading-7 text-foreground/95">{children}</li>
   ),
   strong: ({ children }) => (
     <strong className="font-semibold text-primary">{children}</strong>
@@ -99,7 +99,7 @@ type AdvisorMarkdownProps = {
 export function AdvisorMarkdown({ children, className }: AdvisorMarkdownProps) {
   const prepared = prepareAdvisorMarkdown(children);
   return (
-    <div className={cn("advisor-md text-sm leading-relaxed", className)}>
+    <div className={cn("advisor-md min-w-0 break-words text-[15px] leading-7 [overflow-wrap:anywhere]", className)}>
       <ReactMarkdown
         components={components}
         rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}

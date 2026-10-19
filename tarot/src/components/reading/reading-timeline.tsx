@@ -12,7 +12,8 @@ import { cn } from "@/lib/utils";
 function scrollToAnchor(anchor: string) {
   const el = document.getElementById(anchor);
   if (!el) return;
-  el.scrollIntoView({ behavior: "smooth", block: "start" });
+  if (el instanceof HTMLDetailsElement) el.open = true;
+  el.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
   // Brief focus ring for a11y without stealing permanent focus from inputs
   if (typeof el.focus === "function") {
     const prev = el.getAttribute("tabindex");
@@ -131,7 +132,7 @@ export function ReadingTimeline({
 
   return (
     <nav
-      className="sticky top-0 z-20 -mx-1 rounded-xl border border-amber-500/20 bg-background/90 px-2 py-2 shadow-[0_8px_24px_oklch(0.2_0.02_60/35%)] backdrop-blur-md sm:mx-0"
+      className="sticky top-16 z-20 -mx-1 rounded-xl border border-amber-500/20 bg-background/90 px-2 py-2 shadow-[0_8px_24px_oklch(0.2_0.02_60/35%)] backdrop-blur-md sm:mx-0"
       aria-label="本卦时间线"
     >
       <div className="flex items-center gap-2 sm:hidden">
