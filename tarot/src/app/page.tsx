@@ -49,17 +49,9 @@ export default async function HomePage() {
         <DailyHabitNudge />
         <GuestQuotaNudge />
         <DailyHabitOpenScroll />
-        <div className="flex justify-center pt-1">
-          <QuickStartButton sceneId="choice" className="text-left" />
-        </div>
-        <p className="text-xs text-muted-foreground">
-          快速起卦用「日常抉择」示例问题与默认单牌；想改问题请点场景卡片。
-        </p>
       </section>
 
-      <DailyCardSection draw={daily} />
-
-      <section className="grid gap-3 sm:grid-cols-2">
+      <section aria-label="选择一个场景" className="grid gap-3 sm:grid-cols-2">
         {SCENES.map((scene) => (
           <Card
             key={scene.id}
@@ -71,10 +63,13 @@ export default async function HomePage() {
                 <CardDescription className="line-clamp-2">
                   {scene.exampleQuestion}
                 </CardDescription>
+                <p className="pt-1 text-xs font-medium text-primary/85">
+                  完善问题 →
+                </p>
               </CardHeader>
             </Link>
             <CardContent className="pt-0">
-              <QuickStartButton sceneId={scene.id} />
+              <QuickStartButton sceneId={scene.id} label="直接起卦" />
             </CardContent>
           </Card>
         ))}
@@ -87,6 +82,8 @@ export default async function HomePage() {
           </Card>
         </Link>
       </section>
+
+      <DailyCardSection draw={daily} />
     </div>
   );
 }

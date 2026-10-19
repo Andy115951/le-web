@@ -61,7 +61,7 @@ export function QuotaHint({
   } else if (focus !== "messages" && readingsLow) {
     tip = user
       ? "今日新占卜只剩最后一点烛火，且行且惜。"
-      : "今日起卦只剩最后一点烛火。想留更多空间，可以先轻轻登录。";
+      : "今日尚有一次新占卜，先把问题轻轻放下。";
   } else if (focus !== "readings" && messagesLow) {
     tip = user
       ? "今日追问只剩最后一两次，可以把问题问得更具体一点。"
@@ -70,8 +70,8 @@ export function QuotaHint({
 
   const showGuestCta =
     !user &&
-    ((focus !== "messages" && (readingsDone || readingsLow)) ||
-      (focus !== "readings" && (messagesDone || messagesLow)));
+    ((focus !== "messages" && readingsDone) ||
+      (focus !== "readings" && messagesDone));
 
   const ctaTip = readingsDone
     ? "轻轻登录，马上可以继续起卦；历史会合并，每日额度也会更宽。"
@@ -80,7 +80,7 @@ export function QuotaHint({
       : "轻轻登录，历史会合并到账号，每日额度也会更宽裕。";
 
   return (
-    <div className={`space-y-2 text-xs text-muted-foreground ${className}`}>
+    <div className={`min-h-5 space-y-2 text-xs text-muted-foreground ${className}`}>
       <p aria-live="polite">今日额度：{parts.join(" · ")}</p>
       {tip && !showGuestCta ? (
         <p className="text-amber-200/80">{tip}</p>

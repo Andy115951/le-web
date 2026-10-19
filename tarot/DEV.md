@@ -1,6 +1,8 @@
-# leweb · tarot — 开发文档（冻结产品决策 v2.30 · 2026-09-15）
+# leweb · tarot — 开发文档（冻结产品决策 v2.31 · 2026-10-19）
 
 > 状态：**P0–P51 已实现**；**P43–P51 体验队列完成**（P19：22 张大阿尔卡纳；P20–P21：圣杯；P22：权杖；P23：宝剑；P24–P25：星币花色全套 `pentacles_ace`–`pentacles_king` 混合位图；78 张 `CARD_ART` 齐；P28 追问子牌阵；P35 象征牌链；P29 牌阵剧场三阵；P30 烛火信物；P31 场景剧场软提示 + COPY v1.7；P32 同题回看对照；P33 凯尔特十字十位；P34 GitHub/Google OAuth；P36 静默模式；P37 易用性：折叠高级选项 / 快速起卦 / 骨架屏 / 仪式 SPEEDS 1200/650/280；P38 解读 Markdown 渲染；P39 场景微剧本开场/落烛；P40 分享/信物预览保存与系统分享；P41 克制多局记忆：同题旧卦轻提；P42 PWA：主屏安装 + 弱网壳缓存；P43 真机浸泡清单 `SOAK.md` + 解读再试 / 分享条 / 文案小刺；P44 首次来访引导：首页 CTA 旁 1～2 句旁白 + localStorage 一次 dismiss；P45 访客→登录转化：温柔文案 + 就近 CTA + GitHub 一键 + `next` 回跳；P46 历史好找：场景/时间筛选、同题成组、本机软收藏；P47 解读语气再校准：场景口吻更分明 + 解读固定总览→牌意→综合 + COPY v1.19；P48 局内时间线：揭晓→解读→追问→信物粘性回看条 + COPY v1.20；P49 多局记忆加一层：近几日相关主题 `relatedThemeHint` + COPY v1.21；P50 公开分享页：`/s/[token]` + `public_share_token` 可关 + COPY v1.22；P51 今日一牌习惯：`openToDailyCard` / `dailyHabitNudge` + 站内轻提醒 + COPY v1.23）。AI 默认 `AI_PROVIDER=mock`；`AI_PROVIDER=deepseek`（legacy 别名 `gateway`）走 DeepSeek OpenAI 兼容接口（对齐 stock-dashboard：`DEEPSEEK_API_KEY` / `DEEPSEEK_API_URL` / `DEEPSEEK_MODEL`），失败回退 mock。P13 起不再使用 Vercel AI Gateway。P17 混合桥接；P18 牌库加厚 + 今日一牌；P19–P25 渐进 `CARD_ART` 收官。生产已可配 `DEEPSEEK_API_KEY`；Vercel↔GitHub 自动部署已接通。
+> **P52 已落地**：首卦路径减阻（首页场景优先、访客尚有一次额度不展示登录卡、移动端展开高级选项后固定提交）。因此当前实现状态为 **P0–P52**，体验队列为 **P43–P52**。
+>
 > 仓库路径：`Andy115951/le-web/tarot/`
 
 ---
@@ -79,6 +81,7 @@
 | P49 多局记忆加一层 | 近 7 日相关主题 `relatedThemeHint`（同非自定义场景或问题软重叠）；开篇轻提一句；有同题 `priorHint` 时优先同题不叠主题；仍不注入旧 AI 全文；`findRelatedThemeReading` + `related-theme.ts`；无 migration |
 | P50 公开分享页 | 只读 `/s/[token]`；`public_share_token` 可关；摘要不含 AI 全文；migration `20260915100000_public_share_token.sql` |
 | P51 今日一牌习惯 | prefs 打开落点 + 主屏 standalone 站内轻提醒；可关；无 push / 无小组件 |
+| P52 首卦路径减阻 | 首页场景卡先于今日一牌；场景编辑 / 直接起卦动作分明；访客尚有一次额度不展示登录卡；移动端高级选项展开时固定提交按钮；无 migration |
 
 ### 待续讨论（仍可再抠）
 

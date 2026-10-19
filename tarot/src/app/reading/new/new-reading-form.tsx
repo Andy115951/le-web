@@ -80,6 +80,11 @@ export function NewReadingForm({
 
   const readingsExhausted =
     !quotaState.loading && quotaState.remaining.readings <= 0;
+  const submitLabel = loading
+    ? "起卦中…"
+    : readingsExhausted
+      ? "今日额度已用尽"
+      : `开始${spreadLabel(spread)}占卜`;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -128,7 +133,10 @@ export function NewReadingForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-6">
+    <form
+      onSubmit={onSubmit}
+      className={`space-y-6 ${advancedOpen ? "pb-20 sm:pb-0" : ""}`}
+    >
       <QuotaHint
         loading={quotaState.loading}
         user={quotaState.user}
@@ -322,14 +330,29 @@ export function NewReadingForm({
           tip="今日访客烛火已燃尽。轻轻登录，即可继续点亮。"
         />
       ) : null}
-      <Button
-        type="submit"
-        size="lg"
-        disabled={loading || readingsExhausted}
-        className="w-full sm:w-auto"
-      >
-        {loading ? "起卦中…" : readingsExhausted ? "今日额度已用尽" : "确认起卦"}
-      </Button>
+      <div className={advancedOpen ? "hidden sm:block" : ""}>
+        <Button
+          type="submit"
+          size="lg"
+          disabled={loading || readingsExhausted}
+          className="w-full sm:w-auto"
+        >
+          {submitLabel}
+        </Button>
+      </div>
+
+      {advancedOpen ? (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/70 bg-background/95 px-4 py-3 shadow-[0_-12px_30px_oklch(0.1_0.02_55_/_35%)] backdrop-blur-md sm:hidden">
+          <Button
+            type="submit"
+            size="lg"
+            disabled={loading || readingsExhausted}
+            className="mx-auto flex w-full max-w-3xl"
+          >
+            {submitLabel}
+          </Button>
+        </div>
+      ) : null}
     </form>
   );
 }

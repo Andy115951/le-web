@@ -7,7 +7,7 @@ import {
 } from "@/lib/first-visit";
 
 /**
- * P44 — tiny first-visit candlelight aside near home CTAs.
+ * P44 — tiny first-visit candlelight aside near the home CTA.
  * Not a modal/wizard; dismiss once via localStorage.
  */
 export function FirstVisitGuide() {
@@ -30,12 +30,9 @@ export function FirstVisitGuide() {
       aria-label="怎么起一卦"
     >
       <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1 space-y-1 text-xs leading-relaxed text-muted-foreground">
-          <p>
-            想起一卦：点「开始占卜」，选场景、把问题轻轻放下；牌阵会替你照见当下。
-          </p>
-          <p>赶时间也可以用「快速起卦」，示例问题一键点亮。</p>
-        </div>
+        <p className="min-w-0 flex-1 text-xs leading-relaxed text-muted-foreground">
+          第一次来？选一个场景，按自己的话改写示例问题，再点亮这一卦。
+        </p>
         <button
           type="button"
           onClick={dismiss}

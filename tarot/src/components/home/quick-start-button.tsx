@@ -13,9 +13,12 @@ const ALL = [...SCENES, CUSTOM_SCENE];
 export function QuickStartButton({
   sceneId,
   className,
+  label = "快速起卦",
 }: {
   sceneId: SceneId;
   className?: string;
+  /** Distinguish one-tap creation from the scene card's edit path. */
+  label?: string;
 }) {
   const router = useRouter();
   const quotaState = useQuota();
@@ -87,7 +90,7 @@ export function QuickStartButton({
         onClick={onQuickStart}
         className="w-full sm:w-auto"
       >
-        {loading ? "起卦中…" : readingsExhausted ? "今日额度已用尽" : "快速起卦"}
+        {loading ? "起卦中…" : readingsExhausted ? "今日额度已用尽" : label}
       </Button>
       {error ? (
         <div className="mt-2 space-y-2" role="alert">
