@@ -31,10 +31,12 @@ export function HistoryCard({
   reading,
   favorited = false,
   onToggleFavorite,
+  onChanged,
 }: {
   reading: HistoryCardData;
   favorited?: boolean;
   onToggleFavorite?: (id: string) => void;
+  onChanged?: () => void;
 }) {
   const router = useRouter();
   const renameId = useId();
@@ -92,10 +94,13 @@ export function HistoryCard({
         const data = (await res.json().catch(() => null)) as {
           error?: string;
         } | null;
-        throw new Error(data?.error ?? "烛火晃了一下，没能改好标题。稍后再试。");
+        throw new Error(
+          data?.error ?? "烛火晃了一下，没能改好标题。稍后再试。",
+        );
       }
       setRenaming(false);
-      router.refresh();
+      if (onChanged) onChanged();
+      else router.refresh();
     } catch (e) {
       setError(
         e instanceof Error
@@ -120,12 +125,11 @@ export function HistoryCard({
         } | null;
         throw new Error(data?.error ?? "收进烛影时出了点小状况，稍后再试。");
       }
-      router.refresh();
+      if (onChanged) onChanged();
+      else router.refresh();
     } catch (e) {
       setError(
-        e instanceof Error
-          ? e.message
-          : "收进烛影时出了点小状况，稍后再试。",
+        e instanceof Error ? e.message : "收进烛影时出了点小状况，稍后再试。",
       );
       setBusy(false);
       setConfirmingDelete(false);
@@ -136,11 +140,7 @@ export function HistoryCard({
     <Card className="transition-colors hover:border-primary/40">
       <CardHeader className="space-y-3">
         {renaming ? (
-          <div
-            className="space-y-2"
-            role="group"
-            aria-labelledby={renameId}
-          >
+          <div className="space-y-2" role="group" aria-labelledby={renameId}>
             <Label id={renameId} htmlFor={`${renameId}-input`}>
               为这局起个新名字
             </Label>
@@ -158,7 +158,11 @@ export function HistoryCard({
               aria-describedby={error ? `${renameId}-error` : undefined}
             />
             <div className="flex flex-wrap gap-2">
-              <Button size="sm" disabled={busy} onClick={() => void saveRename()}>
+              <Button
+                size="sm"
+                disabled={busy}
+                onClick={() => void saveRename()}
+              >
                 保存
               </Button>
               <Button
@@ -214,7 +218,10 @@ export function HistoryCard({
           </div>
         ) : (
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <Link href={`/reading/${reading.id}`} className="min-w-0 flex-1 space-y-2">
+            <Link
+              href={`/reading/${reading.id}`}
+              className="min-w-0 flex-1 space-y-2"
+            >
               <div className="flex flex-wrap items-center gap-2">
                 <CardTitle className="text-base">
                   {reading.title || reading.question}
@@ -238,6 +245,11 @@ export function HistoryCard({
                   </Badge>
                 ) : null}
               </div>
+              {reading.title && reading.title !== reading.question ? (
+                <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+                  {reading.question}
+                </p>
+              ) : null}
               <CardDescription>
                 {reading.cardNames}
                 <span className="mx-2" aria-hidden>
