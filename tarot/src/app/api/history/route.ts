@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json(
       { error: "筛选条件无效，请清除筛选后重试。" },
-      { status: 400 },
+      { status: 400, headers: { "Cache-Control": "private, no-store" } },
     );
   }
   try {
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json(
       { error: "烛火晃了一下，没能取回历史，请稍后重试。" },
-      { status: 500 },
+      { status: 500, headers: { "Cache-Control": "private, no-store" } },
     );
   }
 }

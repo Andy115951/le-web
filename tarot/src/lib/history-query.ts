@@ -78,12 +78,12 @@ export async function queryHistoryRows(
 ) {
   if ((!owner.userId && !owner.anonymousId) || query.favoriteIds?.length === 0)
     return { rows: [], total: 0 };
-  function base() {
+  function base(head = false) {
     let q = client
       .from("tarot_readings")
       .select(
         "id,title,question,scene,spread_type,spread_result,created_at,updated_at",
-        { count: "exact" },
+        { count: "exact", head },
       )
       .is("deleted_at", null);
     q = owner.userId
@@ -129,6 +129,13 @@ export async function queryHistoryRows(
     query.offset,
     query.offset + HISTORY_PAGE_SIZE - 1,
   );
+  if (error?.code === "PGRST103") {
+    // PostgREST returns 416 instead of an empty array when the requested
+    // offset is beyond the current total (e.g. another tab deleted records).
+    const { count: total, error: countError } = await base(true);
+    if (countError) throw new Error(countError.message);
+    return { rows: [], total: total ?? 0 };
+  }
   if (error) throw new Error(error.message);
   return { rows: (data ?? []) as Record<string, unknown>[], total: count ?? 0 };
 }

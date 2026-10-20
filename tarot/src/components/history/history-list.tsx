@@ -119,6 +119,13 @@ export function HistoryList({ initialData }: { initialData: HistoryPageData }) {
         if (!response.ok)
           throw new Error(data.error || "没能取回历史，请稍后重试。");
         if (controller.signal.aborted) return;
+        if (body.offset > 0 && data.items.length === 0) {
+          // A concurrent deletion can shrink the list past this page.
+          // Reload the first page rather than retain stale cards/counts.
+          setFilters((previous) => ({ ...previous, offset: 0 }));
+          setRevision((n) => n + 1);
+          return;
+        }
         lastFinished.current = requestKey;
         setResult((previous) => {
           const combined =

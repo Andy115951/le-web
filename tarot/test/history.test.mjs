@@ -39,7 +39,7 @@ function fixture(data = rows) {
   const client = createClient("http://fixture.test", "test-only-key", {
     auth: { persistSession: false },
     global: {
-      fetch: async (url) => {
+      fetch: async (url, init) => {
         const params = new URL(url).searchParams;
         calls.push(params);
         if (fail)
@@ -78,17 +78,33 @@ function fixture(data = rows) {
         );
         const total = found.length;
         const offset = Number(params.get("offset") || 0);
+        if (offset > 0 && offset >= total) {
+          return new Response(
+            JSON.stringify({
+              code: "PGRST103",
+              message: "Requested range not satisfiable",
+              details: `An offset of ${offset} was requested, but there are only ${total} rows.`,
+            }),
+            {
+              status: 416,
+              headers: { "content-range": `*/${total}` },
+            },
+          );
+        }
         found = found.slice(
           offset,
           offset + Number(params.get("limit") || 1000),
         );
-        return new Response(JSON.stringify(found), {
-          status: 200,
-          headers: {
-            "content-type": "application/json",
-            "content-range": `${offset}-${offset + found.length - 1}/${total}`,
+        return new Response(
+          init?.method === "HEAD" ? null : JSON.stringify(found),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+              "content-range": `${offset}-${offset + found.length - 1}/${total}`,
+            },
           },
-        });
+        );
       },
     },
   });
@@ -262,6 +278,23 @@ test("empty result, out-of-range page and database failures are explicit", async
     queryHistoryRows(client, owner, query({}), now),
     /fixture failure/,
   );
+});
+
+test("PostgREST 416 on an empty or shrunken page becomes an empty page with the true total", async () => {
+  for (const data of [[], [rows[0]], rows.slice(0, 21)]) {
+    const { client, calls } = fixture(data);
+    const result = await queryHistoryRows(
+      client,
+      owner,
+      query({ offset: 40 }),
+      now,
+    );
+    assert.deepEqual(result, { rows: [], total: data.length });
+    assert.equal(calls.length, 2);
+    assert.equal(calls[1].get("offset"), null);
+    assert.equal(calls[1].get("user_id"), "eq.user-a");
+    assert.equal(calls[1].get("deleted_at"), "is.null");
+  }
 });
 
 test("validates inputs and de-duplicates favorites without accepting owner overrides", () => {
