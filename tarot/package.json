@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:draft": "node --experimental-strip-types --test test/reading-draft.test.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.127",
